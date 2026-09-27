@@ -9,7 +9,7 @@
 ## M1 — Scene and camera
 - [ ] Initialize a 3D render target and camera matrices.
 - [ ] Draw a simple test scene using Citro3D.
-- [ ] Touch-drag camera yaw/pitch with sensitivity and pitch limits.
+- [x] Implement touch-drag camera yaw/pitch state with reference sensitivity (0.15 degrees per pixel) and pitch limits (-90 to +90 degrees). Rendering integration remains pending.
 
 ## M2 — Player simulation
 - [ ] Player position/velocity and fixed-step simulation.
