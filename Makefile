@@ -14,7 +14,7 @@ ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 CFLAGS := -g -Wall -Wextra -O2 -mword-relocations -ffunction-sections $(ARCH) $(INCLUDE) -D__3DS__
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-rtti -fno-exceptions
 LDFLAGS := -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LIBS := -lcitro3d -lctru -lm
+LIBS := -lctru -lm
 
 .PHONY: all clean
 
