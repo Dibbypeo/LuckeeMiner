@@ -5,7 +5,7 @@ namespace luckee {
 InputState readInput() {
     InputState state{};
     circlePosition circle{};
-    circlePositionRead(&circle);
+    hidCircleRead(&circle);
 
     // Circle Pad values are signed 8-bit-like values in the -156..156 range.
     state.moveX = static_cast<float>(circle.dx) / 156.0f;
