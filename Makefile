@@ -41,7 +41,7 @@ ASFLAGS	:=	-g $(ARCH)
 
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:=	-lctru -lm
+LIBS	:=	-lctru -lz -lm
 
 #---------------------------------------------------------------------------------
 # List of directories containing libraries
