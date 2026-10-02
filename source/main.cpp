@@ -5,6 +5,7 @@
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
 #include "luckee/player.hpp"
+#include "luckee/renderer.hpp"
 
 int main(int, char**) {
     gfxInitDefault();
@@ -13,6 +14,13 @@ int main(int, char**) {
     luckee::Level level;
     luckee::Player player(level);
     luckee::Camera camera;
+    luckee::Renderer renderer;
+
+    if (!renderer.initialize()) {
+        std::puts("Renderer initialization failed.");
+        gfxExit();
+        return 1;
+    }
 
     std::puts("LuckeeMiner - rd-132211 recreation\n");
     std::puts("Source-defined world: 256 x 64 x 256");
@@ -52,12 +60,14 @@ int main(int, char**) {
             std::puts("START       : exit");
         }
 
+        renderer.render(level, player);
         gfxFlushBuffers();
         gfxSwapBuffers();
         gspWaitForVBlank();
     }
 
     level.save();
+    renderer.shutdown();
     gfxExit();
     return 0;
 }
