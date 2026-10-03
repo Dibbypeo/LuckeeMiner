@@ -47,7 +47,7 @@ LIBS	:=	-lctru -lz -lm
 # List of directories containing libraries
 #---------------------------------------------------------------------------------
 
-LIBDIRS	:=	$(CTRULIB)
+LIBDIRS	:=	$(CTRULIB) $(PORTLIBS)
 
 #---------------------------------------------------------------------------------
 # No real need to edit anything past this point
