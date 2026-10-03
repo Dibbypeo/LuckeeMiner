@@ -1,7 +1,8 @@
 ; LuckeeMiner block renderer vertex shader
 .fvec projection[4], modelView[4]
 
-.constf constants(0.0, 1.0)
+; PICA200 float constants are four-component vectors.
+.constf constants(0.0, 1.0, 0.0, 0.0)
 .alias zeros constants.xxxx
 .alias ones constants.yyyy
 
