@@ -11,6 +11,13 @@ namespace luckee {
 namespace {
 
 constexpr u32 CLEAR_COLOR = 0x80CCFFFF;
+
+#define DISPLAY_TRANSFER_FLAGS \\
+    (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) | \\
+     GX_TRANSFER_RAW_COPY(0) | \\
+     GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | \\
+     GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) | \\
+     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 constexpr int CHUNK_SIZE = 16;
 constexpr int CHUNK_RADIUS = 4;
 constexpr float PI = 3.14159265358979323846f;
@@ -47,7 +54,7 @@ bool Renderer::initialize() {
         target_, GFX_TOP, GFX_LEFT, DISPLAY_TRANSFER_FLAGS);
 
     shaderDvlb_ = DVLB_ParseFile(
-        const_cast<u32*>(vshader_shbin), vshader_shbin_size);
+        (u32*)vshader_shbin, vshader_shbin_size);
     if (!shaderDvlb_) {
         shutdown();
         return false;
@@ -77,7 +84,7 @@ bool Renderer::initialize() {
 
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvInit(env);
-    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, 0, 0);
+    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR);
     C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
 
     initialized_ = true;
