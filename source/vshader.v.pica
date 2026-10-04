@@ -33,7 +33,7 @@
     ; PICA200 texture storage use the first image row at the top, so convert
     ; the incoming Java-style V coordinate here.
     mov outtc0.x, intex.x
-    sub outtc0.y, ones.y, intex.y
+    add outtc0.y, ones, -intex.y
     mov outtc0.zw, zeros
 
     end
