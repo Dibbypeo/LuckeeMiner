@@ -31,10 +31,10 @@ void Player::setPos(float x, float y, float z) {
 }
 
 void Player::turn(float deltaX, float deltaY) {
-    // Touch drag follows the usual direct-manipulation convention:
-    // dragging right makes the view turn right, so screen X is inverted
-    // relative to the yaw sign used by the renderer.
-    yRot_ -= deltaX * 0.15f;
+    // Match rd-132211 Player.turn exactly:
+    // horizontal mouse/touch movement adds to yaw, vertical movement subtracts
+    // from pitch.
+    yRot_ += deltaX * 0.15f;
     xRot_ -= deltaY * 0.15f;
 
     if (xRot_ < -90.0f) xRot_ = -90.0f;
@@ -47,13 +47,13 @@ void Player::tick(const InputState& input) {
     zo_ = z_;
 
     float xa = input.moveX;
-    float ya = input.moveY;
+    float za = input.moveY;
 
     if (input.jumpPressed && onGround_) {
         yd_ = 0.12f;
     }
 
-    moveRelative(xa, ya, onGround_ ? 0.02f : 0.005f);
+    moveRelative(xa, za, onGround_ ? 0.02f : 0.005f);
 
     yd_ -= 0.005f;
     move(xd_, yd_, zd_);
@@ -100,13 +100,16 @@ void Player::moveRelative(float xa, float za, float speed) {
     if (dist < 0.01f) return;
 
     dist = speed / std::sqrt(dist);
-    const float radians = yRot_ * 3.14159265358979323846f / 180.0f;
+
+    const float radians =
+        yRot_ * 3.14159265358979323846f / 180.0f;
     const float sin = std::sin(radians);
     const float cos = std::cos(radians);
 
     xa *= dist;
     za *= dist;
 
+    // Exact rd-132211 movement transform.
     xd_ += xa * cos - za * sin;
     zd_ += za * cos + xa * sin;
 }
