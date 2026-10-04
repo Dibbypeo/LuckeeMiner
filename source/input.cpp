@@ -36,7 +36,7 @@ InputState readInput() {
             state.lookDeltaX =
                 static_cast<float>(current.px - previous.px);
             state.lookDeltaY =
-                static_cast<float>(current.py - previous.py);
+                -static_cast<float>(current.py - previous.py);
         }
 
         previous = current;
