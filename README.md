@@ -38,6 +38,9 @@ This produces `LuckeeMiner.3dsx` (and a `.3ds` build if supported by the install
 - `docs/` — prototype notes, controls, and development roadmap.
 - `Makefile` — devkitPro 3DS build configuration.
 
+## Executable Dependencies
+**Requires `terrain.png` from the *original jar* OR a *custom terrain.png texture file* to run.**
+
 ## Principles
 
 1. Original C++ implementation; use the prototype as a behavioral reference, not code to copy.
