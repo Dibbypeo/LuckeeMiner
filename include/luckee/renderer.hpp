@@ -3,6 +3,7 @@
 #include <3ds.h>
 #include <citro3d.h>
 
+#include <string>
 #include <vector>
 
 namespace luckee {
@@ -15,6 +16,8 @@ public:
     bool initialize();
     void shutdown();
     void render(const Level& level, const Player& player);
+
+    const std::string& error() const { return error_; }
 
 private:
     struct Vertex {
@@ -62,6 +65,7 @@ private:
     int modelViewLocation_ = -1;
     bool terrainTextureLoaded_ = false;
     bool initialized_ = false;
+    std::string error_;
 };
 
 } // namespace luckee
