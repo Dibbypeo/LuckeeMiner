@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "luckee/aabb.hpp"
+#include "luckee/level_listener.hpp"
 
 namespace luckee {
 
@@ -19,6 +20,9 @@ public:
     void save() const;
 
     void calcLightDepths(int x0, int y0, int x1, int y1);
+
+    void addListener(LevelListener* listener);
+    void removeListener(LevelListener* listener);
 
     bool isTile(int x, int y, int z) const;
     bool isSolidTile(int x, int y, int z) const;
@@ -41,6 +45,7 @@ private:
     int depth_;
     std::vector<std::uint8_t> blocks_;
     std::vector<int> lightDepths_;
+    std::vector<LevelListener*> listeners_;
 };
 
 } // namespace luckee
