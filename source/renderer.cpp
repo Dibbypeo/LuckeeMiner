@@ -698,9 +698,9 @@ bool Renderer::rebuildChunk(
              y < chunk.maxY;
              ++y) {
 
-        for (int z = chunk.minZ;
-             z < chunk.maxZ;
-             ++z) {
+            for (int z = chunk.minZ;
+                 z < chunk.maxZ;
+                 ++z) {
 
                 if (!level.isTile(x, y, z))
                     continue;
@@ -958,9 +958,15 @@ void Renderer::renderHit() {
     const int indices[6] = {0, 1, 2, 0, 2, 3};
 
     for (int index : indices) {
-        const float x = hitResult_.x + face.p[index][0];
-        const float y = hitResult_.y + face.p[index][1];
-        const float z = hitResult_.z + face.p[index][2];
+        const float x =
+            hitResult_.x + face.p[index][0] +
+            face.nx * HIGHLIGHT_OFFSET;
+        const float y =
+            hitResult_.y + face.p[index][1] +
+            face.ny * HIGHLIGHT_OFFSET;
+        const float z =
+            hitResult_.z + face.p[index][2] +
+            face.nz * HIGHLIGHT_OFFSET;
 
         C3D_ImmSendAttrib(x, y, z, 1.0f);
         C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse);
