@@ -31,6 +31,7 @@ constexpr int LAYERS = 2;
 constexpr std::size_t INITIAL_VERTEX_RESERVE = 4096;
 constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
+constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
 struct Face {
     float p[4][3];
@@ -697,9 +698,9 @@ bool Renderer::rebuildChunk(
              y < chunk.maxY;
              ++y) {
 
-            for (int z = chunk.minZ;
-                 z < chunk.maxZ;
-                 ++z) {
+        for (int z = chunk.minZ;
+             z < chunk.maxZ;
+             ++z) {
 
                 if (!level.isTile(x, y, z))
                     continue;
