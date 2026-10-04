@@ -4,17 +4,18 @@
 #include <vector>
 
 #include "luckee/assets.hpp"
-#include "luckee/camera.hpp"
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
 #include "luckee/player.hpp"
 #include "luckee/renderer.hpp"
+#include "luckee/timer.hpp"
 
 namespace {
 
 void waitForStart() {
     while (aptMainLoop()) {
         hidScanInput();
+
         if (hidKeysDown() & KEY_START)
             break;
 
@@ -48,10 +49,16 @@ int main(int, char**) {
         return 1;
     }
 
+    luckee::Level level;
+    luckee::Player player(level);
     luckee::Renderer renderer;
+
+    renderer.setLevel(level);
+    level.addListener(&renderer);
 
     if (!renderer.initialize()) {
         std::puts("LuckeeMiner - asset error\n");
+
         if (!renderer.error().empty())
             std::printf("%s\n", renderer.error().c_str());
         else
@@ -60,21 +67,19 @@ int main(int, char**) {
         std::puts("\nPress START to exit.");
 
         renderer.shutdown();
-        waitForStart();
         gfxExit();
         return 1;
     }
 
-    luckee::Level level;
-    luckee::Player player(level);
-    luckee::Camera camera;
+    luckee::Timer timer(60.0f);
 
     std::puts("LuckeeMiner - rd-132211 recreation\n");
-    std::puts("Source-defined world: 256 x 64 x 256");
-    std::puts("Blocks: rock + grass\n");
+    std::puts("World: 256 x 64 x 256");
+    std::puts("Blocks: rock + grass");
+    std::puts("Simulation: 60 ticks/sec");
     std::puts("Assets: assets/textures/terrain.png\n");
     std::puts("Circle Pad : move");
-    std::puts("Touch drag : look / camera");
+    std::puts("Touch drag : look");
     std::puts("A           : jump");
     std::puts("START       : exit\n");
 
@@ -82,37 +87,81 @@ int main(int, char**) {
 
     while (aptMainLoop()) {
         hidScanInput();
-        const u32 down = hidKeysDown();
-        const luckee::InputState input = luckee::readInput();
 
-        camera.applyLook(input.lookDeltaX, input.lookDeltaY);
-        player.turn(input.lookDeltaX, input.lookDeltaY);
-        player.tick(input);
+        const u32 down =
+            hidKeysDown();
 
-        if (down & KEY_START) break;
+        const luckee::InputState input =
+            luckee::readInput();
+
+        timer.advanceTime();
+
+        // Simulation is fixed at 60 ticks/sec. A render frame can execute
+        // multiple simulation ticks when rendering falls behind.
+        for (int tick = 0;
+             tick < timer.ticks();
+             ++tick) {
+            player.tick(input);
+        }
+
+        // RubyDung turns the player during render, after simulation ticks.
+        player.turn(
+            input.lookDeltaX,
+            input.lookDeltaY);
+
+        if (down & KEY_START)
+            break;
 
         if ((frames++ & 15) == 0) {
             consoleClear();
-            std::printf("LuckeeMiner - rd-132211 recreation\n\n");
-            std::printf("World: %d x %d x %d\n",
-                         level.width(), level.depth(), level.height());
-            std::printf("Player: %.3f %.3f %.3f\n",
-                         player.x(), player.y(), player.z());
-            std::printf("Rotation: %.2f %.2f\n",
-                         player.yRot(), player.xRot());
-            std::printf("Grounded: %s\n\n",
-                         player.onGround() ? "yes" : "no");
+
+            std::printf(
+                "LuckeeMiner - rd-132211 recreation\n\n");
+
+            std::printf(
+                "World: %d x %d x %d\n",
+                level.width(),
+                level.depth(),
+                level.height());
+
+            std::printf(
+                "Player: %.3f %.3f %.3f\n",
+                player.x(),
+                player.y(),
+                player.z());
+
+            std::printf(
+                "Rotation: %.2f %.2f\n",
+                player.yRot(),
+                player.xRot());
+
+            std::printf(
+                "Grounded: %s\n",
+                player.onGround()
+                    ? "yes"
+                    : "no");
+
+            std::printf(
+                "Simulation ticks: %d\n\n",
+                timer.ticks());
+
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
             std::puts("A           : jump");
             std::puts("START       : exit");
         }
 
-        renderer.render(level, player);
+        renderer.render(
+            level,
+            player,
+            timer.alpha());
+
+        gspWaitForVBlank();
     }
 
     level.save();
     renderer.shutdown();
+
     gfxExit();
     return 0;
 }
