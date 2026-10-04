@@ -20,7 +20,7 @@ constexpr u32 DISPLAY_TRANSFER_FLAGS =
     GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) |
     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
 constexpr int CHUNK_SIZE = 16;
-constexpr int CHUNK_RADIUS = 4;
+constexpr int CHUNK_RADIUS = 1;
 constexpr float PI = 3.14159265358979323846f;
 
 struct Face {
@@ -172,11 +172,6 @@ void Renderer::renderLayer(
                         // Keep enough headroom for FrameSplit's finalize
                         // commands and continue the same immediate draw
                         // as a new command list.
-                        if (C3D_GetCmdBufUsage() >= 0.70f) {
-                            C3D_ImmDrawEnd();
-                            C3D_FrameSplit(0);
-                            C3D_ImmDrawBegin(GPU_TRIANGLES);
-                        }
                     }
                 }
             }
