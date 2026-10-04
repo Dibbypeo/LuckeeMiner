@@ -66,6 +66,7 @@ int main(int, char**) {
 
         std::puts("\nPress START to exit.");
 
+        level.removeListener(&renderer);
         renderer.shutdown();
         gfxExit();
         return 1;
@@ -159,6 +160,7 @@ int main(int, char**) {
         gspWaitForVBlank();
     }
 
+    level.removeListener(&renderer);
     level.save();
     renderer.shutdown();
 
