@@ -938,6 +938,10 @@ void Renderer::renderHit() {
         false);
 
     C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+
+    // RubyDung disables texturing while drawing the hit face. On Citro3D,
+    // use the TEV stage as the equivalent of an untextured primary-color pass.
     C3D_TexEnvSrc(
         env,
         C3D_Both,
@@ -964,15 +968,11 @@ void Renderer::renderHit() {
 
     C3D_ImmDrawEnd();
 
-    C3D_TexEnvSrc(
-        env,
-        C3D_Both,
-        GPU_TEXTURE0,
-        GPU_PRIMARY_COLOR);
-    C3D_TexEnvFunc(
-        env,
-        C3D_Both,
-        GPU_MODULATE);
+    // Restore the exact terrain TEV state. C3D_SetTexEnv() marks the
+    // stage dirty, ensuring the restored state is emitted to the GPU.
+    C3D_SetTexEnv(
+        0,
+        const_cast<C3D_TexEnv*>(&savedEnv));
 
     C3D_AlphaBlend(
         GPU_BLEND_ADD, GPU_BLEND_ADD,
