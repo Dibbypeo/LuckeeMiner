@@ -8,7 +8,7 @@ LuckeeMiner studies the behavior and structure of the supplied `rd-132211` proto
 
 This repository is at the **engine foundation** stage. It currently contains a native 3DS application loop and input mapping, as well as rendering. A complete mining, and placement system is not implemented yet.
 
-LuckeeMiner can load actual **world.dat** files, but it may be limited or have issues.
+LuckeeMiner can load actual **level.dat** files, but it may be limited or have issues.
 
 ## Controls
 
