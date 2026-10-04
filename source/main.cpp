@@ -48,24 +48,31 @@ int main(int, char**) {
         return 1;
     }
 
-    luckee::Level level;
-    luckee::Player player(level);
-    luckee::Camera camera;
     luckee::Renderer renderer;
 
     if (!renderer.initialize()) {
-        std::puts("LuckeeMiner - texture error\n");
-        std::puts("Could not load assets/textures/terrain.png.");
+        std::puts("LuckeeMiner - asset error\n");
+        if (!renderer.error().empty())
+            std::printf("%s\n", renderer.error().c_str());
+        else
+            std::puts("Could not load the required assets.");
+
         std::puts("\nPress START to exit.");
 
+        renderer.shutdown();
         waitForStart();
         gfxExit();
         return 1;
     }
 
+    luckee::Level level;
+    luckee::Player player(level);
+    luckee::Camera camera;
+
     std::puts("LuckeeMiner - rd-132211 recreation\n");
     std::puts("Source-defined world: 256 x 64 x 256");
     std::puts("Blocks: rock + grass\n");
+    std::puts("Assets: assets/textures/terrain.png\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look / camera");
     std::puts("A           : jump");
