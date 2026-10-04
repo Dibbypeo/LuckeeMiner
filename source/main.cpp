@@ -61,9 +61,6 @@ int main(int, char**) {
         }
 
         renderer.render(level, player);
-        gfxFlushBuffers();
-        gfxSwapBuffers();
-        gspWaitForVBlank();
     }
 
     level.save();
