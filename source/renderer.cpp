@@ -46,7 +46,6 @@ constexpr Face faces[6] = {
     {{{1,0,1},{1,0,0},{1,1,0},{1,1,1}}, 1,0,0, 0.6f}
 };
 
-// These UVs mirror the exact vertex/texture order in rd-132211's Tile.render.
 static void faceUvs(
     int face,
     float minU, float maxU,
@@ -161,9 +160,6 @@ bool Renderer::initialize() {
 
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvInit(env);
-
-    // C3D_TexEnvSrc's fifth argument has a default value in C++.
-    // Do not pass integer 0 here: the devkit header expects GPU_TEVSRC.
     C3D_TexEnvSrc(
         env,
         C3D_Both,
@@ -290,7 +286,6 @@ void Renderer::appendFace(
     const Face& f = faces[face];
     const int indices[6] = {0, 1, 2, 0, 2, 3};
 
-    // Match Tile.java's 0.0624375f rather than using the full 16/256 cell.
     const float minU = static_cast<float>(textureId) / 16.0f;
     const float maxU = minU + 0.0624375f;
     const float minV = 0.0f;
@@ -326,9 +321,6 @@ bool Renderer::rebuildChunk(const Level& level, ChunkMesh& chunk) {
             for (int z = chunk.minZ; z < chunk.maxZ; ++z) {
                 if (!level.isTile(x, y, z)) continue;
 
-                // Match rd-132211/Chunk.java exactly:
-                // y == depth*2/3 uses Tile.rock (texture 0);
-                // every other filled layer uses Tile.grass (texture 1).
                 const int textureId =
                     (y == level.depth() * 2 / 3) ? 0 : 1;
 
@@ -344,11 +336,11 @@ bool Renderer::rebuildChunk(const Level& level, ChunkMesh& chunk) {
                         level.getBrightness(
                             x + f.nx, y + f.ny, z + f.nz) * f.shade;
 
-                    const int layer =
+                    const int renderLayer =
                         (brightness == f.shade) ? 0 : 1;
 
                     appendFace(
-                        layerVertices[layer],
+                        layerVertices[renderLayer],
                         x, y, z, face, brightness, textureId);
                 }
             }
@@ -456,13 +448,16 @@ void Renderer::render(
 
     C3D_Mtx modelView;
     Mtx_Identity(&modelView);
+
+    // Match RubyDung.moveCameraToPlayer(): the camera applies positive
+    // player rotations, then translates by the negative player position.
     Mtx_RotateX(
         &modelView,
-        -player.xRot() * PI / 180.0f,
+        player.xRot() * PI / 180.0f,
         true);
     Mtx_RotateY(
         &modelView,
-        -player.yRot() * PI / 180.0f,
+        player.yRot() * PI / 180.0f,
         true);
     Mtx_Translate(
         &modelView,
