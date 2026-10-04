@@ -98,6 +98,17 @@ static void faceUvs(
     }
 }
 
+static AABB chunkBounds(
+    const Renderer::ChunkMesh& chunk) {
+    return AABB(
+        static_cast<float>(chunk.minX),
+        static_cast<float>(chunk.minY),
+        static_cast<float>(chunk.minZ),
+        static_cast<float>(chunk.maxX),
+        static_cast<float>(chunk.maxY),
+        static_cast<float>(chunk.maxZ));
+}
+
 } // namespace
 
 bool Renderer::initialize() {
@@ -164,8 +175,11 @@ bool Renderer::initialize() {
         return false;
     }
 
-    C3D_AttrInfo* attrInfo = C3D_GetAttrInfo();
+    C3D_AttrInfo* attrInfo =
+        C3D_GetAttrInfo();
+
     AttrInfo_Init(attrInfo);
+
     AttrInfo_AddLoader(
         attrInfo, 0, GPU_FLOAT, 3);
     AttrInfo_AddLoader(
@@ -200,39 +214,44 @@ bool Renderer::initialize() {
         0,
         &terrainTexture_);
 
-    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    C3D_TexEnv* env =
+        C3D_GetTexEnv(0);
+
     C3D_TexEnvInit(env);
+
     C3D_TexEnvSrc(
         env,
         C3D_Both,
         GPU_TEXTURE0,
         GPU_PRIMARY_COLOR);
+
     C3D_TexEnvFunc(
         env,
         C3D_Both,
         GPU_MODULATE);
 
-    // The reference uses GL_EXP2 with density 0.2.
-    // FogLut_Exp with gradient 2 reproduces that curve in the PICA fog unit.
     FogLut_Exp(
         &fogLut_,
         0.2f,
         2.0f,
         0.05f,
         1000.0f);
+
     C3D_FogColor(0x0E0B0A);
     C3D_FogLutBind(&fogLut_);
-    C3D_FogGasMode(
-        GPU_NO_FOG,
-        GPU_PLAIN_DENSITY,
-        false);
 
     C3D_DepthTest(
         true,
         GPU_GREATER,
         GPU_WRITE_ALL);
 
-    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_CullFace(
+        GPU_CULL_BACK_CCW);
+
+    C3D_FogGasMode(
+        GPU_NO_FOG,
+        GPU_PLAIN_DENSITY,
+        false);
 
     return true;
 }
@@ -242,23 +261,30 @@ void Renderer::shutdown() {
         C3D_FrameSync();
 
     for (ChunkMesh& chunk : chunks_) {
-        for (int layer = 0; layer < LAYERS; ++layer) {
+        for (int layer = 0;
+             layer < LAYERS;
+             ++layer) {
+
             if (chunk.vbo[layer]) {
-                linearFree(chunk.vbo[layer]);
+                linearFree(
+                    chunk.vbo[layer]);
                 chunk.vbo[layer] = nullptr;
             }
+
             chunk.vertexCount[layer] = 0;
         }
     }
 
     chunks_.clear();
+
     chunkAmountX_ = 0;
     chunkAmountY_ = 0;
     chunkAmountZ_ = 0;
     chunksInitialized_ = false;
 
     if (terrainTextureLoaded_) {
-        C3D_TexDelete(&terrainTexture_);
+        C3D_TexDelete(
+            &terrainTexture_);
         terrainTextureLoaded_ = false;
     }
 
@@ -269,7 +295,8 @@ void Renderer::shutdown() {
     }
 
     if (target_) {
-        C3D_RenderTargetDelete(target_);
+        C3D_RenderTargetDelete(
+            target_);
         target_ = nullptr;
     }
 
@@ -302,9 +329,13 @@ void Renderer::initializeChunks(
     }
 
     for (ChunkMesh& chunk : chunks_) {
-        for (int layer = 0; layer < LAYERS; ++layer) {
+        for (int layer = 0;
+             layer < LAYERS;
+             ++layer) {
+
             if (chunk.vbo[layer]) {
-                linearFree(chunk.vbo[layer]);
+                linearFree(
+                    chunk.vbo[layer]);
                 chunk.vbo[layer] = nullptr;
             }
         }
@@ -315,14 +346,24 @@ void Renderer::initializeChunks(
     chunkAmountZ_ = newAmountZ;
 
     chunks_.clear();
+
     chunks_.resize(
         static_cast<std::size_t>(chunkAmountX_) *
         static_cast<std::size_t>(chunkAmountY_) *
         static_cast<std::size_t>(chunkAmountZ_));
 
-    for (int x = 0; x < chunkAmountX_; ++x) {
-        for (int y = 0; y < chunkAmountY_; ++y) {
-            for (int z = 0; z < chunkAmountZ_; ++z) {
+    for (int x = 0;
+         x < chunkAmountX_;
+         ++x) {
+
+        for (int y = 0;
+             y < chunkAmountY_;
+             ++y) {
+
+            for (int z = 0;
+                 z < chunkAmountZ_;
+                 ++z) {
+
                 const std::size_t index =
                     (static_cast<std::size_t>(x) +
                      static_cast<std::size_t>(y) *
@@ -330,11 +371,15 @@ void Renderer::initializeChunks(
                      static_cast<std::size_t>(chunkAmountZ_) +
                      static_cast<std::size_t>(z);
 
-                ChunkMesh& chunk = chunks_[index];
+                ChunkMesh& chunk =
+                    chunks_[index];
 
-                chunk.minX = x * CHUNK_SIZE;
-                chunk.minY = y * CHUNK_SIZE;
-                chunk.minZ = z * CHUNK_SIZE;
+                chunk.minX =
+                    x * CHUNK_SIZE;
+                chunk.minY =
+                    y * CHUNK_SIZE;
+                chunk.minZ =
+                    z * CHUNK_SIZE;
 
                 chunk.maxX =
                     std::min(
@@ -371,24 +416,50 @@ void Renderer::markDirtyRange(
     y0 = std::max(y0, 0);
     z0 = std::max(z0, 0);
 
-    x1 = std::min(x1, level.width() - 1);
-    y1 = std::min(y1, level.depth() - 1);
-    z1 = std::min(z1, level.height() - 1);
+    x1 = std::min(
+        x1,
+        level.width() - 1);
 
-    if (x0 > x1 || y0 > y1 || z0 > z1)
+    y1 = std::min(
+        y1,
+        level.depth() - 1);
+
+    z1 = std::min(
+        z1,
+        level.height() - 1);
+
+    if (x0 > x1 ||
+        y0 > y1 ||
+        z0 > z1) {
         return;
+    }
 
-    const int cx0 = x0 / CHUNK_SIZE;
-    const int cy0 = y0 / CHUNK_SIZE;
-    const int cz0 = z0 / CHUNK_SIZE;
+    const int cx0 =
+        x0 / CHUNK_SIZE;
+    const int cy0 =
+        y0 / CHUNK_SIZE;
+    const int cz0 =
+        z0 / CHUNK_SIZE;
 
-    const int cx1 = x1 / CHUNK_SIZE;
-    const int cy1 = y1 / CHUNK_SIZE;
-    const int cz1 = z1 / CHUNK_SIZE;
+    const int cx1 =
+        x1 / CHUNK_SIZE;
+    const int cy1 =
+        y1 / CHUNK_SIZE;
+    const int cz1 =
+        z1 / CHUNK_SIZE;
 
-    for (int x = cx0; x <= cx1; ++x) {
-        for (int y = cy0; y <= cy1; ++y) {
-            for (int z = cz0; z <= cz1; ++z) {
+    for (int x = cx0;
+         x <= cx1;
+         ++x) {
+
+        for (int y = cy0;
+             y <= cy1;
+             ++y) {
+
+            for (int z = cz0;
+                 z <= cz1;
+                 ++z) {
+
                 const std::size_t index =
                     (static_cast<std::size_t>(x) +
                      static_cast<std::size_t>(y) *
@@ -405,27 +476,25 @@ void Renderer::markDirtyRange(
 void Renderer::tileChanged(
     int x, int y, int z) {
 
-    // A changed block affects itself and the six neighboring faces.
-    // The reference marks the full +/-1 block cube dirty because a
-    // neighboring face can become newly visible or disappear.
-    // The dimensions are known from the Level passed to render, so the
-    // listener caches the event until the next render through a compact
-    // one-block range. This function is overwritten by the queued changes
-    // below only through the render-time level bounds.
-    //
-    // The actual range is handled in render() because the listener interface
-    // intentionally does not retain a Level pointer.
-    (void)x;
-    (void)y;
-    (void)z;
+    if (!level_)
+        return;
+
+    markDirtyRange(
+        *level_,
+        x - 1, y - 1, z - 1,
+        x + 1, y + 1, z + 1);
 }
 
 void Renderer::lightColumnChanged(
     int x, int z, int y0, int y1) {
-    (void)x;
-    (void)z;
-    (void)y0;
-    (void)y1;
+
+    if (!level_)
+        return;
+
+    markDirtyRange(
+        *level_,
+        x - 1, y0 - 1, z - 1,
+        x + 1, y1 + 1, z + 1);
 }
 
 void Renderer::allChanged() {
@@ -440,7 +509,9 @@ void Renderer::appendFace(
     float brightness,
     int textureId) const {
 
-    const Face& f = faces[face];
+    const Face& f =
+        faces[face];
+
     const int indices[6] =
         {0, 1, 2, 0, 2, 3};
 
@@ -467,10 +538,8 @@ void Renderer::appendFace(
 
         vertex.x =
             x + f.p[index][0];
-
         vertex.y =
             y + f.p[index][1];
-
         vertex.z =
             z + f.p[index][2];
 
@@ -540,8 +609,6 @@ bool Renderer::rebuildChunk(
                             z + f.nz) *
                         f.shade;
 
-                    // Match Tile.render's layer expression:
-                    // bright faces go to layer 0 and dark faces to layer 1.
                     const int renderLayer =
                         (brightness == f.shade)
                             ? 0
@@ -656,12 +723,14 @@ void Renderer::render(
 
     initializeChunks(level);
 
-    // Reproduce RubyDung's camera sequence:
-    // translate eye by -0.3, rotate by player angles, then translate by
-    // the interpolated player position.
+    // Keep the listener's world reference current.
+    level_ = &level;
+
     C3D_Mtx modelView;
     Mtx_Identity(&modelView);
 
+    // Match RubyDung.moveCameraToPlayer():
+    // eye offset, player rotation, then interpolated player position.
     Mtx_Translate(
         &modelView,
         0.0f, 0.0f, -0.3f,
@@ -692,17 +761,22 @@ void Renderer::render(
 
     frustum_.set(clip);
 
+    // The reference rebuilds a maximum of one chunk per rendered frame.
+    // Prefer a visible dirty chunk closest to the player.
     std::size_t rebuildIndex =
         chunks_.size();
 
-    float bestDistance =
-        0.0f;
+    float bestDistance = 0.0f;
 
     const float renderX =
         player.renderX(alpha);
 
     const float renderZ =
         player.renderZ(alpha);
+
+    std::vector<unsigned char> visible(
+        chunks_.size(),
+        0);
 
     for (std::size_t index = 0;
          index < chunks_.size();
@@ -711,25 +785,27 @@ void Renderer::render(
         const ChunkMesh& chunk =
             chunks_[index];
 
-        if (!chunk.dirty ||
-            !frustum_.cubeInFrustum(
-                AABB(
-                    static_cast<float>(chunk.minX),
-                    static_cast<float>(chunk.minY),
-                    static_cast<float>(chunk.minZ),
-                    static_cast<float>(chunk.maxX),
-                    static_cast<float>(chunk.maxY),
-                    static_cast<float>(chunk.maxZ)))) {
+        const AABB bounds(
+            static_cast<float>(chunk.minX),
+            static_cast<float>(chunk.minY),
+            static_cast<float>(chunk.minZ),
+            static_cast<float>(chunk.maxX),
+            static_cast<float>(chunk.maxY),
+            static_cast<float>(chunk.maxZ));
+
+        if (!frustum_.cubeInFrustum(bounds))
             continue;
-        }
+
+        visible[index] = 1;
+
+        if (!chunk.dirty)
+            continue;
 
         const float centerX =
-            (chunk.minX + chunk.maxX) *
-            0.5f;
+            (chunk.minX + chunk.maxX) * 0.5f;
 
         const float centerZ =
-            (chunk.minZ + chunk.maxZ) *
-            0.5f;
+            (chunk.minZ + chunk.maxZ) * 0.5f;
 
         const float dx =
             centerX - renderX;
@@ -783,11 +859,6 @@ void Renderer::render(
     C3D_CullFace(
         GPU_CULL_BACK_CCW);
 
-    C3D_FogGasMode(
-        GPU_NO_FOG,
-        GPU_PLAIN_DENSITY,
-        false);
-
     C3D_FVUnifMtx4x4(
         GPU_VERTEX_SHADER,
         projectionLocation_,
@@ -798,37 +869,36 @@ void Renderer::render(
         modelViewLocation_,
         &modelView);
 
-    // Match RubyDung.render(): bright layer first without fog.
-    for (const ChunkMesh& chunk : chunks_) {
-        if (frustum_.cubeInFrustum(
-                AABB(
-                    static_cast<float>(chunk.minX),
-                    static_cast<float>(chunk.minY),
-                    static_cast<float>(chunk.minZ),
-                    static_cast<float>(chunk.maxX),
-                    static_cast<float>(chunk.maxY),
-                    static_cast<float>(chunk.maxZ)))) {
-            drawChunk(chunk, 0);
-        }
+    // Match the reference's two rendering passes: layer 0 is the bright,
+    // unfogged pass; layer 1 is the darker, fogged pass.
+    C3D_FogGasMode(
+        GPU_NO_FOG,
+        GPU_PLAIN_DENSITY,
+        false);
+
+    for (std::size_t index = 0;
+         index < chunks_.size();
+         ++index) {
+
+        if (visible[index])
+            drawChunk(
+                chunks_[index],
+                0);
     }
 
-    // Darker terrain is rendered in a second pass with EXP2 fog.
     C3D_FogGasMode(
         GPU_FOG,
         GPU_PLAIN_DENSITY,
         false);
 
-    for (const ChunkMesh& chunk : chunks_) {
-        if (frustum_.cubeInFrustum(
-                AABB(
-                    static_cast<float>(chunk.minX),
-                    static_cast<float>(chunk.minY),
-                    static_cast<float>(chunk.minZ),
-                    static_cast<float>(chunk.maxX),
-                    static_cast<float>(chunk.maxY),
-                    static_cast<float>(chunk.maxZ)))) {
-            drawChunk(chunk, 1);
-        }
+    for (std::size_t index = 0;
+         index < chunks_.size();
+         ++index) {
+
+        if (visible[index])
+            drawChunk(
+                chunks_[index],
+                1);
     }
 
     C3D_FogGasMode(
