@@ -107,6 +107,10 @@ bool Renderer::initialize() {
 }
 
 void Renderer::shutdown() {
+    if (initialized_) {
+        C3D_FrameSync();
+    }
+
     for (ChunkMesh& chunk : chunks_) {
         for (int layer = 0; layer < LAYERS; ++layer) {
             if (chunk.vbo[layer]) {
