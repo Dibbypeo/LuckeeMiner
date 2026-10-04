@@ -29,9 +29,9 @@
 
     mov outclr, inclr
 
-    // Java/OpenGL uses V=0 at the bottom of the image. PNG image data and
-    // PICA200 texture storage use the first image row at the top, so convert
-    // the incoming Java-style V coordinate here.
+    ; Java/OpenGL uses V=0 at the bottom of the image. PNG image data and
+    ; PICA200 texture storage use the first image row at the top, so convert
+    ; the incoming Java-style V coordinate here.
     mov outtc0.x, intex.x
     sub outtc0.y, ones.y, intex.y
     mov outtc0.zw, zeros
