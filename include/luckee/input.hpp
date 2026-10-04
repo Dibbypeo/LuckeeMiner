@@ -4,19 +4,19 @@
 
 namespace luckee {
 
-// Snapshot of the controls used by the original-3DS game loop.
 struct InputState {
-    float moveX = 0.0f;       // Circle Pad horizontal, normalized to [-1, 1]
-    float moveY = 0.0f;       // Circle Pad vertical, normalized to [-1, 1]
-    float lookDeltaX = 0.0f;  // Touch drag delta in pixels
+    float moveX = 0.0f;
+    float moveY = 0.0f;
+    float lookDeltaX = 0.0f;
     float lookDeltaY = 0.0f;
-    bool jumpPressed = false;
+
+    // The reference checks the jump key while held. L/R remain edge-triggered
+    // because the reference handles block actions as mouse-button events.
+    bool jumpHeld = false;
     bool breakPressed = false;
     bool placePressed = false;
 };
 
-// Call once per frame after hidScanInput(). Touch deltas are generated while
-// the stylus is held; consumers decide how strongly to scale camera rotation.
 InputState readInput();
 
 } // namespace luckee
