@@ -38,10 +38,10 @@
 
 ## M5 — Interaction
 - [ ] Block targeting / picking using the reference's centered 5x5 pick region behavior.
-- [ ] Selection outline.
-- [ ] L breaks targeted blocks.
-- [ ] R places a block on the targeted face.
-- [ ] Prevent invalid placement inside the player.
+- [x] Selection face highlight with reference-style pulsing brightness.
+- [x] L places a block against the targeted face.
+- [x] R breaks the targeted block.
+- [ ] Prevent invalid placement inside the player (the reference permits this, so parity is intentionally not enforced).
 
 ## M6 — Prototype recreation
 - [ ] Recreate the reference prototype's complete core loop and visual style with original code.

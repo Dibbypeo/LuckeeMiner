@@ -82,6 +82,8 @@ int main(int, char**) {
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
     std::puts("A           : jump");
+    std::puts("L           : place");
+    std::puts("R           : break");
     std::puts("START       : exit\n");
 
     int frames = 0;
@@ -109,6 +111,46 @@ int main(int, char**) {
         player.turn(
             input.lookDeltaX,
             input.lookDeltaY);
+
+        // Pick before applying block input, matching the reference's order.
+        renderer.pick(
+            level,
+            player,
+            timer.alpha());
+
+        if (const luckee::HitResult* hit =
+                renderer.hitResult()) {
+
+            if (input.breakPressed) {
+                level.setTile(
+                    hit->x,
+                    hit->y,
+                    hit->z,
+                    0);
+            }
+
+            if (input.placePressed) {
+                int x = hit->x;
+                int y = hit->y;
+                int z = hit->z;
+
+                switch (hit->face) {
+                    case 0: --y; break;
+                    case 1: ++y; break;
+                    case 2: --z; break;
+                    case 3: ++z; break;
+                    case 4: --x; break;
+                    case 5: ++x; break;
+                    default: break;
+                }
+
+                level.setTile(
+                    x,
+                    y,
+                    z,
+                    1);
+            }
+        }
 
         if (down & KEY_START)
             break;
@@ -149,6 +191,8 @@ int main(int, char**) {
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
             std::puts("A           : jump");
+            std::puts("L           : place");
+            std::puts("R           : break");
             std::puts("START       : exit");
         }
 

@@ -22,10 +22,10 @@ InputState readInput() {
     state.jumpHeld =
         (held & KEY_A) != 0;
 
-    state.breakPressed =
+    state.placePressed =
         (down & KEY_L) != 0;
 
-    state.placePressed =
+    state.breakPressed =
         (down & KEY_R) != 0;
 
     static bool wasTouching = false;

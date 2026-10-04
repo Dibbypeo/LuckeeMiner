@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 #include "luckee/level.hpp"
@@ -96,6 +98,124 @@ static void faceUvs(
             v[2] = minV; v[3] = minV;
             break;
     }
+}
+
+static void cameraRay(
+    float yawDegrees, float pitchDegrees,
+    float screenX, float screenY,
+    float screenWidth, float screenHeight,
+    float& dx, float& dy, float& dz) {
+
+    const float yaw = yawDegrees * PI / 180.0f;
+    const float pitch = pitchDegrees * PI / 180.0f;
+    const float tanHalfFov = std::tan(35.0f * PI / 180.0f);
+    const float aspect = screenWidth / screenHeight;
+
+    const float ndcX = (screenX / screenWidth) * 2.0f - 1.0f;
+    const float ndcY = 1.0f - (screenY / screenHeight) * 2.0f;
+
+    const float cameraX = ndcX * tanHalfFov * aspect;
+    const float cameraY = ndcY * tanHalfFov;
+    const float cameraZ = -1.0f;
+
+    const float sinPitch = std::sin(pitch);
+    const float cosPitch = std::cos(pitch);
+
+    const float afterPitchY = cameraY * cosPitch + cameraZ * sinPitch;
+    const float afterPitchZ = -cameraY * sinPitch + cameraZ * cosPitch;
+
+    const float sinYaw = std::sin(yaw);
+    const float cosYaw = std::cos(yaw);
+
+    dx = cameraX * cosYaw - afterPitchZ * sinYaw;
+    dy = afterPitchY;
+    dz = cameraX * sinYaw + afterPitchZ * cosYaw;
+}
+
+static void cameraForward(
+    float yawDegrees, float pitchDegrees,
+    float& x, float& y, float& z) {
+
+    const float yaw = yawDegrees * PI / 180.0f;
+    const float pitch = pitchDegrees * PI / 180.0f;
+
+    x = std::sin(yaw) * std::cos(pitch);
+    y = -std::sin(pitch);
+    z = -std::cos(yaw) * std::cos(pitch);
+}
+
+static bool raycastSample(
+    const Level& level,
+    float ox, float oy, float oz,
+    float dx, float dy, float dz,
+    int minX, int minY, int minZ,
+    int maxX, int maxY, int maxZ,
+    HitResult& result,
+    float& depth) {
+
+    int x = static_cast<int>(std::floor(ox));
+    int y = static_cast<int>(std::floor(oy));
+    int z = static_cast<int>(std::floor(oz));
+
+    const int stepX = dx > 0.0f ? 1 : (dx < 0.0f ? -1 : 0);
+    const int stepY = dy > 0.0f ? 1 : (dy < 0.0f ? -1 : 0);
+    const int stepZ = dz > 0.0f ? 1 : (dz < 0.0f ? -1 : 0);
+
+    const float infinity = std::numeric_limits<float>::infinity();
+    const float deltaX = stepX ? std::abs(1.0f / dx) : infinity;
+    const float deltaY = stepY ? std::abs(1.0f / dy) : infinity;
+    const float deltaZ = stepZ ? std::abs(1.0f / dz) : infinity;
+
+    float maxXCross = stepX > 0
+        ? (static_cast<float>(x + 1) - ox) / dx
+        : stepX < 0 ? (static_cast<float>(x) - ox) / dx : infinity;
+
+    float maxYCross = stepY > 0
+        ? (static_cast<float>(y + 1) - oy) / dy
+        : stepY < 0 ? (static_cast<float>(y) - oy) / dy : infinity;
+
+    float maxZCross = stepZ > 0
+        ? (static_cast<float>(z + 1) - oz) / dz
+        : stepZ < 0 ? (static_cast<float>(z) - oz) / dz : infinity;
+
+    int enteredFace = -1;
+    float t = 0.0f;
+
+    for (int step = 0; step < 32; ++step) {
+        if (x < minX || y < minY || z < minZ ||
+            x >= maxX || y >= maxY || z >= maxZ) {
+            return false;
+        }
+
+        if (level.isSolidTile(x, y, z)) {
+            result.x = x;
+            result.y = y;
+            result.z = z;
+            result.type = 0;
+            result.face = enteredFace >= 0 ? enteredFace : 0;
+            depth = t;
+            return true;
+        }
+
+        if (maxXCross <= maxYCross && maxXCross <= maxZCross) {
+            t = maxXCross;
+            maxXCross += deltaX;
+            x += stepX;
+            enteredFace = stepX > 0 ? 4 : 5;
+        } else if (maxYCross <= maxZCross) {
+            t = maxYCross;
+            maxYCross += deltaY;
+            y += stepY;
+            enteredFace = stepY > 0 ? 0 : 1;
+        } else {
+            t = maxZCross;
+            maxZCross += deltaZ;
+            z += stepZ;
+            enteredFace = stepZ > 0 ? 2 : 3;
+        }
+    }
+
+    return false;
 }
 
 } // namespace
@@ -712,6 +832,156 @@ void Renderer::drawChunk(
             chunk.vertexCount[layer]));
 }
 
+bool Renderer::pick(
+    const Level& level,
+    const Player& player,
+    float alpha) {
+
+    hasHit_ = false;
+
+    const float boxMinX = player.x() - 0.3f;
+    const float boxMaxX = player.x() + 0.3f;
+    const float boxMinY = player.y() - 1.62f;
+    const float boxMaxY = player.y() + 0.18f;
+    const float boxMinZ = player.z() - 0.3f;
+    const float boxMaxZ = player.z() + 0.3f;
+
+    const int minX = std::max(0, static_cast<int>(boxMinX - 3.0f));
+    const int maxX = std::min(level.width(), static_cast<int>(boxMaxX + 4.0f));
+    const int minY = std::max(0, static_cast<int>(boxMinY - 3.0f));
+    const int maxY = std::min(level.depth(), static_cast<int>(boxMaxY + 4.0f));
+    const int minZ = std::max(0, static_cast<int>(boxMinZ - 3.0f));
+    const int maxZ = std::min(level.height(), static_cast<int>(boxMaxZ + 4.0f));
+
+    constexpr float screenWidth = 400.0f;
+    constexpr float screenHeight = 240.0f;
+    constexpr float centerX = screenWidth * 0.5f;
+    constexpr float centerY = screenHeight * 0.5f;
+
+    float forwardX = 0.0f;
+    float forwardY = 0.0f;
+    float forwardZ = 0.0f;
+
+    cameraForward(player.yRot(), player.xRot(),
+                  forwardX, forwardY, forwardZ);
+
+    const float ox = player.renderX(alpha) - forwardX * 0.3f;
+    const float oy = player.renderY(alpha) - forwardY * 0.3f;
+    const float oz = player.renderZ(alpha) - forwardZ * 0.3f;
+
+    float bestDepth = std::numeric_limits<float>::infinity();
+    HitResult bestHit{};
+
+    for (int sampleY = -2; sampleY <= 2; ++sampleY) {
+        for (int sampleX = -2; sampleX <= 2; ++sampleX) {
+            float dx = 0.0f;
+            float dy = 0.0f;
+            float dz = 0.0f;
+
+            cameraRay(player.yRot(), player.xRot(),
+                      centerX + static_cast<float>(sampleX),
+                      centerY + static_cast<float>(sampleY),
+                      screenWidth, screenHeight,
+                      dx, dy, dz);
+
+            float sampleDepth = 0.0f;
+            HitResult sampleHit{};
+
+            if (!raycastSample(
+                    level, ox, oy, oz,
+                    dx, dy, dz,
+                    minX, minY, minZ,
+                    maxX, maxY, maxZ,
+                    sampleHit, sampleDepth)) {
+                continue;
+            }
+
+            if (!hasHit_ || sampleDepth < bestDepth) {
+                bestDepth = sampleDepth;
+                bestHit = sampleHit;
+                hasHit_ = true;
+            }
+        }
+    }
+
+    if (hasHit_)
+        hitResult_ = bestHit;
+
+    return hasHit_;
+}
+
+void Renderer::renderHit() {
+    if (!hasHit_)
+        return;
+
+    const Face& face = faces[hitResult_.face];
+
+    const auto now = std::chrono::system_clock::now();
+    const auto milliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+
+    const float pulse =
+        std::sin(static_cast<double>(milliseconds) / 100.0) * 0.2f +
+        0.4f;
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE,
+        GPU_SRC_ALPHA, GPU_ONE);
+
+    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
+
+    C3D_FogGasMode(
+        GPU_NO_FOG,
+        GPU_PLAIN_DENSITY,
+        false);
+
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    C3D_TexEnvSrc(
+        env,
+        C3D_Both,
+        GPU_PRIMARY_COLOR,
+        GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(
+        env,
+        C3D_Both,
+        GPU_REPLACE);
+
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+
+    const int indices[6] = {0, 1, 2, 0, 2, 3};
+
+    for (int index : indices) {
+        const float x = hitResult_.x + face.p[index][0];
+        const float y = hitResult_.y + face.p[index][1];
+        const float z = hitResult_.z + face.p[index][2];
+
+        C3D_ImmSendAttrib(x, y, z, 1.0f);
+        C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse);
+        C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    C3D_ImmDrawEnd();
+
+    C3D_TexEnvSrc(
+        env,
+        C3D_Both,
+        GPU_TEXTURE0,
+        GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(
+        env,
+        C3D_Both,
+        GPU_MODULATE);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+}
+
 void Renderer::render(
     const Level& level,
     const Player& player,
@@ -721,6 +991,8 @@ void Renderer::render(
         !terrainTextureLoaded_) {
         return;
     }
+
+    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 
     initializeChunks(level);
 
@@ -827,9 +1099,6 @@ void Renderer::render(
             chunks_[rebuildIndex]);
     }
 
-    C3D_FrameBegin(
-        C3D_FRAME_SYNCDRAW);
-
     C3D_RenderTargetClear(
         target_,
         C3D_CLEAR_ALL,
@@ -899,6 +1168,8 @@ void Renderer::render(
         GPU_NO_FOG,
         GPU_PLAIN_DENSITY,
         false);
+
+    renderHit();
 
     C3D_FrameEnd(0);
 }

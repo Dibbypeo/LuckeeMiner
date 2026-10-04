@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "luckee/frustum.hpp"
+#include "luckee/hit_result.hpp"
 #include "luckee/level_listener.hpp"
 
 namespace luckee {
@@ -27,6 +28,12 @@ public:
         float alpha);
 
     const std::string& error() const { return error_; }
+
+    bool pick(const Level& level, const Player& player, float alpha);
+
+    const HitResult* hitResult() const {
+        return hasHit_ ? &hitResult_ : nullptr;
+    }
 
     void tileChanged(int x, int y, int z) override;
     void lightColumnChanged(
@@ -97,6 +104,11 @@ private:
 
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
+
+    void renderHit();
+
+    bool hasHit_ = false;
+    HitResult hitResult_{};
 
     bool terrainTextureLoaded_ = false;
     bool initialized_ = false;
