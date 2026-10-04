@@ -31,7 +31,10 @@ void Player::setPos(float x, float y, float z) {
 }
 
 void Player::turn(float deltaX, float deltaY) {
-    yRot_ += deltaX * 0.15f;
+    // Touch drag follows the usual direct-manipulation convention:
+    // dragging right makes the view turn right, so screen X is inverted
+    // relative to the yaw sign used by the renderer.
+    yRot_ -= deltaX * 0.15f;
     xRot_ -= deltaY * 0.15f;
 
     if (xRot_ < -90.0f) xRot_ = -90.0f;
