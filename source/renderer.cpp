@@ -166,12 +166,6 @@ void Renderer::renderLayer(
                     for (int z = z0; z < z1; ++z) {
                         renderBlock(level, x, y, z, layer);
 
-                        // Citro3D's default command buffer is 0x40000
-                        // words. libctru deliberately triggers a user
-                        // break when a command would exceed that buffer.
-                        // Keep enough headroom for FrameSplit's finalize
-                        // commands and continue the same immediate draw
-                        // as a new command list.
                     }
                 }
             }
