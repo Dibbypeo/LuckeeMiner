@@ -265,6 +265,7 @@ void Renderer::shutdown() {
     }
 
     chunks_.clear();
+    visible_.clear();
 
     chunkAmountX_ = 0;
     chunkAmountY_ = 0;
@@ -385,11 +386,20 @@ void Renderer::initializeChunks(
                         level.height(),
                         chunk.minZ + CHUNK_SIZE);
 
+                chunk.bounds = AABB(
+                    static_cast<float>(chunk.minX),
+                    static_cast<float>(chunk.minY),
+                    static_cast<float>(chunk.minZ),
+                    static_cast<float>(chunk.maxX),
+                    static_cast<float>(chunk.maxY),
+                    static_cast<float>(chunk.maxZ));
+
                 chunk.dirty = true;
             }
         }
     }
 
+    visible_.assign(chunks_.size(), 0);
     chunksInitialized_ = true;
 }
 
@@ -763,9 +773,10 @@ void Renderer::render(
     const float renderZ =
         player.renderZ(alpha);
 
-    std::vector<unsigned char> visible(
-        chunks_.size(),
-        0);
+    if (visible_.size() != chunks_.size())
+        visible_.assign(chunks_.size(), 0);
+    else
+        std::fill(visible_.begin(), visible_.end(), 0);
 
     for (std::size_t index = 0;
          index < chunks_.size();
@@ -774,18 +785,10 @@ void Renderer::render(
         const ChunkMesh& chunk =
             chunks_[index];
 
-        const AABB bounds(
-            static_cast<float>(chunk.minX),
-            static_cast<float>(chunk.minY),
-            static_cast<float>(chunk.minZ),
-            static_cast<float>(chunk.maxX),
-            static_cast<float>(chunk.maxY),
-            static_cast<float>(chunk.maxZ));
-
-        if (!frustum_.cubeInFrustum(bounds))
+        if (!frustum_.cubeInFrustum(chunk.bounds))
             continue;
 
-        visible[index] = 1;
+        visible_[index] = 1;
 
         if (!chunk.dirty)
             continue;
@@ -869,7 +872,7 @@ void Renderer::render(
          index < chunks_.size();
          ++index) {
 
-        if (visible[index])
+        if (visible_[index])
             drawChunk(
                 chunks_[index],
                 0);
@@ -884,7 +887,7 @@ void Renderer::render(
          index < chunks_.size();
          ++index) {
 
-        if (visible[index])
+        if (visible_[index])
             drawChunk(
                 chunks_[index],
                 1);
