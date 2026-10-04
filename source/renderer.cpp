@@ -3,11 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "luckee/level.hpp"
 #include "luckee/player.hpp"
+#include "luckee/texture_loader.hpp"
 #include "vshader_shbin.h"
 
 namespace luckee {
@@ -27,6 +29,7 @@ constexpr int CHUNK_SIZE = 16;
 constexpr float PI = 3.14159265358979323846f;
 constexpr int LAYERS = 2;
 constexpr std::size_t INITIAL_VERTEX_RESERVE = 4096;
+constexpr const char* TERRAIN_TEXTURE_PATH = "assets/textures/terrain.png";
 
 // Face order and coordinates are taken directly from rd-132211's Tile.render.
 // The normal identifies the neighboring block used for culling and brightness.
@@ -47,16 +50,54 @@ constexpr Face faces[6] = {
     {{{1,0,1},{1,0,0},{1,1,0},{1,1,1}}, 1,0,0, 0.6f}
 };
 
+// UVs mirror the texture calls in rd-132211's Tile.render.
+// Each block texture occupies one 16x16 cell of the 256x256 atlas.
+static void faceUvs(int face, float minU, float maxU, float minV, float maxV,
+                    float (&u)[4], float (&v)[4]) {
+    switch (face) {
+        case 0: // bottom
+            u[0] = minU; u[1] = minU; u[2] = maxU; u[3] = maxU;
+            v[0] = maxV; v[1] = minV; v[2] = minV; v[3] = maxV;
+            break;
+        case 1: // top
+            u[0] = maxU; u[1] = maxU; u[2] = minU; u[3] = minU;
+            v[0] = maxV; v[1] = minV; v[2] = minV; v[3] = maxV;
+            break;
+        case 2: // north (-Z)
+            u[0] = maxU; u[1] = minU; u[2] = minU; u[3] = maxU;
+            v[0] = minV; v[1] = minV; v[2] = maxV; v[3] = maxV;
+            break;
+        case 3: // south (+Z)
+            u[0] = minU; u[1] = minU; u[2] = maxU; u[3] = maxU;
+            v[0] = minV; v[1] = maxV; v[2] = maxV; v[3] = minV;
+            break;
+        case 4: // west (-X)
+            u[0] = maxU; u[1] = minU; u[2] = minU; u[3] = maxU;
+            v[0] = minV; v[1] = minV; v[2] = maxV; v[3] = maxV;
+            break;
+        case 5: // east (+X)
+            u[0] = minU; u[1] = maxU; u[2] = maxU; u[3] = minU;
+            v[0] = maxV; v[1] = maxV; v[2] = minV; v[3] = minV;
+            break;
+    }
+}
+
 } // namespace
 
 bool Renderer::initialize() {
     if (initialized_) return true;
-    if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE)) return false;
+
+    if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE))
+        return false;
+
+    // C3D has been initialized, so shutdown() is now responsible for cleanup
+    // on every subsequent failure path.
+    initialized_ = true;
 
     target_ = C3D_RenderTargetCreate(
         240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
     if (!target_) {
-        C3D_Fini();
+        shutdown();
         return false;
     }
 
@@ -88,6 +129,7 @@ bool Renderer::initialize() {
     AttrInfo_Init(attrInfo);
     AttrInfo_AddLoader(attrInfo, 0, GPU_FLOAT, 3);
     AttrInfo_AddLoader(attrInfo, 1, GPU_FLOAT, 4);
+    AttrInfo_AddLoader(attrInfo, 2, GPU_FLOAT, 2);
 
     Mtx_PerspTilt(
         &projection_,
@@ -97,12 +139,34 @@ bool Renderer::initialize() {
         1000.0f,
         false);
 
+    if (!TextureLoader::loadTerrain(
+            TERRAIN_TEXTURE_PATH,
+            terrainTexture_,
+            *new std::string())) {
+        // The temporary error string is not displayed here because the caller
+        // already validated that the required file exists. A decode/format
+        // failure is reported by main().
+        shutdown();
+        return false;
+    }
+    terrainTextureLoaded_ = true;
+
+    C3D_TexSetFilter(
+        &terrainTexture_,
+        GPU_NEAREST,
+        GPU_NEAREST);
+    C3D_TexBind(0, &terrainTexture_);
+
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvInit(env);
-    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR);
-    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+    C3D_TexEnvSrc(
+        env,
+        C3D_Both,
+        GPU_TEXTURE0,
+        GPU_PRIMARY_COLOR,
+        0);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
 
-    initialized_ = true;
     return true;
 }
 
@@ -127,6 +191,11 @@ void Renderer::shutdown() {
     chunkAmountZ_ = 0;
     nextRebuild_ = 0;
     chunksInitialized_ = false;
+
+    if (terrainTextureLoaded_) {
+        C3D_TexDelete(&terrainTexture_);
+        terrainTextureLoaded_ = false;
+    }
 
     if (shaderDvlb_) {
         shaderProgramFree(&program_);
@@ -160,8 +229,6 @@ void Renderer::initializeChunks(const Level& level) {
         return;
     }
 
-    // This path is only expected during renderer startup or a dimension
-    // change. No previous frame can reference these buffers during startup.
     for (ChunkMesh& chunk : chunks_) {
         for (int layer = 0; layer < LAYERS; ++layer) {
             if (chunk.vbo[layer]) {
@@ -213,9 +280,20 @@ void Renderer::appendFace(
     std::vector<Vertex>& vertices,
     int x, int y, int z,
     int face,
-    float brightness) const {
+    float brightness,
+    int textureId) const {
+
     const Face& f = faces[face];
     const int indices[6] = {0, 1, 2, 0, 2, 3};
+
+    const float minU = static_cast<float>(textureId) / 16.0f;
+    const float maxU = minU + 16.0f / 256.0f;
+    const float minV = 0.0f;
+    const float maxV = minV + 16.0f / 256.0f;
+
+    float u[4]{};
+    float v[4]{};
+    faceUvs(face, minU, maxU, minV, maxV, u, v);
 
     for (int index : indices) {
         Vertex vertex{};
@@ -226,6 +304,8 @@ void Renderer::appendFace(
         vertex.g = brightness;
         vertex.b = brightness;
         vertex.a = 1.0f;
+        vertex.u = u[index];
+        vertex.v = v[index];
         vertices.push_back(vertex);
     }
 }
@@ -241,6 +321,10 @@ bool Renderer::rebuildChunk(const Level& level, ChunkMesh& chunk) {
             for (int z = chunk.minZ; z < chunk.maxZ; ++z) {
                 if (!level.isTile(x, y, z)) continue;
 
+                // The current prototype's only solid tile is Tile.rock,
+                // whose rd-132211 texture id is 1.
+                constexpr int textureId = 1;
+
                 for (int face = 0; face < 6; ++face) {
                     const Face& f = faces[face];
 
@@ -253,22 +337,17 @@ bool Renderer::rebuildChunk(const Level& level, ChunkMesh& chunk) {
                         level.getBrightness(
                             x + f.nx, y + f.ny, z + f.nz) * f.shade;
 
-                    // rd-132211 includes the face in layer 0 when the
-                    // brightness is the face's full shade, and layer 1
-                    // otherwise.
                     const int layer =
                         (brightness == f.shade) ? 0 : 1;
 
                     appendFace(
                         layerVertices[layer],
-                        x, y, z, face, brightness);
+                        x, y, z, face, brightness, textureId);
                 }
             }
         }
     }
 
-    // Upload both cached layer meshes. The caller runs this after
-    // C3D_FrameBegin, so the previous frame's GPU work has completed.
     void* newVbo[LAYERS] = {nullptr, nullptr};
 
     for (int layer = 0; layer < LAYERS; ++layer) {
@@ -314,8 +393,8 @@ void Renderer::drawChunk(const ChunkMesh& chunk, int layer) {
         bufInfo,
         chunk.vbo[layer],
         sizeof(Vertex),
-        2,
-        0x10);
+        3,
+        0x210);
     C3D_SetBufInfo(bufInfo);
 
     C3D_DrawArrays(
@@ -326,7 +405,7 @@ void Renderer::drawChunk(const ChunkMesh& chunk, int layer) {
 
 void Renderer::render(
     const Level& level, const Player& player) {
-    if (!initialized_) return;
+    if (!initialized_ || !terrainTextureLoaded_) return;
 
     initializeChunks(level);
 
@@ -334,9 +413,8 @@ void Renderer::render(
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     C3D_BindProgram(&program_);
+    C3D_TexBind(0, &terrainTexture_);
 
-    // Rebuild at most one dirty chunk per frame, matching the effective
-    // rd-132211 rebuild limit while adapting the display lists to VBOs.
     std::size_t rebuildIndex = chunks_.size();
     float bestDistance = 0.0f;
 
@@ -399,5 +477,5 @@ void Renderer::render(
 
     C3D_FrameEnd(0);
 }
- 
+
 } // namespace luckee
