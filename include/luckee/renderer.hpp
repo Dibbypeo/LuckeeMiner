@@ -20,6 +20,7 @@ private:
     struct Vertex {
         float x, y, z;
         float r, g, b, a;
+        float u, v;
     };
 
     struct ChunkMesh {
@@ -41,7 +42,8 @@ private:
         std::vector<Vertex>& vertices,
         int x, int y, int z,
         int face,
-        float brightness) const;
+        float brightness,
+        int textureId) const;
     void drawChunk(const ChunkMesh& chunk, int layer);
 
     std::vector<ChunkMesh> chunks_;
@@ -55,8 +57,10 @@ private:
     DVLB_s* shaderDvlb_ = nullptr;
     shaderProgram_s program_{};
     C3D_Mtx projection_{};
+    C3D_Tex terrainTexture_{};
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
+    bool terrainTextureLoaded_ = false;
     bool initialized_ = false;
 };
 
