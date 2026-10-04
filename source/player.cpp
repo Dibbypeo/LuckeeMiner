@@ -13,11 +13,19 @@ Player::Player(Level& level) : level_(level) {
 }
 
 void Player::resetPos() {
-    const float x = static_cast<float>(std::rand()) /
-                    static_cast<float>(RAND_MAX) * level_.width();
-    const float y = static_cast<float>(level_.depth()) + 10.0f;
-    const float z = static_cast<float>(std::rand()) /
-                    static_cast<float>(RAND_MAX) * level_.height();
+    const float x =
+        static_cast<float>(std::rand()) /
+        static_cast<float>(RAND_MAX) *
+        static_cast<float>(level_.width());
+
+    const float y =
+        static_cast<float>(level_.depth()) + 10.0f;
+
+    const float z =
+        static_cast<float>(std::rand()) /
+        static_cast<float>(RAND_MAX) *
+        static_cast<float>(level_.height());
+
     setPos(x, y, z);
 }
 
@@ -25,20 +33,30 @@ void Player::setPos(float x, float y, float z) {
     x_ = x;
     y_ = y;
     z_ = z;
+
+    xo_ = x;
+    yo_ = y;
+    zo_ = z;
+
     constexpr float w = 0.3f;
     constexpr float h = 0.9f;
-    bb_ = AABB(x - w, y - h, z - w, x + w, y + h, z + w);
+
+    bb_ = AABB(
+        x - w, y - h, z - w,
+        x + w, y + h, z + w);
 }
 
 void Player::turn(float deltaX, float deltaY) {
-    // Match rd-132211 Player.turn exactly:
-    // horizontal mouse/touch movement adds to yaw, vertical movement subtracts
-    // from pitch.
+    // rd-132211 applies yaw from horizontal mouse movement and pitch in
+    // the opposite direction from vertical mouse movement.
     yRot_ += deltaX * 0.15f;
     xRot_ -= deltaY * 0.15f;
 
-    if (xRot_ < -90.0f) xRot_ = -90.0f;
-    if (xRot_ > 90.0f) xRot_ = 90.0f;
+    if (xRot_ < -90.0f)
+        xRot_ = -90.0f;
+
+    if (xRot_ > 90.0f)
+        xRot_ = 90.0f;
 }
 
 void Player::tick(const InputState& input) {
@@ -49,14 +67,20 @@ void Player::tick(const InputState& input) {
     float xa = input.moveX;
     float za = input.moveY;
 
-    if (input.jumpPressed && onGround_) {
+    if (input.jumpHeld && onGround_)
         yd_ = 0.12f;
-    }
 
-    moveRelative(xa, za, onGround_ ? 0.02f : 0.005f);
+    moveRelative(
+        xa,
+        za,
+        onGround_ ? 0.02f : 0.005f);
 
     yd_ -= 0.005f;
-    move(xd_, yd_, zd_);
+
+    move(
+        xd_,
+        yd_,
+        zd_);
 
     xd_ *= 0.91f;
     yd_ *= 0.98f;
@@ -73,45 +97,77 @@ void Player::move(float xa, float ya, float za) {
     const float yaOrg = ya;
     const float zaOrg = za;
 
-    const auto cubes = level_.getCubes(bb_.expand(xa, ya, za));
+    const auto cubes =
+        level_.getCubes(bb_.expand(xa, ya, za));
 
-    for (const AABB& cube : cubes) ya = cube.clipYCollide(bb_, ya);
+    for (const AABB& cube : cubes)
+        ya = cube.clipYCollide(bb_, ya);
+
     bb_.move(0.0f, ya, 0.0f);
 
-    for (const AABB& cube : cubes) xa = cube.clipXCollide(bb_, xa);
+    for (const AABB& cube : cubes)
+        xa = cube.clipXCollide(bb_, xa);
+
     bb_.move(xa, 0.0f, 0.0f);
 
-    for (const AABB& cube : cubes) za = cube.clipZCollide(bb_, za);
+    for (const AABB& cube : cubes)
+        za = cube.clipZCollide(bb_, za);
+
     bb_.move(0.0f, 0.0f, za);
 
-    onGround_ = yaOrg != ya && yaOrg < 0.0f;
+    onGround_ =
+        yaOrg != ya &&
+        yaOrg < 0.0f;
 
-    if (xaOrg != xa) xd_ = 0.0f;
-    if (yaOrg != ya) yd_ = 0.0f;
-    if (zaOrg != za) zd_ = 0.0f;
+    if (xaOrg != xa)
+        xd_ = 0.0f;
+
+    if (yaOrg != ya)
+        yd_ = 0.0f;
+
+    if (zaOrg != za)
+        zd_ = 0.0f;
 
     x_ = (bb_.x0 + bb_.x1) / 2.0f;
     y_ = bb_.y0 + 1.62f;
     z_ = (bb_.z0 + bb_.z1) / 2.0f;
 }
 
-void Player::moveRelative(float xa, float za, float speed) {
-    float dist = xa * xa + za * za;
-    if (dist < 0.01f) return;
+void Player::moveRelative(
+    float xa,
+    float za,
+    float speed) {
 
-    dist = speed / std::sqrt(dist);
+    float dist =
+        xa * xa +
+        za * za;
+
+    if (dist < 0.01f)
+        return;
+
+    dist =
+        speed /
+        std::sqrt(dist);
 
     const float radians =
         yRot_ * 3.14159265358979323846f / 180.0f;
-    const float sin = std::sin(radians);
-    const float cos = std::cos(radians);
+
+    const float sin =
+        std::sin(radians);
+
+    const float cos =
+        std::cos(radians);
 
     xa *= dist;
     za *= dist;
 
-    // Exact rd-132211 movement transform.
-    xd_ += xa * cos - za * sin;
-    zd_ += za * cos + xa * sin;
+    xd_ +=
+        xa * cos -
+        za * sin;
+
+    zd_ +=
+        za * cos +
+        xa * sin;
 }
 
 } // namespace luckee
