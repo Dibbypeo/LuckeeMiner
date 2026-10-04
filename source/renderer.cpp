@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -31,8 +30,6 @@ constexpr int LAYERS = 2;
 constexpr std::size_t INITIAL_VERTEX_RESERVE = 4096;
 constexpr const char* TERRAIN_TEXTURE_PATH = "assets/textures/terrain.png";
 
-// Face order and coordinates are taken directly from rd-132211's Tile.render.
-// The normal identifies the neighboring block used for culling and brightness.
 struct Face {
     float p[4][3];
     int nx;
@@ -52,8 +49,12 @@ constexpr Face faces[6] = {
 
 // UVs mirror the texture calls in rd-132211's Tile.render.
 // Each block texture occupies one 16x16 cell of the 256x256 atlas.
-static void faceUvs(int face, float minU, float maxU, float minV, float maxV,
-                    float (&u)[4], float (&v)[4]) {
+static void faceUvs(
+    int face,
+    float minU, float maxU,
+    float minV, float maxV,
+    float (&u)[4], float (&v)[4]) {
+
     switch (face) {
         case 0: // bottom
             u[0] = minU; u[1] = minU; u[2] = maxU; u[3] = maxU;
@@ -87,16 +88,19 @@ static void faceUvs(int face, float minU, float maxU, float minV, float maxV,
 bool Renderer::initialize() {
     if (initialized_) return true;
 
-    if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE))
-        return false;
+    error_.clear();
 
-    // C3D has been initialized, so shutdown() is now responsible for cleanup
-    // on every subsequent failure path.
+    if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE)) {
+        error_ = "Could not initialize Citro3D.";
+        return false;
+    }
+
     initialized_ = true;
 
     target_ = C3D_RenderTargetCreate(
         240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
     if (!target_) {
+        error_ = "Could not create the 3DS render target.";
         shutdown();
         return false;
     }
@@ -107,6 +111,7 @@ bool Renderer::initialize() {
     shaderDvlb_ = DVLB_ParseFile(
         (u32*)vshader_shbin, vshader_shbin_size);
     if (!shaderDvlb_) {
+        error_ = "Could not load the vertex shader.";
         shutdown();
         return false;
     }
@@ -121,6 +126,7 @@ bool Renderer::initialize() {
         shaderInstanceGetUniformLocation(program_.vertexShader, "modelView");
 
     if (projectionLocation_ < 0 || modelViewLocation_ < 0) {
+        error_ = "Required shader uniforms are missing.";
         shutdown();
         return false;
     }
@@ -142,13 +148,11 @@ bool Renderer::initialize() {
     if (!TextureLoader::loadTerrain(
             TERRAIN_TEXTURE_PATH,
             terrainTexture_,
-            *new std::string())) {
-        // The temporary error string is not displayed here because the caller
-        // already validated that the required file exists. A decode/format
-        // failure is reported by main().
+            error_)) {
         shutdown();
         return false;
     }
+
     terrainTextureLoaded_ = true;
 
     C3D_TexSetFilter(
