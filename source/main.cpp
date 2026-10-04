@@ -1,15 +1,52 @@
 #include <3ds.h>
 #include <cstdio>
+#include <string>
+#include <vector>
 
+#include "luckee/assets.hpp"
 #include "luckee/camera.hpp"
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
 #include "luckee/player.hpp"
 #include "luckee/renderer.hpp"
 
+namespace {
+
+void waitForStart() {
+    while (aptMainLoop()) {
+        hidScanInput();
+        if (hidKeysDown() & KEY_START)
+            break;
+
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
+    }
+}
+
+} // namespace
+
 int main(int, char**) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, nullptr);
+
+    const std::vector<std::string> missing =
+        luckee::assets::findMissingAssets();
+
+    if (!missing.empty()) {
+        std::puts("LuckeeMiner - missing assets\n");
+        std::puts("Missing textures:");
+
+        for (const std::string& path : missing)
+            std::printf("* %s\n", path.c_str());
+
+        std::puts("\nPlace the files in the assets folder.");
+        std::puts("Press START to exit.");
+
+        waitForStart();
+        gfxExit();
+        return 1;
+    }
 
     luckee::Level level;
     luckee::Player player(level);
@@ -17,7 +54,11 @@ int main(int, char**) {
     luckee::Renderer renderer;
 
     if (!renderer.initialize()) {
-        std::puts("Renderer initialization failed.");
+        std::puts("LuckeeMiner - texture error\n");
+        std::puts("Could not load assets/textures/terrain.png.");
+        std::puts("\nPress START to exit.");
+
+        waitForStart();
         gfxExit();
         return 1;
     }
