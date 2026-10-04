@@ -48,6 +48,8 @@ private:
         int maxY = 0;
         int maxZ = 0;
 
+        AABB bounds{0, 0, 0, 0, 0, 0};
+
         void* vbo[2] = {nullptr, nullptr};
         int vertexCount[2] = {0, 0};
         bool dirty = true;
@@ -76,6 +78,7 @@ private:
         int x1, int y1, int z1);
 
     std::vector<ChunkMesh> chunks_;
+    std::vector<unsigned char> visible_;
     int chunkAmountX_ = 0;
     int chunkAmountY_ = 0;
     int chunkAmountZ_ = 0;
