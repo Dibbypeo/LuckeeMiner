@@ -161,10 +161,25 @@ void Renderer::renderLayer(
 
             if (x0 >= x1 || z0 >= z1) continue;
 
-            for (int x = x0; x < x1; ++x)
-                for (int y = 0; y < level.depth(); ++y)
-                    for (int z = z0; z < z1; ++z)
+            for (int x = x0; x < x1; ++x) {
+                for (int y = 0; y < level.depth(); ++y) {
+                    for (int z = z0; z < z1; ++z) {
                         renderBlock(level, x, y, z, layer);
+
+                        // Citro3D's default command buffer is 0x40000
+                        // words. libctru deliberately triggers a user
+                        // break when a command would exceed that buffer.
+                        // Keep enough headroom for FrameSplit's finalize
+                        // commands and continue the same immediate draw
+                        // as a new command list.
+                        if (C3D_GetCmdBufUsage() >= 0.70f) {
+                            C3D_ImmDrawEnd();
+                            C3D_FrameSplit(0);
+                            C3D_ImmDrawBegin(GPU_TRIANGLES);
+                        }
+                    }
+                }
+            }
         }
     }
 
