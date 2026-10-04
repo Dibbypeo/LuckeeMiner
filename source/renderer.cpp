@@ -294,6 +294,8 @@ void Renderer::shutdown() {
         C3D_Fini();
         initialized_ = false;
     }
+
+    level_ = nullptr;
 }
 
 void Renderer::initializeChunks(
