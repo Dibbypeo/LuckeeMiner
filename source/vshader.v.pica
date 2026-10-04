@@ -1,7 +1,6 @@
 ; LuckeeMiner block renderer vertex shader
 .fvec projection[4], modelView[4]
 
-; PICA200 float constants are four-component vectors.
 .constf constants(0.0, 1.0, 0.0, 0.0)
 .alias zeros constants.xxxx
 .alias ones constants.yyyy
@@ -29,6 +28,13 @@
     dp4 outpos.w, projection[3], r1
 
     mov outclr, inclr
-    mov outtc0, intex
+
+    // Java/OpenGL uses V=0 at the bottom of the image. PNG image data and
+    // PICA200 texture storage use the first image row at the top, so convert
+    // the incoming Java-style V coordinate here.
+    mov outtc0.x, intex.x
+    sub outtc0.y, ones.y, intex.y
+    mov outtc0.zw, zeros
+
     end
 .end
