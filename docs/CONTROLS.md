@@ -1,12 +1,12 @@
 # Controls
 
-The initial control contract for LuckeeMiner:
+The current control contract for LuckeeMiner:
 
-- **Circle Pad:** player movement (forward/back and strafe).
-- **Touch screen drag:** camera look. The input layer reports drag deltas; camera sensitivity and pitch clamping belong to the camera system.
-- **A:** jump (press edge, not continuous hold).
-- **L:** break the currently targeted block.
-- **R:** place the selected block against the targeted face.
+- **Circle Pad:** player movement relative to the player's horizontal facing.
+- **Touch screen drag:** camera look. Horizontal and vertical drag use the reference yaw/pitch convention.
+- **A:** jump while held and grounded, matching the reference simulation behavior.
+- **L:** break the currently targeted block. Input is wired, but targeting/editing is not implemented yet.
+- **R:** place the selected block against the targeted face. Input is wired, but targeting/editing is not implemented yet.
 - **START:** exit the homebrew application.
 
-Block actions are currently input signals only. They do not mine or place blocks until the raycast, world, and block-edit systems exist.
+The simulation runs at a fixed 60 ticks/sec even when rendering falls behind. Rendering uses interpolation between simulation ticks.
