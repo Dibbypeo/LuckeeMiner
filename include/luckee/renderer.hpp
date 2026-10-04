@@ -19,6 +19,8 @@ public:
     bool initialize();
     void shutdown();
 
+    void setLevel(const Level& level) { level_ = &level; }
+
     void render(
         const Level& level,
         const Player& player,
@@ -52,6 +54,7 @@ private:
     };
 
     void initializeChunks(const Level& level);
+
     bool rebuildChunk(
         const Level& level,
         ChunkMesh& chunk);
@@ -78,12 +81,12 @@ private:
     int chunkAmountZ_ = 0;
     bool chunksInitialized_ = false;
 
+    const Level* level_ = nullptr;
+
     C3D_RenderTarget* target_ = nullptr;
     DVLB_s* shaderDvlb_ = nullptr;
     shaderProgram_s program_{};
-
     C3D_Mtx projection_{};
-
     C3D_Tex terrainTexture_{};
     C3D_FogLut fogLut_{};
 
