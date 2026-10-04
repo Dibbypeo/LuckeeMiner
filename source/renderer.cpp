@@ -98,17 +98,6 @@ static void faceUvs(
     }
 }
 
-static AABB chunkBounds(
-    const Renderer::ChunkMesh& chunk) {
-    return AABB(
-        static_cast<float>(chunk.minX),
-        static_cast<float>(chunk.minY),
-        static_cast<float>(chunk.minZ),
-        static_cast<float>(chunk.maxX),
-        static_cast<float>(chunk.maxY),
-        static_cast<float>(chunk.maxZ));
-}
-
 } // namespace
 
 bool Renderer::initialize() {
