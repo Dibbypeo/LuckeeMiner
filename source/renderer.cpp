@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <utility>
 #include <vector>
 
 #include "luckee/level.hpp"
@@ -47,8 +46,7 @@ constexpr Face faces[6] = {
     {{{1,0,1},{1,0,0},{1,1,0},{1,1,1}}, 1,0,0, 0.6f}
 };
 
-// UVs mirror the texture calls in rd-132211's Tile.render.
-// Each block texture occupies one 16x16 cell of the 256x256 atlas.
+// These UVs mirror the exact vertex/texture order in rd-132211's Tile.render.
 static void faceUvs(
     int face,
     float minU, float maxU,
@@ -56,27 +54,27 @@ static void faceUvs(
     float (&u)[4], float (&v)[4]) {
 
     switch (face) {
-        case 0: // bottom
+        case 0:
             u[0] = minU; u[1] = minU; u[2] = maxU; u[3] = maxU;
             v[0] = maxV; v[1] = minV; v[2] = minV; v[3] = maxV;
             break;
-        case 1: // top
+        case 1:
             u[0] = maxU; u[1] = maxU; u[2] = minU; u[3] = minU;
             v[0] = maxV; v[1] = minV; v[2] = minV; v[3] = maxV;
             break;
-        case 2: // north (-Z)
+        case 2:
             u[0] = maxU; u[1] = minU; u[2] = minU; u[3] = maxU;
             v[0] = minV; v[1] = minV; v[2] = maxV; v[3] = maxV;
             break;
-        case 3: // south (+Z)
+        case 3:
             u[0] = minU; u[1] = minU; u[2] = maxU; u[3] = maxU;
             v[0] = minV; v[1] = maxV; v[2] = maxV; v[3] = minV;
             break;
-        case 4: // west (-X)
+        case 4:
             u[0] = maxU; u[1] = minU; u[2] = minU; u[3] = maxU;
             v[0] = minV; v[1] = minV; v[2] = maxV; v[3] = maxV;
             break;
-        case 5: // east (+X)
+        case 5:
             u[0] = minU; u[1] = maxU; u[2] = maxU; u[3] = minU;
             v[0] = maxV; v[1] = maxV; v[2] = minV; v[3] = minV;
             break;
@@ -163,12 +161,14 @@ bool Renderer::initialize() {
 
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvInit(env);
+
+    // C3D_TexEnvSrc's fifth argument has a default value in C++.
+    // Do not pass integer 0 here: the devkit header expects GPU_TEVSRC.
     C3D_TexEnvSrc(
         env,
         C3D_Both,
         GPU_TEXTURE0,
-        GPU_PRIMARY_COLOR,
-        0);
+        GPU_PRIMARY_COLOR);
     C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
 
     return true;
@@ -290,10 +290,11 @@ void Renderer::appendFace(
     const Face& f = faces[face];
     const int indices[6] = {0, 1, 2, 0, 2, 3};
 
+    // Match Tile.java's 0.0624375f rather than using the full 16/256 cell.
     const float minU = static_cast<float>(textureId) / 16.0f;
-    const float maxU = minU + 16.0f / 256.0f;
+    const float maxU = minU + 0.0624375f;
     const float minV = 0.0f;
-    const float maxV = minV + 16.0f / 256.0f;
+    const float maxV = 0.0624375f;
 
     float u[4]{};
     float v[4]{};
@@ -325,9 +326,11 @@ bool Renderer::rebuildChunk(const Level& level, ChunkMesh& chunk) {
             for (int z = chunk.minZ; z < chunk.maxZ; ++z) {
                 if (!level.isTile(x, y, z)) continue;
 
-                // The current prototype's only solid tile is Tile.rock,
-                // whose rd-132211 texture id is 1.
-                constexpr int textureId = 1;
+                // Match rd-132211/Chunk.java exactly:
+                // y == depth*2/3 uses Tile.rock (texture 0);
+                // every other filled layer uses Tile.grass (texture 1).
+                const int textureId =
+                    (y == level.depth() * 2 / 3) ? 0 : 1;
 
                 for (int face = 0; face < 6; ++face) {
                     const Face& f = faces[face];
