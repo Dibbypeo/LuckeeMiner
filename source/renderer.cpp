@@ -438,18 +438,8 @@ void Renderer::initializeChunks(
         return;
     }
 
-    for (ChunkMesh& chunk : chunks_) {
-        for (int layer = 0;
-             layer < LAYERS;
-             ++layer) {
-
-            if (chunk.vbo[layer]) {
-                linearFree(
-                    chunk.vbo[layer]);
-                chunk.vbo[layer] = nullptr;
-            }
-        }
-    }
+    for (ChunkMesh& chunk : chunks_)
+        releaseChunkMesh(chunk);
 
     chunkAmountX_ = newAmountX;
     chunkAmountY_ = newAmountY;
@@ -768,6 +758,11 @@ bool Renderer::rebuildChunk(
                         newVbo[cleanupLayer]);
             }
 
+            // Do not leave stale geometry behind when the linear heap is
+            // temporarily too full for a replacement mesh. Releasing the
+            // old mesh lets the next frame retry with the memory reclaimed.
+            releaseChunkMesh(chunk);
+            chunk.dirty = true;
             return false;
         }
 
