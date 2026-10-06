@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "luckee/aabb.hpp"
 
 namespace luckee {
@@ -62,6 +64,7 @@ private:
     float xRot_ = 0.0f;
 
     AABB bb_{0, 0, 0, 0, 0, 0};
+    std::vector<AABB> collisionCubes_;
     bool onGround_ = false;
 };
 
