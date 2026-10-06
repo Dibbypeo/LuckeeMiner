@@ -1083,7 +1083,8 @@ void Renderer::render(
     std::size_t rebuildIndex =
         chunks_.size();
 
-    float bestDistance = 0.0f;
+    float bestDistance =
+        std::numeric_limits<float>::infinity();
 
     const float renderDistanceSquared =
         RENDER_DISTANCE * RENDER_DISTANCE;
