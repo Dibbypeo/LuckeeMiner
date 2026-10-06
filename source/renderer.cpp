@@ -33,6 +33,11 @@ constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
+// Bound cached chunk geometry so explored areas cannot exhaust the original
+// 3DS linear heap. Four 16-block chunks is a conservative render distance.
+constexpr float RENDER_DISTANCE = 64.0f;
+constexpr float MESH_CACHE_DISTANCE = 80.0f;
+
 struct Face {
     float p[4][3];
     int nx;
@@ -297,6 +302,10 @@ bool Renderer::initialize() {
     AttrInfo_AddLoader(
         attrInfo, 2, GPU_FLOAT, 2);
 
+    for (int layer = 0; layer < LAYERS; ++layer)
+        buildVertices_[layer].reserve(
+            INITIAL_VERTEX_RESERVE);
+
     Mtx_PerspTilt(
         &projection_,
         70.0f * PI / 180.0f,
@@ -370,20 +379,8 @@ void Renderer::shutdown() {
     if (initialized_)
         C3D_FrameSync();
 
-    for (ChunkMesh& chunk : chunks_) {
-        for (int layer = 0;
-             layer < LAYERS;
-             ++layer) {
-
-            if (chunk.vbo[layer]) {
-                linearFree(
-                    chunk.vbo[layer]);
-                chunk.vbo[layer] = nullptr;
-            }
-
-            chunk.vertexCount[layer] = 0;
-        }
-    }
+    for (ChunkMesh& chunk : chunks_)
+        releaseChunkMesh(chunk);
 
     chunks_.clear();
     visible_.clear();
@@ -681,13 +678,10 @@ bool Renderer::rebuildChunk(
     const Level& level,
     ChunkMesh& chunk) {
 
-    std::vector<Vertex> layerVertices[LAYERS];
-
     for (int layer = 0;
          layer < LAYERS;
          ++layer) {
-        layerVertices[layer].reserve(
-            INITIAL_VERTEX_RESERVE);
+        buildVertices_[layer].clear();
     }
 
     for (int x = chunk.minX;
@@ -737,7 +731,7 @@ bool Renderer::rebuildChunk(
                             : 1;
 
                     appendFace(
-                        layerVertices[renderLayer],
+                        buildVertices_[renderLayer],
                         x, y, z,
                         face,
                         brightness,
@@ -755,7 +749,7 @@ bool Renderer::rebuildChunk(
          ++layer) {
 
         const std::size_t bytes =
-            layerVertices[layer].size() *
+            buildVertices_[layer].size() *
             sizeof(Vertex);
 
         if (bytes == 0)
@@ -779,7 +773,7 @@ bool Renderer::rebuildChunk(
 
         std::memcpy(
             newVbo[layer],
-            layerVertices[layer].data(),
+            buildVertices_[layer].data(),
             bytes);
     }
 
@@ -831,6 +825,23 @@ void Renderer::drawChunk(
         0,
         static_cast<u32>(
             chunk.vertexCount[layer]));
+}
+
+void Renderer::releaseChunkMesh(
+    ChunkMesh& chunk) {
+
+    for (int layer = 0;
+         layer < LAYERS;
+         ++layer) {
+
+        if (chunk.vbo[layer]) {
+            linearFree(
+                chunk.vbo[layer]);
+            chunk.vbo[layer] = nullptr;
+        }
+
+        chunk.vertexCount[layer] = 0;
+    }
 }
 
 bool Renderer::pick(
@@ -1003,7 +1014,38 @@ void Renderer::render(
 
     initializeChunks(level);
 
-    // Keep the listener's world reference current.
+    // FrameBegin(SYNCDRAW) above ensures previous GPU work is complete
+    // before old linear-memory VBOs are released below.
+    const float renderX =
+        player.renderX(alpha);
+    const float renderY =
+        player.renderY(alpha);
+    const float renderZ =
+        player.renderZ(alpha);
+
+    const float meshCacheDistanceSquared =
+        MESH_CACHE_DISTANCE * MESH_CACHE_DISTANCE;
+
+    for (ChunkMesh& chunk : chunks_) {
+        const float centerX =
+            (chunk.minX + chunk.maxX) * 0.5f;
+        const float centerY =
+            (chunk.minY + chunk.maxY) * 0.5f;
+        const float centerZ =
+            (chunk.minZ + chunk.maxZ) * 0.5f;
+
+        const float dx = centerX - renderX;
+        const float dy = centerY - renderY;
+        const float dz = centerZ - renderZ;
+
+        if (dx * dx + dy * dy + dz * dz >
+            meshCacheDistanceSquared) {
+            releaseChunkMesh(chunk);
+            chunk.dirty = true;
+        }
+    }
+
+    // Keep the renderer's world reference current.
     level_ = &level;
 
     C3D_Mtx modelView;
@@ -1048,11 +1090,8 @@ void Renderer::render(
 
     float bestDistance = 0.0f;
 
-    const float renderX =
-        player.renderX(alpha);
-
-    const float renderZ =
-        player.renderZ(alpha);
+    const float renderDistanceSquared =
+        RENDER_DISTANCE * RENDER_DISTANCE;
 
     if (visible_.size() != chunks_.size())
         visible_.assign(chunks_.size(), 0);
@@ -1065,6 +1104,24 @@ void Renderer::render(
 
         const ChunkMesh& chunk =
             chunks_[index];
+
+        const float centerX =
+            (chunk.minX + chunk.maxX) * 0.5f;
+        const float centerY =
+            (chunk.minY + chunk.maxY) * 0.5f;
+        const float centerZ =
+            (chunk.minZ + chunk.maxZ) * 0.5f;
+
+        const float distanceX = centerX - renderX;
+        const float distanceY = centerY - renderY;
+        const float distanceZ = centerZ - renderZ;
+
+        if (distanceX * distanceX +
+            distanceY * distanceY +
+            distanceZ * distanceZ >
+            renderDistanceSquared) {
+            continue;
+        }
 
         if (!frustum_.cubeInFrustum(chunk.bounds))
             continue;
