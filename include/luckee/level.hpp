@@ -28,7 +28,9 @@ public:
     bool isSolidTile(int x, int y, int z) const;
     bool isLightBlocker(int x, int y, int z) const;
 
-    std::vector<AABB> getCubes(const AABB& box) const;
+    void getCubes(
+        const AABB& box,
+        std::vector<AABB>& result) const;
     float getBrightness(int x, int y, int z) const;
 
     void setTile(int x, int y, int z, int type);
