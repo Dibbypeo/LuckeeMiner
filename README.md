@@ -1,14 +1,18 @@
 # LuckeeMiner
 
 **A native C++ recreation of the early RubyDung / Minecraft prototype (rd-132211) for the Nintendo 3DS.**
+<img width="400" height="240" alt="2026-10-05_20-54-09 630_top" src="https://github.com/user-attachments/assets/6284eb91-1963-49c4-98c7-df7642794173" />
+<img width="320" height="240" alt="2026-10-05_20-54-09 630_bot" src="https://github.com/user-attachments/assets/dc65092b-7e16-4fdb-a434-4a59de98666b" />
 
 LuckeeMiner recreates the gameplay, rendering, movement, collision, block interaction, lighting, fog, targeting, and world-save behavior of the supplied rd-132211 prototype using an original C++ implementation built for the 3DS.
 
-The current recreation is **complete and playable for the rd-132211 scope ✅**. It runs on original 3DS hardware, including the original 2DS-class hardware, and is designed around the limitations of the original system rather than assuming New 3DS features.
+The current recreation is **complete and playable for the rd-132211 scope**. It runs on original 3DS hardware, including the original 2DS-class hardware, and is designed around the limitations of the original system rather than assuming New 3DS features.
 
 ## Current status
 
-**rd-132211 recreation: COMPLETE ✅**
+**rd-132211 recreation: COMPLETE**
+
+**Future versions in development.**
 
 The current build has been tested on an original 2DS/3DS and is working as expected. The game supports the complete prototype gameplay loop currently targeted by this project:
 
