@@ -790,7 +790,7 @@ bool Renderer::rebuildChunk(
 
         chunk.vertexCount[layer] =
             static_cast<int>(
-                layerVertices[layer].size());
+                buildVertices_[layer].size());
     }
 
     chunk.dirty = false;
