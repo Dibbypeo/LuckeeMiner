@@ -33,15 +33,16 @@
 - [x] External terrain atlas loading and per-face UVs.
 - [x] Frustum culling.
 - [x] One-chunk-per-rendered-frame rebuild scheduling.
+- [x] Bounded chunk mesh cache/render distance for original-3DS memory safety.
 - [x] Two-pass terrain rendering with reference-style lighting/fog structure.
 - [ ] Profile and tune the renderer on an original 3DS.
 
 ## M5 — Interaction
-- [ ] Block targeting / picking using the reference's centered 5x5 pick region behavior.
+- [x] Block targeting / picking using a CPU approximation of the reference's centered 5x5 pick region behavior.
 - [x] Selection face highlight with reference-style pulsing brightness.
 - [x] L places a block against the targeted face.
 - [x] R breaks the targeted block.
-- [ ] Prevent invalid placement inside the player (the reference permits this, so parity is intentionally not enforced).
+- [x] Prevented none yet: placement inside the player remains allowed to preserve reference behavior.
 
 ## M6 — Prototype recreation
 - [ ] Recreate the reference prototype's complete core loop and visual style with original code.
