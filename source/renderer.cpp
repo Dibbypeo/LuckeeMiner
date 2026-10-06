@@ -1131,20 +1131,9 @@ void Renderer::render(
         if (!chunk.dirty)
             continue;
 
-        const float centerX =
-            (chunk.minX + chunk.maxX) * 0.5f;
-
-        const float centerZ =
-            (chunk.minZ + chunk.maxZ) * 0.5f;
-
-        const float dx =
-            centerX - renderX;
-
-        const float dz =
-            centerZ - renderZ;
-
         const float distance =
-            dx * dx + dz * dz;
+            distanceX * distanceX +
+            distanceZ * distanceZ;
 
         if (rebuildIndex ==
                 chunks_.size() ||
