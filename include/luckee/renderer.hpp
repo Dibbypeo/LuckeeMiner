@@ -79,6 +79,9 @@ private:
         const ChunkMesh& chunk,
         int layer);
 
+    void releaseChunkMesh(
+        ChunkMesh& chunk);
+
     void markDirtyRange(
         const Level& level,
         int x0, int y0, int z0,
@@ -101,6 +104,9 @@ private:
     C3D_FogLut fogLut_{};
 
     Frustum frustum_;
+
+    // Reused between chunk rebuilds to avoid repeated heap allocations.
+    std::vector<Vertex> buildVertices_[2];
 
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
