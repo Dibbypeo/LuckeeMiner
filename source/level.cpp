@@ -183,8 +183,10 @@ bool Level::isLightBlocker(int x, int y, int z) const {
     return isSolidTile(x, y, z);
 }
 
-std::vector<AABB> Level::getCubes(const AABB& box) const {
-    std::vector<AABB> result;
+void Level::getCubes(
+    const AABB& box,
+    std::vector<AABB>& result) const {
+    result.clear();
 
     int x0 = static_cast<int>(box.x0);
     int x1 = static_cast<int>(box.x1 + 1.0f);
@@ -212,7 +214,6 @@ std::vector<AABB> Level::getCubes(const AABB& box) const {
         }
     }
 
-    return result;
 }
 
 float Level::getBrightness(int x, int y, int z) const {
@@ -235,8 +236,13 @@ void Level::setTile(int x, int y, int z, int type) {
         return;
     }
 
-    blocks_[index(x, y, z)] =
+    const std::uint8_t newType =
         static_cast<std::uint8_t>(type);
+
+    if (blocks_[index(x, y, z)] == newType)
+        return;
+
+    blocks_[index(x, y, z)] = newType;
 
     calcLightDepths(x, z, 1, 1);
 
