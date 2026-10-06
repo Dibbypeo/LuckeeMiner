@@ -42,7 +42,7 @@
 - [x] Selection face highlight with reference-style pulsing brightness.
 - [x] L places a block against the targeted face.
 - [x] R breaks the targeted block.
-- [x] Prevented none yet: placement inside the player remains allowed to preserve reference behavior.
+- [x] Placement inside the player remains allowed to preserve the reference behavior; collision blocking is intentionally not added.
 
 ## M6 — Prototype recreation
 - [ ] Recreate the reference prototype's complete core loop and visual style with original code.
