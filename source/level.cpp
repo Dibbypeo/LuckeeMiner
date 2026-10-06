@@ -172,7 +172,9 @@ bool Level::isTile(int x, int y, int z) const {
         return false;
     }
 
-    return blocks_[index(x, y, z)] == 1;
+    // The reference treats every non-zero byte as an occupied tile.
+    // Keep that rule so level.dat round-trips do not reinterpret tile IDs.
+    return blocks_[index(x, y, z)] != 0;
 }
 
 bool Level::isSolidTile(int x, int y, int z) const {
