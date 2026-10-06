@@ -9,6 +9,7 @@
 namespace luckee {
 
 Player::Player(Level& level) : level_(level) {
+    collisionCubes_.reserve(32);
     resetPos();
 }
 
@@ -97,20 +98,21 @@ void Player::move(float xa, float ya, float za) {
     const float yaOrg = ya;
     const float zaOrg = za;
 
-    const auto cubes =
-        level_.getCubes(bb_.expand(xa, ya, za));
+    level_.getCubes(
+        bb_.expand(xa, ya, za),
+        collisionCubes_);
 
-    for (const AABB& cube : cubes)
+    for (const AABB& cube : collisionCubes_)
         ya = cube.clipYCollide(bb_, ya);
 
     bb_.move(0.0f, ya, 0.0f);
 
-    for (const AABB& cube : cubes)
+    for (const AABB& cube : collisionCubes_)
         xa = cube.clipXCollide(bb_, xa);
 
     bb_.move(xa, 0.0f, 0.0f);
 
-    for (const AABB& cube : cubes)
+    for (const AABB& cube : collisionCubes_)
         za = cube.clipZCollide(bb_, za);
 
     bb_.move(0.0f, 0.0f, za);
