@@ -8,6 +8,8 @@ struct InputState;
 
 class Player final : public Entity {
 public:
+    using Entity::tick;
+
     explicit Player(Level& level);
 
     void tick(const InputState& input);
