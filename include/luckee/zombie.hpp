@@ -21,6 +21,10 @@ struct CharacterPart {
 
     int texX = 0;
     int texY = 0;
+
+    float xRot = 0.0f;
+    float yRot = 0.0f;
+    float zRot = 0.0f;
 };
 
 class Zombie final : public Entity {
