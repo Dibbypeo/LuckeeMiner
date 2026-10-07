@@ -16,7 +16,7 @@ The current recreation is **complete and playable for the rd-132211 scope**. It 
 
 The rd-132328 work adds the shared Entity system, randomized spawning, 100 wandering zombies, character animation/rendering, and the 64×32 character texture path. The new version-specific changes still require hardware verification.
 
-The current build has been tested on an original 2DS/3DS and is working as expected. The game supports the complete prototype gameplay loop currently targeted by this project:
+The rd-132211 baseline has been tested on an original 2DS/3DS and is working as expected. The rd-132328 source upgrade is implemented and is awaiting its own hardware verification. The current source supports the following prototype features:
 
 - Native 3DS application and rendering
 - RubyDung-style camera and mouse-look behavior
@@ -36,9 +36,9 @@ The current build has been tested on an original 2DS/3DS and is working as expec
 - 100 wandering zombies with the rd-132328 movement behavior
 - Animated zombie character models using the external char.png atlas
 
-The current program has been tested in normal gameplay without crashes or known gameplay/rendering bugs.
+The previously tested rd-132211 build has no known gameplay, rendering, or stability issues. The new rd-132328 behavior must still be exercised on hardware before it is marked stable.
 
-Future work is focused on expanding LuckeeMiner beyond the rd-132211 recreation into later Minecraft versions. Those are separate development targets and are not required for the current prototype to be considered complete.
+Future work will continue version by version, using each release's decompiled source as documentation and avoiding mechanics that do not exist in the selected reference.
 
 ## Controls
 
