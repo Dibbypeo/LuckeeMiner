@@ -9,6 +9,7 @@
 #include "luckee/frustum.hpp"
 #include "luckee/hit_result.hpp"
 #include "luckee/level_listener.hpp"
+#include "luckee/zombie.hpp"
 
 namespace luckee {
 
@@ -25,6 +26,7 @@ public:
     void render(
         const Level& level,
         const Player& player,
+        const std::vector<Zombie>& zombies,
         float alpha);
 
     const std::string& error() const { return error_; }
@@ -79,6 +81,17 @@ private:
         const ChunkMesh& chunk,
         int layer);
 
+    void renderZombies(
+        const std::vector<Zombie>& zombies,
+        float alpha);
+
+    void appendCharacterCube(
+        std::vector<Vertex>& vertices,
+        const Zombie& zombie,
+        const CharacterPart& part,
+        double time,
+        float alpha) const;
+
     void releaseChunkMesh(
         ChunkMesh& chunk);
 
@@ -101,12 +114,18 @@ private:
     shaderProgram_s program_{};
     C3D_Mtx projection_{};
     C3D_Tex terrainTexture_{};
+    C3D_Tex characterTexture_{};
     C3D_FogLut fogLut_{};
+
+    void* characterVbo_ = nullptr;
+    std::size_t characterVboCapacity_ = 0;
+    int characterVertexCount_ = 0;
 
     Frustum frustum_;
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
     std::vector<Vertex> buildVertices_[2];
+    std::vector<Vertex> characterVertices_;
 
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
@@ -117,6 +136,7 @@ private:
     HitResult hitResult_{};
 
     bool terrainTextureLoaded_ = false;
+    bool characterTextureLoaded_ = false;
     bool initialized_ = false;
 
     std::string error_;
