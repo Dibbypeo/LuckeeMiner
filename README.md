@@ -1,10 +1,10 @@
 # LuckeeMiner
 
-**A native C++ recreation of the early RubyDung / Minecraft prototype (rd-132211) for the Nintendo 3DS.**
+**A native C++ recreation of early RubyDung / Minecraft prototypes for the Nintendo 3DS, currently targeting rd-132328.**
 <img width="400" height="240" alt="2026-10-05_20-54-09 630_top" src="https://github.com/user-attachments/assets/6284eb91-1963-49c4-98c7-df7642794173" />
 <img width="320" height="240" alt="2026-10-05_20-54-09 630_bot" src="https://github.com/user-attachments/assets/dc65092b-7e16-4fdb-a434-4a59de98666b" />
 
-LuckeeMiner recreates the gameplay, rendering, movement, collision, block interaction, lighting, fog, targeting, and world-save behavior of the supplied rd-132211 prototype using an original C++ implementation built for the 3DS.
+LuckeeMiner recreates early RubyDung / Minecraft prototype behavior using an original C++ implementation built for the 3DS. Version-specific behavior is implemented from decompiled source used as documentation.
 
 The current recreation is **complete and playable for the rd-132211 scope**. It runs on original 3DS hardware, including the original 2DS-class hardware, and is designed around the limitations of the original system rather than assuming New 3DS features.
 
@@ -12,7 +12,9 @@ The current recreation is **complete and playable for the rd-132211 scope**. It 
 
 **rd-132211 recreation: COMPLETE**
 
-**Future versions in development.**
+**rd-132328 upgrade: IMPLEMENTED IN SOURCE**
+
+The rd-132328 work adds the shared Entity system, randomized spawning, 100 wandering zombies, character animation/rendering, and the 64×32 character texture path. The new version-specific changes still require hardware verification.
 
 The current build has been tested on an original 2DS/3DS and is working as expected. The game supports the complete prototype gameplay loop currently targeted by this project:
 
@@ -30,6 +32,9 @@ The current build has been tested on an original 2DS/3DS and is working as expec
 - Original-3DS memory-conscious rendering
 - Compatible rd-132211 level.dat loading and saving
 - PC ↔ 3DS ↔ PC save-file transfer for the rd-132211 save format
+- Randomized player spawning across the baseplate, matching the reference behavior
+- 100 wandering zombies with the rd-132328 movement behavior
+- Animated zombie character models using the external char.png atlas
 
 The current program has been tested in normal gameplay without crashes or known gameplay/rendering bugs.
 
@@ -54,12 +59,19 @@ Example:
 
     SD:/3ds/LuckeeMiner.3dsx
     SD:/3ds/assets/textures/terrain.png
+    SD:/3ds/assets/textures/char.png
 
 The terrain texture must be named exactly:
 
     terrain.png
 
 and must be a 256×256 PNG compatible with the project's terrain atlas layout.
+
+The rd-132328 character texture must be named exactly:
+
+    char.png
+
+and must be the 64×32 character atlas used by the prototype.
 
 A saved world is stored as:
 
@@ -80,9 +92,10 @@ For a normal Homebrew Launcher setup, copy the generated .3dsx into:
 
     SD:/3ds/
 
-and copy the texture to:
+and copy the textures to:
 
     SD:/3ds/assets/textures/terrain.png
+    SD:/3ds/assets/textures/char.png
 
 ## Save-file compatibility
 
@@ -101,10 +114,12 @@ This allows the block data to move between the original PC prototype and LuckeeM
 ## Project structure
 
 - source/main.cpp — application lifecycle, input polling, simulation loop, and block interaction.
-- source/player.cpp — movement, gravity, jumping, and collision.
+- source/entity.cpp — shared entity movement, collision, rotation, and random spawning.
+- source/player.cpp — player-specific movement, gravity, and jumping.
+- source/zombie.cpp — rd-132328 wandering zombie behavior.
 - source/level.cpp — world storage, lighting, block edits, and save/load.
-- source/renderer.cpp — chunk meshing, rendering, frustum culling, picking, and hit highlighting.
-- source/texture_loader.cpp — terrain atlas loading and 3DS texture conversion.
+- source/renderer.cpp — chunk meshing, terrain/character rendering, frustum culling, picking, and hit highlighting.
+- source/texture_loader.cpp — terrain and character PNG loading plus 3DS texture conversion.
 - include/luckee/ — engine interfaces and data structures.
 - docs/ — recreation notes, controls, and development roadmap.
 - Makefile — devkitPro 3DS build configuration.
@@ -126,6 +141,4 @@ See LICENSE for the complete license text.
 
 ## Future development
 
-The rd-132211 recreation is complete, but LuckeeMiner is intended to continue beyond it.
-
-Planned future work includes versioned world generation, later Alpha/Beta behavior, and eventually later Minecraft versions while preserving the same native 3DS-focused architecture.
+The rd-132328 implementation is the current development target. The next version step will continue the same process: compare against that version's decompiled reference, implement only the behavior actually present there, then verify it on original 3DS hardware.
