@@ -10,7 +10,7 @@ class Player final : public Entity {
 public:
     explicit Player(Level& level);
 
-    void tick(const InputState& input) override;
+    void tick(const InputState& input);
 };
 
 } // namespace luckee
