@@ -31,6 +31,9 @@ constexpr int LAYERS = 2;
 constexpr std::size_t INITIAL_VERTEX_RESERVE = 4096;
 constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
+constexpr const char* CHARACTER_TEXTURE_PATH =
+    "assets/textures/char.png";
+constexpr int ZOMBIE_VERTEX_COUNT = 36;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
 // Bound cached chunk geometry so explored areas cannot exhaust the original
@@ -324,6 +327,33 @@ bool Renderer::initialize() {
 
     terrainTextureLoaded_ = true;
 
+    if (!TextureLoader::loadCharacter(
+            CHARACTER_TEXTURE_PATH,
+            characterTexture_,
+            error_)) {
+        shutdown();
+        return false;
+    }
+
+    characterTextureLoaded_ = true;
+
+    characterVertices_.reserve(
+        100u * ZOMBIE_VERTEX_COUNT);
+
+    characterVboCapacity_ =
+        100u * ZOMBIE_VERTEX_COUNT;
+
+    characterVbo_ =
+        linearAlloc(
+            characterVboCapacity_ * sizeof(Vertex));
+
+    if (!characterVbo_) {
+        error_ =
+            "Could not allocate zombie character buffer.";
+        shutdown();
+        return false;
+    }
+
     C3D_TexSetFilter(
         &terrainTexture_,
         GPU_NEAREST,
@@ -384,6 +414,20 @@ void Renderer::shutdown() {
 
     chunks_.clear();
     visible_.clear();
+
+    if (characterVbo_) {
+        linearFree(characterVbo_);
+        characterVbo_ = nullptr;
+    }
+
+    characterVboCapacity_ = 0;
+    characterVertexCount_ = 0;
+    characterVertices_.clear();
+
+    if (characterTextureLoaded_) {
+        C3D_TexDelete(&characterTexture_);
+        characterTextureLoaded_ = false;
+    }
 
     chunkAmountX_ = 0;
     chunkAmountY_ = 0;
@@ -917,6 +961,318 @@ bool Renderer::pick(
     return hasHit_;
 }
 
+void Renderer::appendCharacterCube(
+    std::vector<Vertex>& vertices,
+    const Zombie& zombie,
+    const CharacterPart& part,
+    double time,
+    float alpha) const {
+
+    constexpr float size = 0.058333334f;
+    const float yy =
+        static_cast<float>(
+            -std::abs(std::sin(time * 0.6662)) * 5.0 - 23.0);
+
+    const float x0 = part.minX;
+    const float y0 = part.minY;
+    const float z0 = part.minZ;
+    const float x1 = x0 + static_cast<float>(part.width);
+    const float y1 = y0 + static_cast<float>(part.height);
+    const float z1 = z0 + static_cast<float>(part.depth);
+
+    const float verts[8][3] = {
+        {x0, y0, z0},
+        {x1, y0, z0},
+        {x1, y1, z0},
+        {x0, y1, z0},
+        {x0, y0, z1},
+        {x1, y0, z1},
+        {x1, y1, z1},
+        {x0, y1, z1}
+    };
+
+    struct Quad {
+        int i0, i1, i2, i3;
+        int u0, v0, u1, v1;
+    };
+
+    const float w = static_cast<float>(part.width);
+    const float h = static_cast<float>(part.height);
+    const float d = static_cast<float>(part.depth);
+    const int tx = part.texX;
+    const int ty = part.texY;
+
+    const Quad quads[6] = {
+        {5, 1, 2, 6,
+         static_cast<int>(tx + d + w),
+         static_cast<int>(ty + d),
+         static_cast<int>(tx + d + w + d),
+         static_cast<int>(ty + d + h)},
+        {0, 4, 7, 3,
+         tx,
+         static_cast<int>(ty + d),
+         static_cast<int>(tx + d),
+         static_cast<int>(ty + d + h)},
+        {5, 4, 0, 1,
+         static_cast<int>(tx + d),
+         ty,
+         static_cast<int>(tx + d + w),
+         static_cast<int>(ty + d)},
+        {2, 3, 7, 6,
+         static_cast<int>(tx + d + w),
+         ty,
+         static_cast<int>(tx + d + w + w),
+         static_cast<int>(ty + d)},
+        {1, 0, 3, 2,
+         static_cast<int>(tx + d),
+         static_cast<int>(ty + d),
+         static_cast<int>(tx + d + w),
+         static_cast<int>(ty + d + h)},
+        {4, 5, 6, 7,
+         static_cast<int>(tx + d + w + d),
+         static_cast<int>(ty + d),
+         static_cast<int>(tx + d + w + d + w),
+         static_cast<int>(ty + d + h)}
+    };
+
+    auto transform = [&](const float p[3], float& outX, float& outY, float& outZ) {
+        float x = p[0];
+        float y = p[1];
+        float z = p[2];
+
+        // Cube.render(): rotate Z, then Y, then X in the OpenGL matrix stack.
+        const float sx = std::sin(part.xRot);
+        const float cx = std::cos(part.xRot);
+        float ny = y * cx - z * sx;
+        float nz = y * sx + z * cx;
+        y = ny;
+        z = nz;
+
+        const float sy = std::sin(part.yRot);
+        const float cy = std::cos(part.yRot);
+        float nx = x * cy - z * sy;
+        nz = x * sy + z * cy;
+        x = nx;
+        z = nz;
+
+        const float sz = std::sin(part.zRot);
+        const float cz = std::cos(part.zRot);
+        nx = x * cz - y * sz;
+        ny = x * sz + y * cz;
+        x = nx;
+        y = ny;
+
+        x += part.x;
+        y += part.y;
+        z += part.z;
+
+        // Zombie.render() rotates the complete model by rot + 180 degrees.
+        const float bodyYaw = zombie.bodyRotation() + PI;
+        const float sb = std::sin(bodyYaw);
+        const float cb = std::cos(bodyYaw);
+        nx = x * cb - z * sb;
+        nz = x * sb + z * cb;
+        x = nx;
+        z = nz;
+
+        // Match glScalef(1,-1,1), glScalef(size,size,size),
+        // then glTranslatef(0, yy, 0) in the historical matrix order.
+        x *= size;
+        y = (y + yy) * -size;
+        z *= size;
+
+        x += zombie.renderX(alpha);
+        y += zombie.renderY(alpha);
+        z += zombie.renderZ(alpha);
+
+        outX = x;
+        outY = y;
+        outZ = z;
+    };
+
+    const int triOrder[6] = {3, 2, 1, 3, 1, 0};
+
+    for (const Quad& quad : quads) {
+        const int ids[4] = {
+            quad.i0, quad.i1, quad.i2, quad.i3
+        };
+
+        // Polygon's constructor remaps UVs to:
+        // (u1,v0), (u0,v0), (u0,v1), (u1,v1).
+        const float uv[4][2] = {
+            {
+                static_cast<float>(quad.u1) / 64.0f,
+                static_cast<float>(quad.v0) / 32.0f
+            },
+            {
+                static_cast<float>(quad.u0) / 64.0f,
+                static_cast<float>(quad.v0) / 32.0f
+            },
+            {
+                static_cast<float>(quad.u0) / 64.0f,
+                static_cast<float>(quad.v1) / 32.0f
+            },
+            {
+                static_cast<float>(quad.u1) / 64.0f,
+                static_cast<float>(quad.v1) / 32.0f
+            }
+        };
+
+        for (int corner : triOrder) {
+            float px = 0.0f;
+            float py = 0.0f;
+            float pz = 0.0f;
+
+            transform(
+                verts[ids[corner]],
+                px,
+                py,
+                pz);
+
+            Vertex vertex{};
+            vertex.x = px;
+            vertex.y = py;
+            vertex.z = pz;
+            vertex.r = 1.0f;
+            vertex.g = 1.0f;
+            vertex.b = 1.0f;
+            vertex.a = 1.0f;
+            vertex.u = uv[corner][0];
+            vertex.v = uv[corner][1];
+
+            vertices.push_back(vertex);
+        }
+    }
+}
+
+void Renderer::renderZombies(
+    const std::vector<Zombie>& zombies,
+    float alpha) {
+
+    if (zombies.empty() ||
+        !characterTextureLoaded_) {
+        return;
+    }
+
+    characterVertices_.clear();
+
+    const double now =
+        std::chrono::duration<double>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    for (const Zombie& zombie : zombies) {
+        const double time =
+            now * 10.0 *
+            static_cast<double>(zombie.speed()) +
+            static_cast<double>(zombie.timeOffset());
+
+        CharacterPart parts[6] = {};
+        const auto& baseParts = zombie.parts();
+
+        for (int i = 0; i < 6; ++i)
+            parts[i] = baseParts[static_cast<std::size_t>(i)];
+
+        parts[0].yRot =
+            static_cast<float>(std::sin(time * 0.83));
+        parts[0].xRot =
+            static_cast<float>(std::sin(time) * 0.8);
+
+        parts[2].xRot =
+            static_cast<float>(
+                std::sin(time * 0.6662 + PI) * 2.0);
+        parts[2].zRot =
+            static_cast<float>(
+                (std::sin(time * 0.2312) + 1.0) * 1.0);
+
+        parts[3].xRot =
+            static_cast<float>(
+                std::sin(time * 0.6662) * 2.0);
+        parts[3].zRot =
+            static_cast<float>(
+                (std::sin(time * 0.2812) - 1.0) * 1.0);
+
+        parts[4].xRot =
+            static_cast<float>(
+                std::sin(time * 0.6662) * 1.4);
+
+        parts[5].xRot =
+            static_cast<float>(
+                std::sin(time * 0.6662 + PI) * 1.4);
+
+        for (const CharacterPart& part : parts)
+            appendCharacterCube(
+                characterVertices_,
+                zombie,
+                part,
+                time,
+                alpha);
+    }
+
+    const std::size_t required =
+        characterVertices_.size();
+
+    if (required == 0)
+        return;
+
+    if (required > characterVboCapacity_) {
+        const std::size_t doubled =
+            characterVboCapacity_ > 0
+                ? characterVboCapacity_ * 2u
+                : static_cast<std::size_t>(
+                    ZOMBIE_VERTEX_COUNT);
+
+        const std::size_t newCapacity =
+            std::max(required, doubled);
+
+        void* replacement =
+            linearAlloc(
+                newCapacity * sizeof(Vertex));
+
+        if (!replacement)
+            return;
+
+        if (characterVbo_)
+            linearFree(characterVbo_);
+
+        characterVbo_ = replacement;
+        characterVboCapacity_ = newCapacity;
+    }
+
+    std::memcpy(
+        characterVbo_,
+        characterVertices_.data(),
+        required * sizeof(Vertex));
+
+    characterVertexCount_ =
+        static_cast<int>(required);
+
+    C3D_TexBind(
+        0,
+        &characterTexture_);
+
+    C3D_BufInfo* bufInfo =
+        C3D_GetBufInfo();
+
+    BufInfo_Init(bufInfo);
+    BufInfo_Add(
+        bufInfo,
+        characterVbo_,
+        sizeof(Vertex),
+        3,
+        0x210);
+    C3D_SetBufInfo(bufInfo);
+
+    C3D_DrawArrays(
+        GPU_TRIANGLES,
+        0,
+        static_cast<u32>(
+            characterVertexCount_));
+
+    C3D_TexBind(
+        0,
+        &terrainTexture_);
+}
+
 void Renderer::renderHit() {
     if (!hasHit_)
         return;
@@ -998,6 +1354,7 @@ void Renderer::renderHit() {
 void Renderer::render(
     const Level& level,
     const Player& player,
+    const std::vector<Zombie>& zombies,
     float alpha) {
 
     if (!initialized_ ||
@@ -1197,6 +1554,10 @@ void Renderer::render(
                 chunks_[index],
                 0);
     }
+
+    renderZombies(
+        zombies,
+        alpha);
 
     C3D_FogGasMode(
         GPU_FOG,
