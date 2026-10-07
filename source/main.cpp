@@ -1,5 +1,6 @@
 #include <3ds.h>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,7 @@
 #include "luckee/player.hpp"
 #include "luckee/renderer.hpp"
 #include "luckee/timer.hpp"
+#include "luckee/zombie.hpp"
 
 namespace {
 
@@ -31,6 +33,10 @@ int main(int, char**) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, nullptr);
 
+    // Match Java's per-process Math.random() behavior instead of the
+    // deterministic default seed used by std::rand().
+    std::srand(static_cast<unsigned int>(osGetTime()));
+
     const std::vector<std::string> missing =
         luckee::assets::findMissingAssets();
 
@@ -51,6 +57,18 @@ int main(int, char**) {
 
     luckee::Level level;
     luckee::Player player(level);
+
+    std::vector<luckee::Zombie> zombies;
+    zombies.reserve(100);
+
+    for (int i = 0; i < 100; ++i) {
+        zombies.emplace_back(
+            level,
+            128.0f,
+            0.0f,
+            128.0f);
+    }
+
     luckee::Renderer renderer;
 
     renderer.setLevel(level);
@@ -74,11 +92,12 @@ int main(int, char**) {
 
     luckee::Timer timer(60.0f);
 
-    std::puts("LuckeeMiner - rd-132211 recreation\n");
+    std::puts("LuckeeMiner - rd-132328 recreation\n");
     std::puts("World: 256 x 64 x 256");
     std::puts("Blocks: rock + grass");
+    std::puts("Zombies: 100");
     std::puts("Simulation: 60 ticks/sec");
-    std::puts("Assets: assets/textures/terrain.png\n");
+    std::puts("Assets: terrain.png + char.png\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
     std::puts("A           : jump");
@@ -104,6 +123,9 @@ int main(int, char**) {
         for (int tick = 0;
              tick < timer.ticks();
              ++tick) {
+            for (luckee::Zombie& zombie : zombies)
+                zombie.tick();
+
             player.tick(input);
         }
 
@@ -159,7 +181,7 @@ int main(int, char**) {
             consoleClear();
 
             std::printf(
-                "LuckeeMiner - rd-132211 recreation\n\n");
+                "LuckeeMiner - rd-132328 recreation\n\n");
 
             std::printf(
                 "World: %d x %d x %d\n",
@@ -199,6 +221,7 @@ int main(int, char**) {
         renderer.render(
             level,
             player,
+            zombies,
             timer.alpha());
 
         gspWaitForVBlank();
