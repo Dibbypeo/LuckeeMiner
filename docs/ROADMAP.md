@@ -2,7 +2,9 @@
 
 ## Current milestone
 
-**rd-132211 recreation: COMPLETE ✅**
+**rd-132211 recreation: COMPLETE**
+
+**rd-132328 upgrade: IMPLEMENTED IN SOURCE**
 
 The original targeted prototype gameplay loop has been recreated in native C++ for original 3DS hardware and has been tested on an original 2DS/3DS without known gameplay, rendering, or stability issues.
 
@@ -64,19 +66,21 @@ The original targeted prototype gameplay loop has been recreated in native C++ f
 - [x] Match movement, collision, targeting, world presentation, block interaction, and save behavior against the supplied reference.
 - [x] Test the finished build on original 2DS/3DS hardware.
 
-## M7 — Later-version research
+## M7 — rd-132328 upgrade
 
-These milestones are intentionally separate from the completed rd-132211 recreation.
+These milestones build on the completed rd-132211 recreation and document the version-specific changes found in rd-132328.
 
-- [ ] Document version-specific world-generation differences.
-- [ ] Build deterministic terrain generation behind a versioned interface.
-- [ ] Recreate later Alpha/Beta behavior version by version.
-- [ ] Investigate the long-term Java Edition seed compatibility goal.
-- [ ] Extend the native 3DS engine toward later Minecraft versions without mixing behavior between releases.
+- [x] Compare rd-132211 and rd-132328 source and isolate version-specific changes.
+- [x] Add the shared Entity movement/collision base used by rd-132328.
+- [x] Restore randomized player spawning across the baseplate.
+- [x] Add 100 wandering zombies with reference movement behavior.
+- [x] Add the 64×32 character texture path and animated character rendering.
+- [ ] Verify the rd-132328 build on original 2DS/3DS hardware.
+- [ ] Continue version-by-version recreation without mixing mechanics between releases.
 
 ## M8 — Future optimization and release work
 
-The current rd-132211 build is already playable and stable. Further optimization is reserved for expanding the project to larger/later versions.
+The rd-132211 build is already playable and stable. The rd-132328 source upgrade is implemented and awaits hardware verification before being declared stable.
 
 - [x] Package a stable .3dsx build.
 - [x] Document installation, controls, assets, and save-file behavior.
