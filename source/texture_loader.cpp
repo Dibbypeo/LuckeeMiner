@@ -18,18 +18,14 @@ static u32 mortonInterleave(u32 x, u32 y) {
            ((y & 4u) << 3);
 }
 
-// PICA200 stores RGBA8 textures as row-major 8x8 tiles, with pixels inside
-// each tile in Morton/Z order. The source PNG is kept untouched on disk.
-// The byte order in GPU_RGBA8 memory is A,B,G,R on little-endian ARM.
 static void swizzleRgba8(
     const std::vector<std::uint8_t>& rgba,
     std::vector<std::uint8_t>& gpuData,
     unsigned width,
     unsigned height) {
 
-    const std::size_t bytesPerPixel = 4;
+    constexpr std::size_t bytesPerPixel = 4;
     gpuData.resize(rgba.size());
-
     const unsigned tilesX = width / 8;
 
     for (unsigned y = 0; y < height; ++y) {
@@ -40,16 +36,17 @@ static void swizzleRgba8(
             const unsigned localY = y & 7u;
 
             const std::size_t sourceOffset =
-                (static_cast<std::size_t>(y) * width + x) * bytesPerPixel;
+                (static_cast<std::size_t>(y) * width + x) *
+                bytesPerPixel;
 
             const std::size_t tileIndex =
                 static_cast<std::size_t>(tileY) * tilesX + tileX;
 
             const std::size_t destinationOffset =
                 (tileIndex * 64u +
-                 mortonInterleave(localX, localY)) * bytesPerPixel;
+                 mortonInterleave(localX, localY)) *
+                bytesPerPixel;
 
-            // RGBA PNG -> ABGR GPU memory.
             gpuData[destinationOffset + 0] = rgba[sourceOffset + 3];
             gpuData[destinationOffset + 1] = rgba[sourceOffset + 2];
             gpuData[destinationOffset + 2] = rgba[sourceOffset + 1];
@@ -58,10 +55,11 @@ static void swizzleRgba8(
     }
 }
 
-} // namespace
-
-bool TextureLoader::loadTerrain(
+static bool loadPng(
     const char* path,
+    unsigned expectedWidth,
+    unsigned expectedHeight,
+    const char* description,
     C3D_Tex& texture,
     std::string& error) {
 
@@ -79,10 +77,15 @@ bool TextureLoader::loadTerrain(
     const unsigned width = image.width;
     const unsigned height = image.height;
 
-    // The historical rd-132211 terrain atlas is 256x256.
-    if (width != 256 || height != 256) {
+    if (width != expectedWidth || height != expectedHeight) {
         png_image_free(&image);
-        error = "Invalid terrain.png: expected 256x256.";
+        error = "Invalid ";
+        error += description;
+        error += ": expected ";
+        error += std::to_string(expectedWidth);
+        error += "x";
+        error += std::to_string(expectedHeight);
+        error += ".";
         return false;
     }
 
@@ -105,16 +108,56 @@ bool TextureLoader::loadTerrain(
     std::vector<std::uint8_t> gpuData;
     swizzleRgba8(rgba, gpuData, width, height);
 
-    if (!C3D_TexInit(&texture, 256, 256, GPU_RGBA8)) {
-        error = "Could not allocate 256x256 GPU texture.";
+    if (!C3D_TexInit(
+            &texture,
+            width,
+            height,
+            GPU_RGBA8)) {
+        error = "Could not allocate texture for ";
+        error += description;
+        error += ".";
         return false;
     }
 
-    C3D_TexSetFilter(&texture, GPU_NEAREST, GPU_NEAREST);
-    C3D_TexUpload(&texture, gpuData.data());
-    C3D_TexFlush(&texture);
+    C3D_TexSetFilter(
+        &texture,
+        GPU_NEAREST,
+        GPU_NEAREST);
 
+    C3D_TexUpload(
+        &texture,
+        gpuData.data());
+
+    C3D_TexFlush(&texture);
     return true;
+}
+
+} // namespace
+
+bool TextureLoader::loadTerrain(
+    const char* path,
+    C3D_Tex& texture,
+    std::string& error) {
+    return loadPng(
+        path,
+        256,
+        256,
+        "terrain.png",
+        texture,
+        error);
+}
+
+bool TextureLoader::loadCharacter(
+    const char* path,
+    C3D_Tex& texture,
+    std::string& error) {
+    return loadPng(
+        path,
+        64,
+        32,
+        "char.png",
+        texture,
+        error);
 }
 
 } // namespace luckee
