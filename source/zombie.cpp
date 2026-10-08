@@ -39,9 +39,9 @@ CharacterPart makePart(
 Zombie::Zombie(Level& level, float, float, float)
     : Entity(level),
       rot_(random01() * PI * 2.0f),
+      rotA_((random01() + 1.0f) * 0.009999999776482582f),
       timeOffs_(random01() * 1239813.0f),
-      speed_(1.0f),
-      rotA_((random01() + 1.0f) * 0.01f) {
+      speed_(1.0f) {
     // The Java prototype constructs zombies with a dummy (0,0,0) position.
     // Entity construction already places them at a randomized reset position.
     // Keeping that valid position/AABB pair avoids the prototype's stale-box
