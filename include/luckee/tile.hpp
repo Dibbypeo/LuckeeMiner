@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-#include <random>
+#include "luckee/java_random.hpp"
 
 #include "luckee/aabb.hpp"
 
@@ -36,7 +36,7 @@ public:
     virtual void tick(
         Level& level,
         int x, int y, int z,
-        std::mt19937& random);
+        JavaRandom& random);
 
     virtual bool isCrossPlant() const { return false; }
 
