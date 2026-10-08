@@ -3,6 +3,7 @@
 #include <3ds.h>
 #include <citro3d.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -65,6 +66,7 @@ private:
         void* vbo[2] = {nullptr, nullptr};
         int vertexCount[2] = {0, 0};
         bool dirty = true;
+        std::uint64_t dirtiedTimeMs = 0;
     };
 
     void initializeChunks(const Level& level);
