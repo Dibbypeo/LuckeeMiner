@@ -102,8 +102,7 @@ private:
         bool litLayer);
 
     void renderHud(
-        int selectedTileId,
-        const Player& player);
+        int selectedTileId);
 
     void appendCharacterCube(
         std::vector<Vertex>& vertices,
