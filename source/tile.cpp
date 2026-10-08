@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include "luckee/level.hpp"
 #include "luckee/particle.hpp"
@@ -75,7 +76,7 @@ void Tile::destroy(
                     (static_cast<float>(zz) + 0.5f) / SD;
 
                 particleEngine.add(
-                    new Particle(
+                    std::make_unique<Particle>(
                         level,
                         xp, yp, zp,
                         xp - x - 0.5f,
