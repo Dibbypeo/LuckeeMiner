@@ -22,7 +22,7 @@ public:
         int depth = DEPTH);
 
     bool load();
-    void save() const;
+    bool save() const;
 
     void calcLightDepths(
         int x0, int y0,
