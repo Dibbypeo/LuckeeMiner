@@ -1,96 +1,73 @@
 # Development roadmap
 
-## Current milestone
+## Current target
 
-**rd-132211 recreation: COMPLETE**
+**rd-132328: RELEASED**
 
-**rd-132328 recreation: RELEASE CANDIDATE**
-
-The rd-132328 behavior is implemented in native C++ and the documentation now describes the release candidate's controls, assets, save behavior, and version-specific systems. Final release verification remains a maintainer hardware/build step.
+**rd-20090515: IN DEVELOPMENT**
 
 ## M0 — Repository and platform foundation
 
 - [x] Create C++ 3DS project structure.
 - [x] Establish devkitPro Makefile and application loop.
-- [x] Define the 3DS control mapping.
-- [x] Build with the devkitPro 3DS toolchain and establish the original 2DS/3DS runtime target.
+- [x] Define 3DS control mapping.
+- [x] Verify the rd-132328 foundation on original 2DS/3DS hardware.
 
-## M1 — Scene and camera
+## M1 — Shared engine foundations
 
-- [x] Initialize a 3D render target and camera matrices.
-- [x] Draw a basic voxel scene using Citro3D.
-- [x] Implement touch-drag camera yaw/pitch state with reference sensitivity and pitch limits.
-- [x] Match the reference camera eye offset and interpolated player position.
-- [x] Add CPU frustum culling without desktop OpenGL dependencies.
+- [x] Native Entity movement, collision, interpolation, and AABB support.
+- [x] Native Level storage, lighting, chunk invalidation, and compressed level.dat I/O.
+- [x] Native Citro3D terrain and character rendering.
+- [x] Original-3DS memory-conscious chunk cache and frustum culling.
 
-## M2 — Player simulation
+## M2 — rd-20090515 world
 
-- [x] Player position/velocity and fixed 60 Hz simulation.
-- [x] Circle Pad movement relative to player yaw.
-- [x] Gravity, grounded state, and held A-button jump.
-- [x] AABB collision.
-- [x] Interpolated rendering independent of simulation tick rate.
-- [x] Recreate the movement and collision behavior required by the rd-132328 target without adding later-version mechanics.
-- [x] Add the X-button player position reset mapping while preserving the reference reset behavior.
+- [x] Move simulation timing to 20 ticks/sec.
+- [x] Replace the flat fallback world with the extracted client's Perlin terrain generation.
+- [x] Add the rd-20090515 tile registry: rock, grass, dirt, stone brick, wood, bush.
+- [x] Add per-face tile texture selection.
+- [x] Add random tile ticking with the reference update budget.
+- [x] Add grass spreading and decay behavior.
+- [x] Add non-solid bush behavior and crossed-plane rendering.
+- [ ] Audit generated terrain visually against the extracted client on hardware.
 
-## M3 — World data
+## M3 — rd-20090515 entities
 
-- [x] Block storage and block properties used by the current prototype.
-- [x] Chunk storage with cached geometry.
-- [x] Separation between world data and rendering state.
-- [x] Level listener/invalidation path for block and lighting changes.
-- [x] Robust compressed level.dat loading.
-- [x] rd-132211-compatible level.dat saving and PC ↔ 3DS round-trip support.
-- [x] Add SELECT manual saving.
+- [x] Update player physics to the extracted rd-20090515 values.
+- [x] Update zombie physics, jump chance, and friction.
+- [x] Reduce initial zombie count to 10.
+- [x] Add dynamic zombie spawning.
+- [x] Remove zombies that fall below y < -100 instead of resetting them.
+- [x] Preserve lit/shadow entity rendering passes.
+- [ ] Audit zombie front-end behavior against the extracted client on hardware.
 
-## M4 — Rendering
+## M4 — rd-20090515 particles
 
-- [x] Visible-face chunk meshing.
-- [x] External terrain atlas loading and per-face UVs.
-- [x] Frustum culling.
-- [x] One-chunk-per-rendered-frame rebuild scheduling.
-- [x] Bounded chunk mesh cache/render distance for original-3DS memory safety.
-- [x] Two-pass terrain rendering with reference-style lighting/fog structure.
-- [x] Selected-face highlight and depth-safe rendering.
-- [x] Verified stable rendering on original 2DS/3DS hardware for the rd-132211 foundation.
+- [x] Add Particle entity state and movement.
+- [x] Add ParticleEngine ownership and ticking.
+- [x] Spawn the reference 4 × 4 × 4 particle grid when a block is destroyed.
+- [x] Render camera-facing particle quads using terrain atlas sub-regions.
+- [x] Render particles in lit and shadow passes.
+- [ ] Verify particle appearance and lifetime on hardware.
 
-## M5 — Interaction
+## M5 — rd-20090515 front end
 
-- [x] Block targeting / picking using the reference's centered 5×5 selection behavior.
-- [x] Selection face highlight with reference-style pulsing brightness.
-- [x] L places a block against the targeted face.
-- [x] R breaks the targeted block.
-- [x] Placement inside the player remains allowed to preserve reference behavior.
-- [x] Document all 3DS controls on the bottom-screen runtime display.
+- [x] Keep the bottom screen as a runtime debug display during development.
+- [x] Preserve block interaction and reference-oriented targeting behavior.
+- [ ] Add the extracted client's centered crosshair to the top screen.
+- [ ] Add the selected-block preview to the top-right of the top screen.
+- [ ] Audit character and terrain visual parity with the extracted JAR assets.
 
-## M6 — Prototype recreation
+## M6 — Verification and release
 
-- [x] Recreate the rd-132211 core loop and visual style with original C++ code.
-- [x] Match movement, collision, targeting, world presentation, block interaction, and save behavior against the supplied reference.
-- [x] Test the finished rd-132211 build on original 2DS/3DS hardware.
+- [ ] Perform a complete extracted-source audit across every Java class in rd-20090515.
+- [ ] Build the final release artifact.
+- [ ] Test on original 3DS/2DS hardware.
+- [ ] Test level.dat save/load and round-trip compatibility.
+- [ ] Test block selection, zombie spawning, particle creation, grass ticking, and bush behavior.
+- [ ] Document final release controls, assets, and version details.
+- [ ] Tag and publish the rd-20090515 release.
 
-## M7 — rd-132328 upgrade
+## Later work
 
-These milestones document the version-specific changes found in rd-132328.
-
-- [x] Compare rd-132211 and rd-132328 source and isolate version-specific changes.
-- [x] Add the shared Entity movement/collision base used by rd-132328.
-- [x] Restore randomized player spawning across the baseplate.
-- [x] Add 100 wandering zombies with reference movement behavior.
-- [x] Add the 64×32 character texture path and animated character rendering.
-- [x] Add original-3DS zombie simulation and render culling.
-- [x] Correct zombie void reset and randomized spawn behavior.
-- [ ] Perform final rd-132328 release build and hardware verification.
-- [ ] Continue version-by-version recreation without mixing mechanics between releases.
-
-## M8 — Release and later development
-
-The current source is prepared as an rd-132328 release candidate. Release verification should confirm the final build, required assets, controls, save/load behavior, and target original 3DS/2DS hardware.
-
-- [ ] Build and package the final rd-132328 .3dsx release artifact.
-- [x] Document installation, controls, assets, and save-file behavior.
-- [x] Document manual save and player reset controls.
-- [ ] Perform final hardware verification of the release artifact.
-- [ ] Tag the rd-132328 release in the repository.
-- [ ] Profile and tune performance further as later versions are added.
-- [ ] Re-evaluate chunk size, draw distance, mesh memory, and update budgets for later versions.
+After rd-20090515 is verified and released, development can continue to the next historical version without mixing later-version mechanics into this target.
