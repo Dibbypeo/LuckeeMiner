@@ -8,7 +8,7 @@ constexpr float CIRCLE_PAD_DEADZONE = 0.18f;
 
 // Use an independent deadzone for each axis. This filters small accidental
 // vertical/horizontal offsets even while the other axis is intentionally held.
-float applyDeadzone(s16 raw) {
+float applyDeadzone(int raw) {
     const float value =
         static_cast<float>(raw) / CIRCLE_PAD_MAX;
 
@@ -29,7 +29,7 @@ InputState readInput() {
     // Match the reference movement axes:
     // left/right = +/-X and forward/back = -/+Z.
     state.moveX = applyDeadzone(circle.dx);
-    state.moveY = applyDeadzone(circle.dy);
+    state.moveY = -applyDeadzone(circle.dy);
 
     const u32 down = hidKeysDown();
     const u32 held = hidKeysHeld();
