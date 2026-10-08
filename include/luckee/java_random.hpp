@@ -58,7 +58,10 @@ public:
             value =
                 bits % bound;
         } while (
-            bits - value + (bound - 1) < 0);
+            static_cast<std::int32_t>(
+                static_cast<std::uint32_t>(bits) -
+                static_cast<std::uint32_t>(value) +
+                static_cast<std::uint32_t>(bound - 1)) < 0);
 
         return value;
     }
