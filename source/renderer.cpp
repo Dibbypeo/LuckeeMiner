@@ -399,6 +399,13 @@ bool Renderer::initialize() {
     C3D_CullFace(
         GPU_CULL_BACK_CCW);
 
+    // The reference enables alpha testing for the character and bush
+    // textures. A 0.5 threshold reproduces its GL_ALPHA_TEST behavior.
+    C3D_AlphaTest(
+        true,
+        GPU_GREATER,
+        0x80);
+
     C3D_FogGasMode(
         GPU_NO_FOG,
         GPU_PLAIN_DENSITY,
@@ -1260,9 +1267,9 @@ void Renderer::appendCharacterCube(
             vertex.x = px;
             vertex.y = py;
             vertex.z = pz;
-            vertex.r = 1.0f;
-            vertex.g = 1.0f;
-            vertex.b = 1.0f;
+            vertex.r = brightness;
+            vertex.g = brightness;
+            vertex.b = brightness;
             vertex.a = 1.0f;
             vertex.u = uv[corner][0];
             vertex.v = uv[corner][1];
@@ -1365,7 +1372,8 @@ void Renderer::renderZombies(
                 zombie,
                 part,
                 time,
-                alpha);
+                alpha,
+                litLayer ? 1.0f : 0.6f);
     }
 
     const std::size_t required =
@@ -1535,9 +1543,11 @@ void Renderer::renderParticles(
             vertex.x = pos[i][0];
             vertex.y = pos[i][1];
             vertex.z = pos[i][2];
-            vertex.r = 0.8f;
-            vertex.g = 0.8f;
-            vertex.b = 0.8f;
+            const float brightness =
+                litLayer ? 0.8f : 0.48f;
+            vertex.r = brightness;
+            vertex.g = brightness;
+            vertex.b = brightness;
             vertex.a = 1.0f;
             vertex.u = uv[i][0];
             vertex.v = uv[i][1];
