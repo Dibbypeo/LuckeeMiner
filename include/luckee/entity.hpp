@@ -49,6 +49,8 @@ public:
     float xRot() const { return xRot_; }
     bool onGround() const { return onGround_; }
 
+    const AABB& boundingBox() const { return bb_; }
+
     bool isLit() const;
 
 protected:
