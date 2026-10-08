@@ -2252,6 +2252,7 @@ void Renderer::render(
          ++rebuild) {
 
         std::size_t rebuildIndex = chunks_.size();
+        bool bestVisible = false;
         std::uint64_t bestAgeBucket =
             std::numeric_limits<std::uint64_t>::max();
         float bestDistance =
@@ -2264,16 +2265,8 @@ void Renderer::render(
             const ChunkMesh& chunk =
                 chunks_[index];
 
-            if (!visible_[index] ||
-                !chunk.dirty) {
+            if (!chunk.dirty)
                 continue;
-            }
-
-            const std::uint64_t ageBucket =
-                (nowMs >= chunk.dirtiedTimeMs
-                     ? nowMs - chunk.dirtiedTimeMs
-                     : 0) /
-                2000u;
 
             const float centerX =
                 (chunk.minX + chunk.maxX) * 0.5f;
@@ -2282,12 +2275,37 @@ void Renderer::render(
             const float centerZ =
                 (chunk.minZ + chunk.maxZ) * 0.5f;
 
-            const float distanceX =
+            const float cacheDistanceX =
                 centerX - renderX;
-            const float distanceY =
+            const float cacheDistanceY =
                 centerY - renderY;
-            const float distanceZ =
+            const float cacheDistanceZ =
                 centerZ - renderZ;
+
+            if (cacheDistanceX * cacheDistanceX +
+                cacheDistanceY * cacheDistanceY +
+                cacheDistanceZ * cacheDistanceZ >
+                meshCacheDistanceSquared) {
+                continue;
+            }
+
+            const bool candidateVisible =
+                visible_[index];
+
+            const std::uint64_t ageBucket =
+                (nowMs >= chunk.dirtiedTimeMs
+                     ? nowMs - chunk.dirtiedTimeMs
+                     : 0) /
+                2000u;
+
+            // DirtyChunkSorter compares against the player's actual position,
+            // not the interpolated render position.
+            const float distanceX =
+                centerX - player.x();
+            const float distanceY =
+                centerY - player.y();
+            const float distanceZ =
+                centerZ - player.z();
 
             const float distance =
                 distanceX * distanceX +
@@ -2295,11 +2313,14 @@ void Renderer::render(
                 distanceZ * distanceZ;
 
             if (rebuildIndex == chunks_.size() ||
-                ageBucket < bestAgeBucket ||
-                (ageBucket == bestAgeBucket &&
-                 distance < bestDistance)) {
+                (candidateVisible && !bestVisible) ||
+                (candidateVisible == bestVisible &&
+                 (ageBucket < bestAgeBucket ||
+                  (ageBucket == bestAgeBucket &&
+                   distance < bestDistance)))) {
 
                 rebuildIndex = index;
+                bestVisible = candidateVisible;
                 bestAgeBucket = ageBucket;
                 bestDistance = distance;
             }
