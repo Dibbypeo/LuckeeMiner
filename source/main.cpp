@@ -280,7 +280,7 @@ int main(int, char**) {
             consoleClear();
 
             std::printf(
-                "LuckeeMiner - rd-132328 recreation\n\n");
+                "LuckeeMiner - rd-20090515 recreation\n\n");
 
             std::printf(
                 "World: %d x %d x %d\n",
