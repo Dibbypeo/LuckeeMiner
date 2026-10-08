@@ -7,8 +7,6 @@
 namespace luckee {
 namespace {
 
-constexpr float PI = 3.14159265358979323846f;
-
 double randomDouble() {
     return mathRandom().nextDouble();
 }
