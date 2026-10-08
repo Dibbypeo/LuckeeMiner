@@ -193,7 +193,8 @@ static bool raycastSample(
     int enteredFace = -1;
     float t = 0.0f;
 
-    for (int step = 0; step < 32; ++step) {
+    // The reference can select tiles anywhere in the rendered world.
+    for (int step = 0; step < 256; ++step) {
         if (x < minX || y < minY || z < minZ ||
             x >= maxX || y >= maxY || z >= maxZ) {
             return false;
@@ -1128,19 +1129,14 @@ bool Renderer::pick(
 
     hasHit_ = false;
 
-    const float boxMinX = player.x() - 0.3f;
-    const float boxMaxX = player.x() + 0.3f;
-    const float boxMinY = player.y() - 1.62f;
-    const float boxMaxY = player.y() + 0.18f;
-    const float boxMinZ = player.z() - 0.3f;
-    const float boxMaxZ = player.z() + 0.3f;
-
-    const int minX = std::max(0, static_cast<int>(boxMinX - 3.0f));
-    const int maxX = std::min(level.width(), static_cast<int>(boxMaxX + 4.0f));
-    const int minY = std::max(0, static_cast<int>(boxMinY - 3.0f));
-    const int maxY = std::min(level.depth(), static_cast<int>(boxMaxY + 4.0f));
-    const int minZ = std::max(0, static_cast<int>(boxMinZ - 3.0f));
-    const int maxZ = std::min(level.height(), static_cast<int>(boxMaxZ + 4.0f));
+    // GL selection in the reference searches the visible world rather
+    // than limiting the pick volume to a few blocks around the player.
+    const int minX = 0;
+    const int maxX = level.width();
+    const int minY = 0;
+    const int maxY = level.depth();
+    const int minZ = 0;
+    const int maxZ = level.height();
 
     constexpr float screenWidth = 400.0f;
     constexpr float screenHeight = 240.0f;
