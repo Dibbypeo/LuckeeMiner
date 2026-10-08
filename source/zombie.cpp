@@ -13,10 +13,6 @@ double randomDouble() {
     return mathRandom().nextDouble();
 }
 
-float random01() {
-    return static_cast<float>(randomDouble());
-}
-
 CharacterPart makePart(
     int texX,
     int texY,
