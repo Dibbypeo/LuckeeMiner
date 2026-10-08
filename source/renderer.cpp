@@ -929,10 +929,13 @@ bool Renderer::rebuildChunk(
                     const int renderLayer =
                         lit ? 0 : 1;
 
+                    // The reference dark pass enables an ambient light
+                    // level of 0.6 rather than changing the tile's base
+                    // per-face shade.
                     const float brightness =
                         lit
                             ? f.shade
-                            : f.shade * 0.8f;
+                            : f.shade * 0.6f;
 
                     appendFace(
                         buildVertices_[renderLayer],
