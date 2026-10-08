@@ -12,7 +12,7 @@ The current release candidate is designed for original 3DS-family hardware, incl
 
 ## Current status
 
-**rd-132328 development: COMPLETE***
+**rd-132328 development: COMPLETE**
 
 The rd-132328 source implementation is complete. It includes the shared Entity system, randomized entity spawning, 100 wandering zombies, the six-part animated character model, the required 64×32 character texture, native 3DS rendering, nearby zombie simulation/render culling, manual saving, and player position reset.
 
