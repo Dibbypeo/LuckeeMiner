@@ -14,7 +14,7 @@ InputState readInput() {
         static_cast<float>(circle.dx) / 156.0f;
 
     state.moveY =
-        -static_cast<float>(circle.dy) / 156.0f;
+        static_cast<float>(circle.dy) / 156.0f;
 
     const u32 down = hidKeysDown();
     const u32 held = hidKeysHeld();
