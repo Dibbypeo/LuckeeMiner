@@ -24,24 +24,48 @@ Entity::Entity(Level& level)
 void Entity::resetPos() {
     const float x =
         random01() * static_cast<float>(level_.width());
-    // rd-132328 resets entities to three blocks above the level depth.
     const float y =
-        static_cast<float>(level_.depth()) + 3.0f;
+        static_cast<float>(level_.depth()) + 10.0f;
     const float z =
         random01() * static_cast<float>(level_.height());
 
+    setPos(x, y, z);
+
+    // Avoid an artificial interpolation from the zero-initialized state during
+    // the first rendered frame after a reset.
+    xo_ = x_;
+    yo_ = y_;
+    zo_ = z_;
+}
+
+void Entity::resetPosition() {
+    resetPos();
+}
+
+void Entity::remove() {
+    removed_ = true;
+}
+
+void Entity::setSize(float width, float height) {
+    bbWidth_ = width;
+    bbHeight_ = height;
+}
+
+void Entity::setPos(float x, float y, float z) {
     x_ = x;
     y_ = y;
     z_ = z;
-    xo_ = x;
-    yo_ = y;
-    zo_ = z;
 
-    constexpr float w = 0.3f;
-    constexpr float h = 0.9f;
+    const float halfWidth = bbWidth_ / 2.0f;
+    const float halfHeight = bbHeight_ / 2.0f;
+
     bb_ = AABB(
-        x - w, y - h, z - w,
-        x + w, y + h, z + w);
+        x - halfWidth,
+        y - halfHeight,
+        z - halfWidth,
+        x + halfWidth,
+        y + halfHeight,
+        z + halfHeight);
 }
 
 void Entity::turn(float deltaX, float deltaY) {
@@ -50,6 +74,7 @@ void Entity::turn(float deltaX, float deltaY) {
 
     if (xRot_ < -90.0f)
         xRot_ = -90.0f;
+
     if (xRot_ > 90.0f)
         xRot_ = 90.0f;
 }
@@ -84,14 +109,14 @@ void Entity::move(float xa, float ya, float za) {
 
     bb_.move(0.0f, 0.0f, za);
 
-    onGround_ =
-        yaOrg != ya &&
-        yaOrg < 0.0f;
+    onGround_ = yaOrg != ya && yaOrg < 0.0f;
 
     if (xaOrg != xa)
         xd_ = 0.0f;
+
     if (yaOrg != ya)
         yd_ = 0.0f;
+
     if (zaOrg != za)
         zd_ = 0.0f;
 
@@ -109,6 +134,7 @@ void Entity::moveRelative(float xa, float za, float speed) {
 
     const float radians =
         yRot_ * 3.14159265358979323846f / 180.0f;
+
     const float sin = std::sin(radians);
     const float cos = std::cos(radians);
 
@@ -117,6 +143,13 @@ void Entity::moveRelative(float xa, float za, float speed) {
 
     xd_ += xa * cos - za * sin;
     zd_ += za * cos + xa * sin;
+}
+
+bool Entity::isLit() const {
+    return level_.isLit(
+        static_cast<int>(x_),
+        static_cast<int>(y_),
+        static_cast<int>(z_));
 }
 
 } // namespace luckee
