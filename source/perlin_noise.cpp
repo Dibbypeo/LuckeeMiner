@@ -3,29 +3,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <random>
+ #include <random>
+#include "luckee/java_random.hpp"
 
 namespace luckee {
-namespace {
-
-std::uint32_t randomSeed() {
-    static std::uint32_t counter = 0;
-
-    const auto now =
-        std::chrono::steady_clock::now()
-            .time_since_epoch()
-            .count();
-
-    ++counter;
-
-    return static_cast<std::uint32_t>(now) ^
-           (static_cast<std::uint32_t>(
-                static_cast<std::uint64_t>(now) >> 32) *
-            0x9E3779B9u) ^
-           (counter * 0x85EBCA6Bu);
-}
-
-} // namespace
 
 PerlinNoiseFilter::PerlinNoiseFilter(int levels)
     : levels_(levels) {
@@ -50,7 +31,7 @@ std::vector<int> PerlinNoiseFilter::read(
                 static_cast<std::size_t>(x) +
                 static_cast<std::size_t>(y) *
                     static_cast<std::size_t>(width)] =
-                (static_cast<int>(random() & 0xFFu) - 128) *
+                (random.nextInt(256) - 128) *
                 fuzz_;
         }
     }
@@ -89,10 +70,7 @@ std::vector<int> PerlinNoiseFilter::read(
                             static_cast<std::size_t>(width)];
 
                 const int noise =
-                    static_cast<int>(
-                        random() %
-                        static_cast<std::uint32_t>(value * 2)) -
-                    value;
+                    random.nextInt(value * 2) - value;
 
                 tmp[
                     static_cast<std::size_t>(x + half) +
