@@ -1048,6 +1048,62 @@ void Renderer::drawChunk(
             chunk.vertexCount[layer]));
 }
 
+bool Renderer::ensureCharacterVboCapacity(
+    std::size_t required) {
+    if (required <= characterVboCapacity_)
+        return true;
+
+    const std::size_t doubled =
+        characterVboCapacity_ > 0
+            ? characterVboCapacity_ * 2u
+            : static_cast<std::size_t>(ZOMBIE_VERTEX_COUNT);
+
+    const std::size_t newCapacity =
+        std::max(required, doubled);
+
+    void* replacement =
+        linearAlloc(
+            newCapacity * sizeof(Vertex));
+
+    if (!replacement)
+        return false;
+
+    if (characterVbo_)
+        linearFree(characterVbo_);
+
+    characterVbo_ = replacement;
+    characterVboCapacity_ = newCapacity;
+    return true;
+}
+
+bool Renderer::ensureParticleVboCapacity(
+    std::size_t required) {
+    if (required <= particleVboCapacity_)
+        return true;
+
+    const std::size_t doubled =
+        particleVboCapacity_ > 0
+            ? particleVboCapacity_ * 2u
+            : required;
+
+    const std::size_t newCapacity =
+        std::max(required, doubled);
+
+    void* replacement =
+        linearAlloc(
+            newCapacity * sizeof(Vertex));
+
+    if (!replacement)
+        return false;
+
+    if (particleVbo_)
+        linearFree(particleVbo_);
+
+    particleVbo_ = replacement;
+    particleVboCapacity_ = newCapacity;
+    return true;
+}
+
 void Renderer::releaseChunkMesh(
     ChunkMesh& chunk) {
 
