@@ -1,6 +1,7 @@
 #include "luckee/particle_engine.hpp"
 
 #include <algorithm>
+#include <cstddef>
 
 #include "luckee/particle.hpp"
 
