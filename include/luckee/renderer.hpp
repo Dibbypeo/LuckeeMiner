@@ -29,6 +29,7 @@ public:
         const Player& player,
         const std::vector<Zombie>& zombies,
         const ParticleEngine& particleEngine,
+        int selectedTileId,
         float alpha);
 
     const std::string& error() const { return error_; }
@@ -100,6 +101,10 @@ private:
         float alpha,
         bool litLayer);
 
+    void renderHud(
+        int selectedTileId,
+        const Player& player);
+
     void appendCharacterCube(
         std::vector<Vertex>& vertices,
         const Zombie& zombie,
@@ -129,6 +134,7 @@ private:
     DVLB_s* shaderDvlb_ = nullptr;
     shaderProgram_s program_{};
     C3D_Mtx projection_{};
+    C3D_Mtx hudProjection_{};
     C3D_Tex terrainTexture_{};
     C3D_Tex characterTexture_{};
     C3D_FogLut fogLut_{};
