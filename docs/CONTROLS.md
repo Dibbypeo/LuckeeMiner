@@ -28,6 +28,8 @@ The extracted desktop client uses number keys to select rock, dirt, stone brick,
 
 D-Pad Up moves backward through the list and D-Pad Down moves forward.
 
+The Circle Pad uses an independent 18% deadzone on each axis. Small accidental offsets are ignored, including vertical drift while moving horizontally.
+
 ## Zombie spawning
 
 The extracted desktop client uses G to spawn a zombie at the player's current position. LuckeeMiner uses Y for that same gameplay action.
