@@ -15,7 +15,7 @@ The current recreation is **complete and playable for the rd-132211 scope**. It 
 
 **rd-132328 upgrade: IMPLEMENTED IN SOURCE**
 
-The rd-132328 work adds the shared Entity system, randomized spawning, 100 wandering zombies, character animation/rendering, and the 64×32 character texture path. The new version-specific changes still require hardware verification.
+The rd-132328 work adds the shared Entity system, randomized spawning, 100 wandering zombies, character animation/rendering, the 64×32 character texture path, and nearby-only zombie simulation/rendering to keep the original 3DS from spending resources on off-screen entities. The version-specific build is now working on hardware.
 
 The rd-132211 baseline has been tested on an original 2DS/3DS and is working as expected. The rd-132328 source upgrade is implemented and is awaiting its own hardware verification. The current source supports the following prototype features:
 
@@ -35,6 +35,7 @@ The rd-132211 baseline has been tested on an original 2DS/3DS and is working as 
 - PC ↔ 3DS ↔ PC save-file transfer for the rd-132211 save format
 - Randomized player spawning across the baseplate, matching the reference behavior
 - 100 wandering zombies with the rd-132328 movement behavior
+- Nearby-only zombie simulation and distance/frustum render culling for 3DS performance
 - Animated zombie character models using the external char.png atlas
 
 The previously tested rd-132211 build has no known gameplay, rendering, or stability issues. The new rd-132328 behavior must still be exercised on hardware before it is marked stable.
