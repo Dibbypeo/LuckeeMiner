@@ -32,7 +32,7 @@ InputState readInput() {
         (down & KEY_SELECT) != 0;
 
     state.resetPressed =
-        (down & KEY_X) != 0;
+        (held & KEY_X) != 0;
 
     state.nextBlockPressed =
         (down & KEY_DDOWN) != 0;
