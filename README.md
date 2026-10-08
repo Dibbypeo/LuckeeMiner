@@ -98,7 +98,7 @@ The block save format is the historical GZIP-compressed block array used by the 
 
 LuckeeMiner stores that payload byte-for-byte in the same `(y * height + z) * width + x` layout. Its writer uses raw DEFLATE with the historical Java GZIP header/trailer format, while its reader accepts the same GZIP data produced by the Java client.
 
-SELECT performs an immediate save. START performs a normal shutdown save.
+SELECT performs a save and shows its status on the bottom screen. START performs a normal shutdown save. The writer first completes `level.dat.tmp`, then replaces `level.dat`; the loader can recover `level.dat.bak` if the primary save is missing or fails validation. Compression favors speed on the 3DS while keeping the file standard GZIP with the same uncompressed block payload.
 
 ## Version-specific development
 
