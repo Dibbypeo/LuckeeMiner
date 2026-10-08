@@ -1,7 +1,5 @@
 #include "luckee/tile.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <memory>
 
 #include "luckee/level.hpp"
