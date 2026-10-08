@@ -12,6 +12,7 @@ class Player;
 class ParticleEngine {
 public:
     explicit ParticleEngine(Level& level);
+    ~ParticleEngine();
 
     void add(std::unique_ptr<Particle> particle);
     void tick();
