@@ -12,7 +12,7 @@ LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an
 
 The rd-20090515 upgrade has begun. The current branch already contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
-The implementation is still being audited against the Java files extracted directly from the supplied rd-20090515 client JAR. Hardware verification for the new version has not yet been completed.
+The extracted rd-20090515 Java source audit is complete at the source level. Hardware verification for the new version has not yet been completed.
 
 ## rd-20090515 features
 
