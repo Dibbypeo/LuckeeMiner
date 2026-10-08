@@ -88,6 +88,9 @@ int main(int, char**) {
 
     luckee::ParticleEngine particleEngine(level);
 
+    int selectedTileId =
+        luckee::Tile::rock->id();
+
     presentStartupStage("10 zombies and particle engine created");
 
     luckee::Renderer renderer;
@@ -182,7 +185,7 @@ int main(int, char**) {
 
         timer.advanceTime();
 
-        // Simulation is fixed at 60 ticks/sec. A render frame can execute
+        // Simulation is fixed at 20 ticks/sec. A render frame can execute
         // multiple simulation ticks when rendering falls behind.
         for (int tick = 0;
              tick < timer.ticks();
@@ -266,7 +269,7 @@ int main(int, char**) {
                     x,
                     y,
                     z,
-                    1);
+                    selectedTileId);
             }
         }
 
@@ -307,8 +310,14 @@ int main(int, char**) {
                     : "no");
 
             std::printf(
-                "Simulation ticks: %d\n\n",
+                "Simulation ticks: %d\n",
+
                 timer.ticks());
+
+            std::printf(
+                "Particles: %u\n\n",
+                static_cast<unsigned int>(
+                    particleEngine.particles().size()));
 
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
@@ -327,6 +336,7 @@ int main(int, char**) {
             level,
             player,
             zombies,
+            particleEngine,
             timer.alpha());
 
         gspWaitForVBlank();
