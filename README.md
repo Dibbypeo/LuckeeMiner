@@ -1,71 +1,62 @@
 # LuckeeMiner
 
-**A native C++ Nintendo 3DS recreation of the early RubyDung / Minecraft prototype rd-132328.**
+**A native C++ Nintendo 3DS recreation of early RubyDung / Minecraft prototype clients, currently targeting rd-20090515.**
 
-<img width="400" height="240" alt="2026-10-07_21-02-31 569_top" src="https://github.com/user-attachments/assets/477b26ee-8be3-444c-a8b4-088e2f64468a" />
-<img width="320" height="240" alt="2026-10-07_21-02-31 569_bot" src="https://github.com/user-attachments/assets/c80a72e3-fb7d-4e3a-b73d-a819dc43ab33" />
-
-
-LuckeeMiner recreates the rd-132328 front-end and gameplay behavior with an original C++ implementation for the Nintendo 3DS. The historical Java source is used as a behavioral reference; the Java implementation itself is not copied into the project.
-
-The current release candidate is designed for original 3DS-family hardware, including original 2DS-class hardware, and avoids assumptions that require a New 3DS.
+LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an original C++ implementation for the Nintendo 3DS. The extracted Java source from each selected client is used as behavioral documentation. The Java implementation is not copied into the project.
 
 ## Current status
 
-**rd-132328 development: COMPLETE**
+**rd-132328 recreation: RELEASED**
 
-The rd-132328 source implementation is complete. It includes the shared Entity system, randomized entity spawning, 100 wandering zombies, the six-part animated character model, the required 64×32 character texture, native 3DS rendering, nearby zombie simulation/render culling, manual saving, and player position reset.
+**rd-20090515 recreation: IN DEVELOPMENT**
 
-The final public release step is maintainer verification of the intended .3dsx artifact and assets on the target original 3DS/2DS hardware, followed by the release tag.
+The rd-20090515 upgrade has begun. The current branch already contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
-## Features
+The implementation is still being audited against the Java files extracted directly from the supplied rd-20090515 client JAR. Hardware verification for the new version has not yet been completed.
 
-- Native Nintendo 3DS application using devkitPro, libctru, and Citro3D.
-- Fixed 60 ticks/sec simulation with interpolated rendering.
-- Player movement relative to horizontal facing.
-- Touch-screen camera look with reference sensitivity and pitch limits.
-- Player gravity, jumping, and AABB collision.
-- Randomized player spawning across the X/Z baseplate.
-- 256 × 64 × 256 voxel world.
-- Grass and rock terrain using the reference terrain atlas.
-- Visible-face chunk meshing with cached geometry.
-- Reference-style lighting, fog, and two terrain rendering passes.
-- Centered 5×5 block targeting.
-- Pulsing selected-face highlight.
-- L to place blocks and R to break blocks.
-- 100 wandering zombies with reference movement, jumping, gravity, friction, and void reset behavior.
-- Animated zombie head, body, arms, and legs using char.png.
-- Nearby zombie simulation and distance/frustum render culling for original 3DS performance.
-- PC ↔ 3DS ↔ PC compatibility for the rd-132211 level.dat block format.
-- SELECT manual world saving.
-- X-button player position reset.
-- START exit with an automatic normal-shutdown save.
-- Runtime control display on the bottom screen.
+## rd-20090515 features
+
+- 20 ticks/sec simulation.
+- 256 × 64 × 256 generated voxel world.
+- Perlin-noise terrain generation when no level.dat exists.
+- Rock, grass, dirt, stone brick, wood, and bush tile IDs.
+- Per-face terrain atlas textures.
+- Grass growth and decay through random tile ticks.
+- Non-solid, non-light-blocking bush tiles rendered as crossed planes.
+- Ten initial zombies.
+- Dynamic zombie spawning.
+- Updated zombie movement, jumping, gravity, friction, and void removal.
+- Terrain-textured block destruction particles.
+- Particle gravity, friction, random size, lifetime, and billboard rendering.
+- Lit and shadow terrain/entity rendering passes.
+- Original 3DS chunk caching and frustum culling.
+- Fixed-step simulation with interpolated rendering.
+- Existing PC ↔ 3DS ↔ PC level.dat compatibility.
+- Bottom-screen runtime debug information.
+
+The desktop source also contains a small crosshair and selected-block preview HUD. The 3DS bottom screen remains a debug display during development while the top-screen front-end is brought into version parity.
 
 ## Controls
-
-The full control reference is documented in docs/CONTROLS.md. The same mapping is shown on the bottom screen during play.
 
 | Input | Action |
 |---|---|
 | Circle Pad | Move |
 | Touch screen drag | Look / camera movement |
 | A | Jump |
-| L | Place a block against the targeted face |
+| L | Place the selected block |
 | R | Break the targeted block |
+| D-Pad Up | Select previous placeable block |
+| D-Pad Down | Select next placeable block |
+| Y | Spawn a zombie at the player's position |
 | SELECT | Save the world immediately |
 | X | Reset the player's position |
 | START | Save and exit |
 
-SELECT writes the current world to level.dat immediately. START also saves during normal shutdown.
-
-X resets the player using the reference-style reset routine, choosing a new randomized X/Z position and starting three blocks above the level depth before the simulation tick continues.
+The full control description is in docs/CONTROLS.md, and the same information is shown on the bottom-screen debug display.
 
 ## Installation
 
-LuckeeMiner expects the executable and external assets to be placed under the SD card's 3ds directory.
-
-Example layout:
+LuckeeMiner expects the executable and external assets under the SD card's 3ds directory.
 
     SD:/3ds/LuckeeMiner.3dsx
     SD:/3ds/assets/textures/terrain.png
@@ -73,18 +64,18 @@ Example layout:
 
 Required assets:
 
-- terrain.png: 256 × 256 terrain atlas.
-- char.png: 64 × 32 rd-132328 character atlas.
+- terrain.png: 256 × 256 terrain atlas from the target client.
+- char.png: 64 × 32 character atlas from the target client.
 
-The application checks for both files before starting and reports missing files on the bottom screen.
+The application checks for both files before starting and reports missing assets on the bottom screen.
 
-Saved worlds are stored as:
+A saved world is stored as:
 
     SD:/3ds/level.dat
 
 when the application is launched from that directory.
 
-LuckeeMiner intentionally does not bundle the historical Minecraft prototype assets. See assets/README.md for the asset layout.
+LuckeeMiner does not automatically bundle historical game assets. See assets/README.md for the external asset layout and distribution note.
 
 ## Building from source
 
@@ -101,77 +92,56 @@ Build:
     cd LuckeeMiner
     make
 
-The Makefile produces the 3DS application files using the installed devkitPro rules.
-
-For a normal Homebrew Launcher setup, copy the generated .3dsx to:
-
-    SD:/3ds/
-
-and place the required textures in:
-
-    SD:/3ds/assets/textures/terrain.png
-    SD:/3ds/assets/textures/char.png
-
 ## Save-file compatibility
 
-LuckeeMiner keeps the current world format compatible with the rd-132211 prototype.
+The block save format remains the raw GZIP-compressed block array used by the earlier prototype family. For the default 256 × 64 × 256 world, the uncompressed block payload is 4,194,304 bytes.
 
-The save contains:
+The rd-20090515 client still uses the same basic raw block layout, so existing block-format compatibility is retained while the meanings of the nonzero tile IDs expand.
 
-1. A GZIP-compressed block array.
-2. Raw block bytes in the original index layout: (y × height + z) × width + x.
-3. No additional world header or metadata.
+SELECT performs an immediate save. START performs a normal shutdown save.
 
-For the default 256 × 64 × 256 world, the uncompressed block payload is 4,194,304 bytes.
+## Version-specific development
 
-This allows block data to be transferred between the PC prototype and LuckeeMiner without a conversion step.
+LuckeeMiner is developed one historical client version at a time. For each target, the extracted source is compared against the current C++ implementation before adding or changing mechanics.
 
-Manual saves use SELECT. A normal START exit also saves the current world.
+The rd-20090515 source extracted from the supplied client JAR is the primary source for this milestone. Public mirrors may be consulted for corroboration, but version-specific behavior is not taken from a different build when the supplied client provides the exact classes.
 
-## Version-specific behavior
-
-LuckeeMiner is developed version by version. The selected prototype's source is compared against the current C++ implementation before new mechanics are added.
-
-For rd-132328, the implementation covers the Entity system, randomized entity spawning, 100 zombies, the character model, zombie animation and movement, and the corresponding front-end presentation.
-
-The original Java renderer uses desktop OpenGL/LWJGL APIs. LuckeeMiner recreates the resulting geometry, transforms, texture mapping, animation, ordering, and visible behavior with native Citro3D code suitable for the original 3DS.
-
-Some internal implementation details necessarily differ because this is a native console recreation rather than a literal Java/OpenGL port. The goal is matching the player-visible and gameplay behavior of the selected prototype while keeping the code viable on original 3DS hardware.
+The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, and bounded allocations instead of desktop LWJGL/OpenGL display lists. These changes are implementation adaptations for the original 3DS, not new gameplay systems.
 
 ## Project structure
 
-- source/main.cpp — application lifecycle, input polling, simulation loop, saving, reset handling, and block interaction.
-- source/entity.cpp — shared entity movement, collision, rotation, interpolation, and random spawning.
-- source/player.cpp — player-specific movement, reset handling, gravity, and jumping.
-- source/zombie.cpp — rd-132328 wandering zombie behavior and character data.
-- source/level.cpp — world storage, lighting, block edits, and save/load.
-- source/renderer.cpp — chunk meshing, terrain/character rendering, frustum culling, picking, and hit highlighting.
+- source/main.cpp — application lifecycle, 20 TPS loop, input, tile selection, block interaction, saving, and zombie spawning.
+- source/entity.cpp — shared entity physics, collision, sizes, reset/removal state, and lighting.
+- source/player.cpp — rd-20090515 player movement, gravity, jumping, and reset handling.
+- source/zombie.cpp — rd-20090515 zombie movement and removal behavior.
+- source/tile.cpp — tile registry, block properties, grass logic, bush logic, and destruction particles.
+- source/perlin_noise.cpp — native recreation of the extracted PerlinNoiseFilter.
+- source/particle.cpp — particle simulation.
+- source/particle_engine.cpp — particle ownership and ticking.
+- source/level.cpp — terrain generation, world storage, lighting, random tile ticks, and level.dat I/O.
+- source/renderer.cpp — chunk meshing, tile/character/particle rendering, frustum culling, picking, and hit highlighting.
 - source/texture_loader.cpp — terrain and character PNG loading plus 3DS texture conversion.
-- include/luckee/ — engine interfaces and data structures.
-- docs/ — controls, prototype notes, roadmap, and rd-132328 version notes.
+- include/luckee/ — native engine interfaces and data structures.
+- docs/ — version notes, controls, prototype notes, and roadmap.
 - assets/ — external asset layout documentation.
 - Makefile — devkitPro 3DS build configuration.
 - LICENSE — MIT License.
 
-## Project principles
-
-1. LuckeeMiner uses an original C++ implementation. Historical source is behavioral documentation, not code to copy.
-2. Original 3DS hardware is a first-class target.
-3. Version-specific mechanics are implemented deliberately and are not mixed across releases.
-4. Renderer state remains separate from world data.
-5. Performance and memory use are treated as core constraints on the original hardware.
-6. Front-end behavior takes priority over preserving desktop-specific implementation details.
-
 ## Documentation
 
-- docs/CONTROLS.md — complete 3DS controls and behavior notes.
-- docs/PROTOTYPE_NOTES.md — reference, porting rules, version behavior, and stability notes.
-- docs/VERSION_RD-132328.md — rd-132328-specific implementation and release notes.
-- docs/ROADMAP.md — development and release status.
-- assets/README.md — required external asset layout.
+- docs/CONTROLS.md — current 3DS control mapping.
+- docs/PROTOTYPE_NOTES.md — recreation rules and version-specific behavior.
+- docs/VERSION_RD-132328.md — previous released target.
+- docs/VERSION_RD-20090515.md — current version-specific notes and implementation status.
+- docs/ROADMAP.md — milestone tracking.
+- assets/README.md — external assets.
 
 ## License
 
-LuckeeMiner is released under the **MIT License**.
+LuckeeMiner is released under the MIT License.
 
 See LICENSE for the complete license text.
+
+## Current release workflow
+
+The rd-132328 version has already been released. The rd-20090515 version will be released only after its extracted-source audit, hardware testing, and final packaging are complete.
