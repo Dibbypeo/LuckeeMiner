@@ -2080,7 +2080,7 @@ void Renderer::renderHit() {
             face.nz * HIGHLIGHT_OFFSET;
 
         C3D_ImmSendAttrib(x, y, z, 1.0f);
-        C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse);
+        C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse * 0.5f);
         C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
