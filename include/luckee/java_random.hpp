@@ -5,6 +5,7 @@
 
 namespace luckee {
 
+class JavaRandom;
 JavaRandom& mathRandom();
 
 /**
