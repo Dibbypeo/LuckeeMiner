@@ -114,7 +114,6 @@ void Zombie::tick() {
     yd_ *= 0.98f;
     zd_ *= 0.91f;
 
-    // Match rd-132328: entities reset after falling into the void.
     if (onGround_) {
         xd_ *= 0.7f;
         zd_ *= 0.7f;
