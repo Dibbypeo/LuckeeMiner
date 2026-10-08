@@ -12,6 +12,7 @@ public:
 
     explicit Player(Level& level);
 
+    void resetPosition();
     void tick(const InputState& input);
 };
 
