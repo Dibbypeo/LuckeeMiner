@@ -48,7 +48,7 @@ constexpr int MAX_REBUILDS_PER_FRAME = 8;
 static std::uint64_t currentTimeMs() {
     return static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count());
+            std::chrono::system_clock::now().time_since_epoch()).count());
 }
 
 struct Face {
@@ -788,15 +788,18 @@ void Renderer::appendBush(
     constexpr int rotations = 2;
 
     for (int r = 0; r < rotations; ++r) {
-        const float angle =
-            static_cast<float>(r) *
-            PI / static_cast<float>(rotations) +
-            0.7853981633974483f;
+        const double angle =
+            static_cast<double>(r) *
+            3.14159265358979323846 /
+            static_cast<double>(rotations) +
+            0.7853981633974483;
 
         const float xa =
-            std::sin(angle) * 0.5f;
+            static_cast<float>(
+                std::sin(angle) * 0.5);
         const float za =
-            std::cos(angle) * 0.5f;
+            static_cast<float>(
+                std::cos(angle) * 0.5);
 
         const float x0 =
             static_cast<float>(x) + 0.5f - xa;
@@ -1541,21 +1544,23 @@ void Renderer::renderParticles(
     particleVertices_.clear();
     particleVertices_.reserve(particles.size() * 6u);
 
-    const float yaw =
-        player.yRot() * PI / 180.0f;
-    const float pitch =
-        player.xRot() * PI / 180.0f;
+    const double yaw =
+        static_cast<double>(player.yRot()) *
+        3.14159265358979323846 / 180.0;
+    const double pitch =
+        static_cast<double>(player.xRot()) *
+        3.14159265358979323846 / 180.0;
 
     const float xa =
-        -std::cos(yaw);
+        -static_cast<float>(std::cos(yaw));
     const float za =
-        -std::sin(yaw);
+        -static_cast<float>(std::sin(yaw));
     const float xa2 =
-        -za * std::sin(pitch);
+        -za * static_cast<float>(std::sin(pitch));
     const float za2 =
-        xa * std::sin(pitch);
+        xa * static_cast<float>(std::sin(pitch));
     const float ya =
-        std::cos(pitch);
+        static_cast<float>(std::cos(pitch));
 
     for (const std::unique_ptr<Particle>& holder :
          particles) {
