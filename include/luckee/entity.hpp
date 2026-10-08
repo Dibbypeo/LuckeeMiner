@@ -20,6 +20,11 @@ public:
     void move(float xa, float ya, float za);
     void moveRelative(float xa, float za, float speed);
 
+    void remove();
+    bool removed() const { return removed_; }
+
+    void resetPosition();
+
     float x() const { return x_; }
     float y() const { return y_; }
     float z() const { return z_; }
@@ -44,8 +49,12 @@ public:
     float xRot() const { return xRot_; }
     bool onGround() const { return onGround_; }
 
+    bool isLit() const;
+
 protected:
     void resetPos();
+    void setSize(float width, float height);
+    void setPos(float x, float y, float z);
 
     Level& level_;
 
@@ -65,10 +74,15 @@ protected:
     float xRot_ = 0.0f;
 
     AABB bb_{0, 0, 0, 0, 0, 0};
-    std::vector<AABB> collisionCubes_;
 
     bool onGround_ = false;
+    bool removed_ = false;
+
     float heightOffset_ = 0.0f;
+    float bbWidth_ = 0.6f;
+    float bbHeight_ = 1.8f;
+
+    std::vector<AABB> collisionCubes_;
 };
 
 } // namespace luckee
