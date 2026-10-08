@@ -42,10 +42,12 @@ public:
     }
 
 private:
+    // Keep the declaration order aligned with Java's field initialization:
+    // rotation, rotationMotionFactor, timeOffset, speed.
     float rot_ = 0.0f;
+    float rotA_ = 0.01f;
     float timeOffs_ = 0.0f;
     float speed_ = 1.0f;
-    float rotA_ = 0.01f;
 
     std::array<CharacterPart, 6> parts_{};
 };
