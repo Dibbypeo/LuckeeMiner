@@ -121,6 +121,12 @@ private:
     bool ensureParticleVboCapacity(
         std::size_t required);
 
+    bool ensureCharacterVboCapacity(
+        std::size_t required);
+
+    bool ensureParticleVboCapacity(
+        std::size_t required);
+
     void markDirtyRange(
         const Level& level,
         int x0, int y0, int z0,
