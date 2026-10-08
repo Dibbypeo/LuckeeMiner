@@ -91,6 +91,8 @@ LuckeeMiner continues to expect these as external assets under:
 
 The project does not automatically bundle historical game assets.
 
-## Remaining work
+## Verification status
 
-The current branch is an in-progress rd-20090515 recreation. Remaining work includes finishing the version-specific front-end details, auditing every extracted Java class against the C++ implementation, refining render fidelity, and performing hardware verification on the target original 3DS/2DS.
+The rd-20090515 Java source audit is complete. Every extracted Java class has been checked against the native implementation or an intentional 3DS-native replacement, and the source tree has been checked for signature, ownership, and structural errors.
+
+Remaining verification is hardware-dependent: visual terrain/zombie/particle parity and final original-3DS/2DS performance testing still need to be performed on the target hardware.
