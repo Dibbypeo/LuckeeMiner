@@ -1,6 +1,5 @@
 #include <3ds.h>
 #include <cstdio>
-#include <cstdlib>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -43,10 +42,6 @@ void waitForStart() {
 int main(int, char**) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, nullptr);
-
-    // Match Java's per-process Math.random() behavior instead of the
-    // deterministic default seed used by std::rand().
-    std::srand(static_cast<unsigned int>(osGetTime()));
 
     const std::vector<std::string> missing =
         luckee::assets::findMissingAssets();
