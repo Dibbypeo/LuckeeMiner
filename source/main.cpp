@@ -118,15 +118,18 @@ int main(int, char**) {
     std::puts("LuckeeMiner - rd-20090515 recreation\n");
     std::puts("World: 256 x 64 x 256");
     std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone brick, 5 wood, 6 bush");
-    std::puts("Zombies: 10 initial; G-equivalent spawn support pending");
+    std::puts("Zombies: 10 initial");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
     std::puts("Assets: terrain.png + char.png\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
     std::puts("A           : jump");
-    std::puts("L           : place");
+    std::puts("L           : place selected block");
     std::puts("R           : break");
+    std::puts("D-Pad Up   : previous block");
+    std::puts("D-Pad Down : next block");
+    std::puts("Y           : spawn zombie");
     std::puts("SELECT      : save world");
     std::puts("X           : reset player position");
     std::puts("START       : exit\n");
@@ -145,6 +148,37 @@ int main(int, char**) {
         // SELECT is the 3DS equivalent of the reference's manual save key.
         if (input.savePressed)
             level.save();
+
+        const int selectableBlocks[] = {1, 3, 4, 5, 6};
+
+        if (input.previousBlockPressed ||
+            input.nextBlockPressed) {
+            int selectedIndex = 0;
+            for (int i = 0; i < 5; ++i) {
+                if (selectableBlocks[i] == selectedTileId) {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            if (input.previousBlockPressed)
+                selectedIndex =
+                    (selectedIndex + 4) % 5;
+            else
+                selectedIndex =
+                    (selectedIndex + 1) % 5;
+
+            selectedTileId =
+                selectableBlocks[selectedIndex];
+        }
+
+        if (input.spawnZombiePressed) {
+            zombies.emplace_back(
+                level,
+                player.x(),
+                player.y(),
+                player.z());
+        }
 
         timer.advanceTime();
 
@@ -252,6 +286,10 @@ int main(int, char**) {
                 level.height());
 
             std::printf(
+                "Selected block: %d\n",
+                selectedTileId);
+
+            std::printf(
                 "Player: %.3f %.3f %.3f\n",
                 player.x(),
                 player.y(),
@@ -275,8 +313,11 @@ int main(int, char**) {
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
             std::puts("A           : jump");
-            std::puts("L           : place");
+            std::puts("L           : place selected");
             std::puts("R           : break");
+            std::puts("D-Pad Up    : previous block");
+            std::puts("D-Pad Down  : next block");
+            std::puts("Y           : spawn zombie");
             std::puts("SELECT      : save world");
             std::puts("X           : reset player position");
             std::puts("START       : exit");
