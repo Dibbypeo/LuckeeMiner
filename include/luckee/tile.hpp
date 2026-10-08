@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include "luckee/java_random.hpp"
 
 #include "luckee/aabb.hpp"
@@ -59,7 +58,7 @@ public:
     void tick(
         Level& level,
         int x, int y, int z,
-        std::mt19937& random) override;
+        JavaRandom& random) override;
 };
 
 class DirtTile final : public Tile {
@@ -75,7 +74,7 @@ public:
     void tick(
         Level& level,
         int x, int y, int z,
-        std::mt19937& random) override;
+        JavaRandom& random) override;
 
     bool blocksLight() const override { return false; }
     bool isSolid() const override { return false; }
