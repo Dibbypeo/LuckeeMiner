@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "luckee/level.hpp"
+#include "luckee/particle.hpp"
 #include "luckee/player.hpp"
+#include "luckee/tile.hpp"
 #include "luckee/texture_loader.hpp"
 #include "vshader_shbin.h"
 
@@ -33,7 +35,7 @@ constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
 constexpr const char* CHARACTER_TEXTURE_PATH =
     "assets/textures/char.png";
-constexpr int ZOMBIE_VERTEX_COUNT = 36;
+constexpr int ZOMBIE_VERTEX_COUNT = 216;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
 // Bound cached chunk geometry so explored areas cannot exhaust the original
@@ -669,13 +671,16 @@ void Renderer::appendFace(
         {0, 1, 2, 0, 2, 3};
 
     const float minU =
-        static_cast<float>(textureId) / 16.0f;
+        static_cast<float>(textureId % 16) / 16.0f;
 
     const float maxU =
         minU + 0.0624375f;
 
-    const float minV = 0.0f;
-    const float maxV = 0.0624375f;
+    const float minV =
+        static_cast<float>(textureId / 16) / 16.0f;
+
+    const float maxV =
+        minV + 0.0624375f;
 
     float u[4]{};
     float v[4]{};
@@ -708,6 +713,112 @@ void Renderer::appendFace(
     }
 }
 
+void Renderer::appendBush(
+    std::vector<Vertex>& vertices,
+    int x, int y, int z,
+    float brightness) const {
+
+    constexpr int textureId = 15;
+    const float minU =
+        static_cast<float>(textureId % 16) / 16.0f;
+    const float maxU =
+        minU + 0.0624375f;
+    const float minV =
+        static_cast<float>(textureId / 16) / 16.0f;
+    const float maxV =
+        minV + 0.0624375f;
+
+    constexpr int rotations = 2;
+
+    for (int r = 0; r < rotations; ++r) {
+        const float angle =
+            static_cast<float>(r) *
+            PI / static_cast<float>(rotations) +
+            0.7853981633974483f;
+
+        const float xa =
+            std::sin(angle) * 0.5f;
+        const float za =
+            std::cos(angle) * 0.5f;
+
+        const float x0 =
+            static_cast<float>(x) + 0.5f - xa;
+        const float x1 =
+            static_cast<float>(x) + 0.5f + xa;
+        const float y0 =
+            static_cast<float>(y);
+        const float y1 =
+            y0 + 1.0f;
+        const float z0 =
+            static_cast<float>(z) + 0.5f - za;
+        const float z1 =
+            static_cast<float>(z) + 0.5f + za;
+
+        const float positions[8][3] = {
+            {x0, y1, z0},
+            {x1, y1, z1},
+            {x1, y0, z1},
+            {x0, y0, z0},
+            {x1, y1, z1},
+            {x0, y1, z0},
+            {x0, y0, z0},
+            {x1, y0, z1}
+        };
+
+        const float uvs[4][2] = {
+            {maxU, minV},
+            {minU, minV},
+            {minU, maxV},
+            {maxU, maxV}
+        };
+
+        const int order[8] = {
+            0, 1, 2, 0,
+            4, 5, 6, 7
+        };
+
+        // Two crossed quads, each split into two triangles.
+        const int first[6] = {0, 1, 2, 0, 2, 3};
+        const int second[6] = {4, 5, 6, 4, 6, 7};
+
+        for (int index : first) {
+            const int uvIndex = index;
+            Vertex vertex{};
+            vertex.x = positions[index][0];
+            vertex.y = positions[index][1];
+            vertex.z = positions[index][2];
+            vertex.r = brightness;
+            vertex.g = brightness;
+            vertex.b = brightness;
+            vertex.a = 1.0f;
+            vertex.u = uvs[uvIndex][0];
+            vertex.v = uvs[uvIndex][1];
+            vertices.push_back(vertex);
+        }
+
+        // Reverse face winding for the back-facing side, matching the source.
+        const int reverse[6] = {4, 5, 7, 4, 7, 6};
+        for (int index : reverse) {
+            const int corner =
+                (index == 4 ? 0 :
+                 index == 5 ? 1 :
+                 index == 7 ? 2 : 3);
+
+            Vertex vertex{};
+            vertex.x = positions[index][0];
+            vertex.y = positions[index][1];
+            vertex.z = positions[index][2];
+            vertex.r = brightness;
+            vertex.g = brightness;
+            vertex.b = brightness;
+            vertex.a = 1.0f;
+            vertex.u = uvs[corner][0];
+            vertex.v = uvs[corner][1];
+            vertices.push_back(vertex);
+        }
+    }
+}
+
 bool Renderer::rebuildChunk(
     const Level& level,
     ChunkMesh& chunk) {
@@ -730,46 +841,67 @@ bool Renderer::rebuildChunk(
                  z < chunk.maxZ;
                  ++z) {
 
-                if (!level.isTile(x, y, z))
+                const int tileId =
+                    level.getTile(x, y, z);
+
+                if (tileId <= 0 ||
+                    tileId >= Tile::MAX_TILES) {
+                    continue;
+                }
+
+                Tile* tile =
+                    Tile::tiles[tileId];
+
+                if (!tile)
                     continue;
 
-                const int textureId =
-                    (y == level.depth() * 2 / 3)
-                        ? 0
-                        : 1;
+                if (tile->isCrossPlant()) {
+                    const int renderLayer =
+                        level.isLit(x, y, z) ? 0 : 1;
+
+                    appendBush(
+                        buildVertices_[renderLayer],
+                        x, y, z,
+                        1.0f);
+                    continue;
+                }
 
                 for (int face = 0;
                      face < 6;
                      ++face) {
-
                     const Face& f =
                         faces[face];
 
+                    const int nx =
+                        x + f.nx;
+                    const int ny =
+                        y + f.ny;
+                    const int nz =
+                        z + f.nz;
+
                     if (level.isSolidTile(
-                            x + f.nx,
-                            y + f.ny,
-                            z + f.nz)) {
+                            nx, ny, nz)) {
                         continue;
                     }
 
-                    const float brightness =
-                        level.getBrightness(
-                            x + f.nx,
-                            y + f.ny,
-                            z + f.nz) *
-                        f.shade;
+                    const bool lit =
+                        level.isLit(
+                            nx, ny, nz);
 
                     const int renderLayer =
-                        (brightness == f.shade)
-                            ? 0
-                            : 1;
+                        lit ? 0 : 1;
+
+                    const float brightness =
+                        lit
+                            ? f.shade
+                            : f.shade * 0.8f;
 
                     appendFace(
                         buildVertices_[renderLayer],
                         x, y, z,
                         face,
                         brightness,
-                        textureId);
+                        tile->getTexture(face));
                 }
             }
         }
@@ -1148,7 +1280,8 @@ void Renderer::appendCharacterCube(
 void Renderer::renderZombies(
     const std::vector<Zombie>& zombies,
     const Player& player,
-    float alpha) {
+    float alpha,
+    bool litLayer) {
 
     if (zombies.empty() ||
         !characterTextureLoaded_) {
@@ -1170,6 +1303,9 @@ void Renderer::renderZombies(
         zombieRenderDistance * zombieRenderDistance;
 
     for (const Zombie& zombie : zombies) {
+        if (zombie.isLit() != litLayer)
+            continue;
+
         const float dx = zombie.renderX(alpha) - renderX;
         const float dy = zombie.renderY(alpha) - renderY;
         const float dz = zombie.renderZ(alpha) - renderZ;
@@ -1302,6 +1438,171 @@ void Renderer::renderZombies(
         &terrainTexture_);
 }
 
+void Renderer::renderParticles(
+    const ParticleEngine& particleEngine,
+    const Player& player,
+    float alpha,
+    bool litLayer) {
+
+    const auto& particles =
+        particleEngine.particles();
+
+    if (particles.empty())
+        return;
+
+    std::vector<Vertex> vertices;
+    vertices.reserve(particles.size() * 6u);
+
+    const float yaw =
+        player.yRot() * PI / 180.0f;
+    const float pitch =
+        player.xRot() * PI / 180.0f;
+
+    const float xa =
+        -std::cos(yaw);
+    const float za =
+        -std::sin(yaw);
+    const float xa2 =
+        -za * std::sin(pitch);
+    const float za2 =
+        xa * std::sin(pitch);
+    const float ya =
+        std::cos(pitch);
+
+    for (const std::unique_ptr<Particle>& holder :
+         particles) {
+        const Particle& particle = *holder;
+
+        if (particle.isLit() != litLayer)
+            continue;
+
+        const int tex =
+            particle.texture();
+
+        const float u0 =
+            (static_cast<float>(tex % 16) +
+             0.0f) / 16.0f;
+        const float u1 =
+            u0 + 0.015609375f;
+        const float v0 =
+            static_cast<float>(tex / 16) / 16.0f;
+        const float v1 =
+            v0 + 0.015609375f;
+
+        const float r =
+            0.1f * particle.size();
+
+        const float x =
+            particle.renderX(alpha);
+        const float y =
+            particle.renderY(alpha);
+        const float z =
+            particle.renderZ(alpha);
+
+        const float pos[4][3] = {
+            {
+                x - xa * r - xa2 * r,
+                y - ya * r,
+                z - za * r - za2 * r
+            },
+            {
+                x - xa * r + xa2 * r,
+                y + ya * r,
+                z - za * r + za2 * r
+            },
+            {
+                x + xa * r + xa2 * r,
+                y + ya * r,
+                z + za * r + za2 * r
+            },
+            {
+                x + xa * r - xa2 * r,
+                y - ya * r,
+                z + za * r - za2 * r
+            }
+        };
+
+        const float uv[4][2] = {
+            {u0, v1},
+            {u0, v0},
+            {u1, v0},
+            {u1, v1}
+        };
+
+        const int index[6] =
+            {0, 1, 2, 0, 2, 3};
+
+        for (int i : index) {
+            Vertex vertex{};
+            vertex.x = pos[i][0];
+            vertex.y = pos[i][1];
+            vertex.z = pos[i][2];
+            vertex.r = 0.8f;
+            vertex.g = 0.8f;
+            vertex.b = 0.8f;
+            vertex.a = 1.0f;
+            vertex.u = uv[i][0];
+            vertex.v = uv[i][1];
+            vertices.push_back(vertex);
+        }
+    }
+
+    if (vertices.empty())
+        return;
+
+    std::size_t required =
+        vertices.size();
+
+    if (required > characterVboCapacity_) {
+        const std::size_t doubled =
+            characterVboCapacity_ > 0
+                ? characterVboCapacity_ * 2u
+                : required;
+
+        const std::size_t newCapacity =
+            std::max(required, doubled);
+
+        void* replacement =
+            linearAlloc(
+                newCapacity * sizeof(Vertex));
+
+        if (!replacement)
+            return;
+
+        if (characterVbo_)
+            linearFree(characterVbo_);
+
+        characterVbo_ = replacement;
+        characterVboCapacity_ = newCapacity;
+    }
+
+    std::memcpy(
+        characterVbo_,
+        vertices.data(),
+        required * sizeof(Vertex));
+
+    C3D_TexBind(
+        0,
+        &terrainTexture_);
+
+    C3D_BufInfo* bufInfo =
+        C3D_GetBufInfo();
+
+    BufInfo_Init(bufInfo);
+    BufInfo_Add(
+        bufInfo,
+        characterVbo_,
+        sizeof(Vertex),
+        3,
+        0x210);
+    C3D_SetBufInfo(bufInfo);
+
+    C3D_DrawArrays(
+        GPU_TRIANGLES,
+        0,
+        static_cast<u32>(required));
+}
+
 void Renderer::renderHit() {
     if (!hasHit_)
         return;
@@ -1384,6 +1685,7 @@ void Renderer::render(
     const Level& level,
     const Player& player,
     const std::vector<Zombie>& zombies,
+    const ParticleEngine& particleEngine,
     float alpha) {
 
     if (!initialized_ ||
@@ -1590,7 +1892,14 @@ void Renderer::render(
     renderZombies(
         zombies,
         player,
-        alpha);
+        alpha,
+        true);
+
+    renderParticles(
+        particleEngine,
+        player,
+        alpha,
+        true);
 
     C3D_FogGasMode(
         GPU_FOG,
