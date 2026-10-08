@@ -79,12 +79,6 @@ void Entity::resetPos() {
         random01() * static_cast<float>(level_.height());
 
     setPos(x, y, z);
-
-    // Avoid an artificial interpolation from the zero-initialized state during
-    // the first rendered frame after a reset.
-    xo_ = x_;
-    yo_ = y_;
-    zo_ = z_;
 }
 
 void Entity::resetPosition() {
