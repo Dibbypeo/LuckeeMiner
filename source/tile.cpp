@@ -157,12 +157,12 @@ void initializeTiles() {
     static Tile woodTile(5, 4);
     static BushTile bushTile(6);
 
-    rock = &rockTile;
-    grass = &grassTile;
-    dirt = &dirtTile;
-    stoneBrick = &stoneBrickTile;
-    wood = &woodTile;
-    bush = &bushTile;
+    Tile::rock = &rockTile;
+    Tile::grass = &grassTile;
+    Tile::dirt = &dirtTile;
+    Tile::stoneBrick = &stoneBrickTile;
+    Tile::wood = &woodTile;
+    Tile::bush = &bushTile;
 }
 
 } // namespace luckee
