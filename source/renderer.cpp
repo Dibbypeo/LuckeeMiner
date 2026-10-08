@@ -1147,6 +1147,7 @@ void Renderer::appendCharacterCube(
 
 void Renderer::renderZombies(
     const std::vector<Zombie>& zombies,
+    const Player& player,
     float alpha) {
 
     if (zombies.empty() ||
@@ -1160,7 +1161,35 @@ void Renderer::renderZombies(
         std::chrono::duration<double>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
 
+    const float renderX = player.renderX(alpha);
+    const float renderY = player.renderY(alpha);
+    const float renderZ = player.renderZ(alpha);
+
+    constexpr float zombieRenderDistance = RENDER_DISTANCE;
+    constexpr float zombieRenderDistanceSquared =
+        zombieRenderDistance * zombieRenderDistance;
+
     for (const Zombie& zombie : zombies) {
+        const float dx = zombie.renderX(alpha) - renderX;
+        const float dy = zombie.renderY(alpha) - renderY;
+        const float dz = zombie.renderZ(alpha) - renderZ;
+
+        if (dx * dx + dy * dy + dz * dz >
+            zombieRenderDistanceSquared) {
+            continue;
+        }
+
+        const AABB zombieBounds(
+            zombie.renderX(alpha) - 1.0f,
+            zombie.renderY(alpha) - 2.0f,
+            zombie.renderZ(alpha) - 1.0f,
+            zombie.renderX(alpha) + 1.0f,
+            zombie.renderY(alpha) + 1.0f,
+            zombie.renderZ(alpha) + 1.0f);
+
+        if (!frustum_.cubeInFrustum(zombieBounds))
+            continue;
+
         const double time =
             now * 10.0 *
             static_cast<double>(zombie.speed()) +
@@ -1560,6 +1589,7 @@ void Renderer::render(
 
     renderZombies(
         zombies,
+        player,
         alpha);
 
     C3D_FogGasMode(
