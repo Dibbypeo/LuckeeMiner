@@ -94,9 +94,9 @@ Build:
 
 ## Save-file compatibility
 
-The block save format remains the raw GZIP-compressed block array used by the earlier prototype family. For the default 256 × 64 × 256 world, the uncompressed block payload is 4,194,304 bytes.
+The block save format is the historical GZIP-compressed block array used by the rd-20090515 client. For the default 256 × 64 × 256 world, the uncompressed block payload is exactly 4,194,304 bytes.
 
-The rd-20090515 client still uses the same basic raw block layout, so existing block-format compatibility is retained while the meanings of the nonzero tile IDs expand.
+LuckeeMiner stores that payload byte-for-byte in the same `(y * height + z) * width + x` layout. Its writer uses raw DEFLATE with the historical Java GZIP header/trailer format, while its reader accepts the same GZIP data produced by the Java client.
 
 SELECT performs an immediate save. START performs a normal shutdown save.
 
