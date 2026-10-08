@@ -5,8 +5,12 @@
 
 namespace luckee {
 namespace {
+double randomDouble() {
+    return mathRandom().nextDouble();
+}
+
 float random01() {
-    return static_cast<float>(mathRandom().nextDouble());
+    return static_cast<float>(randomDouble());
 }
 } // namespace
 
@@ -26,7 +30,9 @@ Particle::Particle(
     zd_ = za + (random01() * 2.0f - 1.0f) * 0.4f;
 
     const float speed =
-        (random01() + random01() + 1.0f) * 0.15f;
+        static_cast<float>(
+            (randomDouble() + randomDouble() + 1.0) *
+            0.15f);
 
     const float dd =
         static_cast<float>(
@@ -42,11 +48,16 @@ Particle::Particle(
         zd_ = zd_ / dd * speed * 0.4f;
     }
 
-    uo_ = random01() * 3.0f;
-    vo_ = random01() * 3.0f;
-    size_ = random01() * 0.5f + 0.5f;
-    lifetime_ = static_cast<int>(
-        4.0f / (random01() * 0.9f + 0.1f));
+    uo_ =
+        static_cast<float>(randomDouble()) * 3.0f;
+    vo_ =
+        static_cast<float>(randomDouble()) * 3.0f;
+    size_ =
+        static_cast<float>(
+            randomDouble() * 0.5 + 0.5);
+    lifetime_ =
+        static_cast<int>(
+            4.0 / (randomDouble() * 0.9 + 0.1));
     age_ = 0;
 
     xo_ = x_;
@@ -62,7 +73,9 @@ void Particle::tick() {
     if (age_++ >= lifetime_)
         remove();
 
-    yd_ -= 0.04f;
+    yd_ =
+        static_cast<float>(
+            static_cast<double>(yd_) - 0.04);
 
     move(
         xd_,
