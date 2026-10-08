@@ -1446,8 +1446,7 @@ void Renderer::renderParticles(
         return;
 
     particleVertices_.clear();
-    particleVertices_.reserve(
-        particleVertices_.size() + particles.size() * 6u);
+    particleVertices_.reserve(particles.size() * 6u);
 
     const float yaw =
         player.yRot() * PI / 180.0f;
@@ -1542,7 +1541,7 @@ void Renderer::renderParticles(
             vertex.a = 1.0f;
             vertex.u = uv[i][0];
             vertex.v = uv[i][1];
-            vertices.push_back(vertex);
+            particleVertices_.push_back(vertex);
         }
     }
 
