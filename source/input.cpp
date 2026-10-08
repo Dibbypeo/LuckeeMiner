@@ -28,6 +28,12 @@ InputState readInput() {
     state.breakPressed =
         (down & KEY_R) != 0;
 
+    state.savePressed =
+        (down & KEY_SELECT) != 0;
+
+    state.resetPressed =
+        (down & KEY_X) != 0;
+
     static bool wasTouching = false;
     static touchPosition previous{};
 
