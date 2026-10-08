@@ -13,6 +13,26 @@
 #include "luckee/tile.hpp"
 
 namespace luckee {
+namespace {
+
+std::uint32_t randomSeed() {
+    static std::uint32_t counter = 0;
+
+    const auto now =
+        std::chrono::steady_clock::now()
+            .time_since_epoch()
+            .count();
+
+    ++counter;
+
+    return static_cast<std::uint32_t>(now) ^
+           (static_cast<std::uint32_t>(
+                static_cast<std::uint64_t>(now) >> 32) *
+            0x9E3779B9u) ^
+           (counter * 0x85EBCA6Bu);
+}
+
+} // namespace
 
 Level::Level(int width, int height, int depth)
     : width_(width),
@@ -27,7 +47,7 @@ Level::Level(int width, int height, int depth)
           static_cast<std::size_t>(width) *
           static_cast<std::size_t>(height),
           0),
-      random_(std::random_device{}()) {
+      random_(randomSeed()) {
     initializeTiles();
 
     const bool mapLoaded = load();
