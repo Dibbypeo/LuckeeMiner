@@ -3,20 +3,19 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "luckee/assets.hpp"
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
 #include "luckee/player.hpp"
+#include "luckee/particle_engine.hpp"
+#include "luckee/tile.hpp"
 #include "luckee/renderer.hpp"
 #include "luckee/timer.hpp"
 #include "luckee/zombie.hpp"
 
 namespace {
-
-constexpr float ZOMBIE_SIMULATION_DISTANCE = 64.0f;
-constexpr float ZOMBIE_SIMULATION_DISTANCE_SQUARED =
-    ZOMBIE_SIMULATION_DISTANCE * ZOMBIE_SIMULATION_DISTANCE;
 
 void presentStartupStage(const char* stage) {
     consoleClear();
@@ -74,19 +73,22 @@ int main(int, char**) {
     presentStartupStage("Level and player created");
 
     std::vector<luckee::Zombie> zombies;
-    zombies.reserve(100);
+    zombies.reserve(32);
 
-    for (int i = 0; i < 100; ++i) {
-        // rd-132328 passes a dummy position; Entity provides the randomized
-        // spawn position used by the native port.
+    for (int i = 0; i < 10; ++i) {
+        // The extracted rd-20090515 jar creates ten zombies at the
+        // center-ish position and then explicitly resets each one.
         zombies.emplace_back(
             level,
+            128.0f,
             0.0f,
-            0.0f,
-            0.0f);
+            128.0f);
+        zombies.back().resetPosition();
     }
 
-    presentStartupStage("100 zombies created");
+    luckee::ParticleEngine particleEngine(level);
+
+    presentStartupStage("10 zombies and particle engine created");
 
     luckee::Renderer renderer;
 
@@ -111,13 +113,14 @@ int main(int, char**) {
 
     presentStartupStage("Renderer initialized");
 
-    luckee::Timer timer(60.0f);
+    luckee::Timer timer(20.0f);
 
-    std::puts("LuckeeMiner - rd-132328 recreation\n");
+    std::puts("LuckeeMiner - rd-20090515 recreation\n");
     std::puts("World: 256 x 64 x 256");
-    std::puts("Blocks: rock + grass");
-    std::puts("Zombies: 100 (64-block simulation/render range)");
-    std::puts("Simulation: 60 ticks/sec");
+    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone brick, 5 wood, 6 bush");
+    std::puts("Zombies: 10 initial; G-equivalent spawn support pending");
+    std::puts("Particle engine: active");
+    std::puts("Simulation: 20 ticks/sec");
     std::puts("Assets: terrain.png + char.png\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
@@ -150,22 +153,20 @@ int main(int, char**) {
         for (int tick = 0;
              tick < timer.ticks();
              ++tick) {
-            const float playerX = player.x();
-            const float playerY = player.y();
-            const float playerZ = player.z();
+            level.tick();
+            particleEngine.tick();
 
-            for (luckee::Zombie& zombie : zombies) {
-                const float dx = zombie.x() - playerX;
-                const float dy = zombie.y() - playerY;
-                const float dz = zombie.z() - playerZ;
-
-                if (dx * dx + dy * dy + dz * dz >
-                    ZOMBIE_SIMULATION_DISTANCE_SQUARED) {
-                    continue;
-                }
-
+            for (luckee::Zombie& zombie : zombies)
                 zombie.tick();
-            }
+
+            zombies.erase(
+                std::remove_if(
+                    zombies.begin(),
+                    zombies.end(),
+                    [](const luckee::Zombie& zombie) {
+                        return zombie.removed();
+                    }),
+                zombies.end());
 
             player.tick(input);
         }
@@ -185,6 +186,26 @@ int main(int, char**) {
                 renderer.hitResult()) {
 
             if (input.breakPressed) {
+                const int oldId =
+                    level.getTile(
+                        hit->x,
+                        hit->y,
+                        hit->z);
+
+                if (oldId >= 0 &&
+                    oldId < luckee::Tile::MAX_TILES) {
+                    luckee::Tile* tile =
+                        luckee::Tile::tiles[oldId];
+
+                    if (tile)
+                        tile->destroy(
+                            level,
+                            hit->x,
+                            hit->y,
+                            hit->z,
+                            particleEngine);
+                }
+
                 level.setTile(
                     hit->x,
                     hit->y,
