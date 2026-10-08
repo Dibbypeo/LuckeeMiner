@@ -6,7 +6,8 @@ namespace luckee::assets {
 namespace {
 
 constexpr const char* requiredAssets[] = {
-    "assets/textures/terrain.png"
+    "assets/textures/terrain.png",
+    "assets/textures/char.png"
 };
 
 bool fileExists(const char* path) {
