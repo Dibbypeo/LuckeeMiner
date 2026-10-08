@@ -1,10 +1,31 @@
 #include "luckee/perlin_noise.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <random>
 
 namespace luckee {
+namespace {
+
+std::uint32_t randomSeed() {
+    static std::uint32_t counter = 0;
+
+    const auto now =
+        std::chrono::steady_clock::now()
+            .time_since_epoch()
+            .count();
+
+    ++counter;
+
+    return static_cast<std::uint32_t>(now) ^
+           (static_cast<std::uint32_t>(
+                static_cast<std::uint64_t>(now) >> 32) *
+            0x9E3779B9u) ^
+           (counter * 0x85EBCA6Bu);
+}
+
+} // namespace
 
 PerlinNoiseFilter::PerlinNoiseFilter(int levels)
     : levels_(levels) {
@@ -13,8 +34,7 @@ PerlinNoiseFilter::PerlinNoiseFilter(int levels)
 std::vector<int> PerlinNoiseFilter::read(
     int width,
     int height) {
-    std::mt19937 random(
-        std::random_device{}());
+    std::mt19937 random(randomSeed());
 
     std::vector<int> tmp(
         static_cast<std::size_t>(width) *
