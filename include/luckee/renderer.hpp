@@ -105,7 +105,8 @@ private:
         const Zombie& zombie,
         const CharacterPart& part,
         double time,
-        float alpha) const;
+        float alpha,
+        float brightness) const;
 
     void releaseChunkMesh(
         ChunkMesh& chunk);
