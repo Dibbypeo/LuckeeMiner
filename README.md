@@ -2,8 +2,9 @@
 
 **A native C++ Nintendo 3DS recreation of the early RubyDung / Minecraft prototype rd-132328.**
 
-<img width="400" height="240" alt="LuckeeMiner top screen" src="https://github.com/user-attachments/assets/6284eb91-1963-49c4-98c7-df7642794173" />
-<img width="320" height="240" alt="LuckeeMiner bottom screen" src="https://github.com/user-attachments/assets/dc65092b-7e16-4fdb-a434-4a59de98666b" />
+<img width="400" height="240" alt="2026-10-07_21-02-31 569_top" src="https://github.com/user-attachments/assets/477b26ee-8be3-444c-a8b4-088e2f64468a" />
+<img width="320" height="240" alt="2026-10-07_21-02-31 569_bot" src="https://github.com/user-attachments/assets/c80a72e3-fb7d-4e3a-b73d-a819dc43ab33" />
+
 
 LuckeeMiner recreates the rd-132328 front-end and gameplay behavior with an original C++ implementation for the Nintendo 3DS. The historical Java source is used as a behavioral reference; the Java implementation itself is not copied into the project.
 
@@ -11,9 +12,7 @@ The current release candidate is designed for original 3DS-family hardware, incl
 
 ## Current status
 
-**rd-132211 foundation: COMPLETE**
-
-**rd-132328 recreation: RELEASE CANDIDATE**
+**rd-132328 development: COMPLETE***
 
 The rd-132328 source implementation is complete. It includes the shared Entity system, randomized entity spawning, 100 wandering zombies, the six-part animated character model, the required 64×32 character texture, native 3DS rendering, nearby zombie simulation/render culling, manual saving, and player position reset.
 
@@ -176,17 +175,3 @@ Some internal implementation details necessarily differ because this is a native
 LuckeeMiner is released under the **MIT License**.
 
 See LICENSE for the complete license text.
-
-## Release checklist
-
-Before the public rd-132328 release:
-
-- Build the intended final .3dsx with the release configuration.
-- Verify terrain.png and char.png are present at the documented paths.
-- Test normal startup on the target original 3DS/2DS hardware.
-- Confirm Circle Pad movement, touch look, jumping, block placement/destruction, SELECT saving, X reset, and START exit.
-- Confirm level.dat saving and loading after a restart.
-- Confirm the release artifact is the version documented as rd-132328.
-- Create the public repository release/tag.
-
-The source tree and documentation are prepared for that final verification step.
