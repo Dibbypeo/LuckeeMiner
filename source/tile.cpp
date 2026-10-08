@@ -57,7 +57,7 @@ void Tile::tick(
 }
 
 void Tile::destroy(
-    Level& level,
+    Level&,
     int x, int y, int z,
     ParticleEngine& particleEngine) const {
     constexpr int SD = 4;
