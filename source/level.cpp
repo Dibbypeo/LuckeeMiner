@@ -206,9 +206,10 @@ bool Level::save() const {
         return false;
     }
 
-    // java.util.zip.GZIPOutputStream's historical fixed header. The DEFLATE
-    // stream itself may vary by zlib version; the uncompressed payload and
-    // standard GZIP framing are what provide save-file compatibility.
+    // java.util.zip.GZIPOutputStream's historical fixed header. Favor fast
+    // compression on the 3DS; the DEFLATE stream may vary by zlib version.
+    // The exact uncompressed payload and standard GZIP framing provide
+    // save-file compatibility.
     const unsigned char header[10] = {
         0x1F, 0x8B, 0x08, 0x00,
         0x00, 0x00, 0x00, 0x00,
@@ -225,7 +226,7 @@ bool Level::save() const {
     z_stream stream{};
     if (deflateInit2(
             &stream,
-            Z_DEFAULT_COMPRESSION,
+            Z_BEST_SPEED,
             Z_DEFLATED,
             -MAX_WBITS,
             8,
