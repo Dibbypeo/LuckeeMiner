@@ -124,6 +124,8 @@ int main(int, char**) {
     std::puts("A           : jump");
     std::puts("L           : place");
     std::puts("R           : break");
+    std::puts("SELECT      : save world");
+    std::puts("X           : reset player position");
     std::puts("START       : exit\n");
 
     int frames = 0;
@@ -136,6 +138,10 @@ int main(int, char**) {
 
         const luckee::InputState input =
             luckee::readInput();
+
+        // SELECT is the 3DS equivalent of the reference's manual save key.
+        if (input.savePressed)
+            level.save();
 
         timer.advanceTime();
 
@@ -250,6 +256,8 @@ int main(int, char**) {
             std::puts("A           : jump");
             std::puts("L           : place");
             std::puts("R           : break");
+            std::puts("SELECT      : save world");
+            std::puts("X           : reset player position");
             std::puts("START       : exit");
         }
 
