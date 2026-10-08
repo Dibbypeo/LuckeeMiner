@@ -229,25 +229,28 @@ int main(int, char**) {
                         hit->y,
                         hit->z);
 
-                if (oldId >= 0 &&
+                const bool changed =
+                    level.setTile(
+                        hit->x,
+                        hit->y,
+                        hit->z,
+                        0);
+
+                if (changed &&
+                    oldId >= 0 &&
                     oldId < luckee::Tile::MAX_TILES) {
                     luckee::Tile* tile =
                         luckee::Tile::tiles[oldId];
 
-                    if (tile)
+                    if (tile) {
                         tile->destroy(
                             level,
                             hit->x,
                             hit->y,
                             hit->z,
                             particleEngine);
+                    }
                 }
-
-                level.setTile(
-                    hit->x,
-                    hit->y,
-                    hit->z,
-                    0);
             }
 
             if (input.placePressed) {
