@@ -60,9 +60,6 @@ Particle::Particle(
             4.0 / (randomDouble() * 0.9 + 0.1));
     age_ = 0;
 
-    xo_ = x_;
-    yo_ = y_;
-    zo_ = z_;
 }
 
 void Particle::tick() {
