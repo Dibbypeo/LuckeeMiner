@@ -511,25 +511,6 @@ void Level::getCubes(
     }
 }
 
-float Level::getBrightness(
-    int x, int y, int z) const {
-    constexpr float dark = 0.8f;
-    constexpr float light = 1.0f;
-
-    if (x < 0 || y < 0 || z < 0 ||
-        x >= width_ ||
-        y >= depth_ ||
-        z >= height_) {
-        return light;
-    }
-
-    return y <
-        lightDepths_[
-            x + z * width_]
-        ? dark
-        : light;
-}
-
 bool Level::setTile(
     int x, int y, int z, int type) {
     if (x < 0 || y < 0 || z < 0 ||
