@@ -490,7 +490,8 @@ void Level::getCubes(
         for (int y = y0; y < y1; ++y) {
             for (int z = z0; z < z1; ++z) {
                 const int id =
-                    getTile(x, y, z);
+                    static_cast<int>(
+                        blocks_[index(x, y, z)]);
 
                 Tile* tile =
                     id >= 0 &&
@@ -524,12 +525,15 @@ bool Level::setTile(
         static_cast<std::uint8_t>(
             type);
 
-    if (blocks_[index(x, y, z)] ==
+    const std::size_t tileIndex =
+        index(x, y, z);
+
+    if (blocks_[tileIndex] ==
         newType) {
         return false;
     }
 
-    blocks_[index(x, y, z)] =
+    blocks_[tileIndex] =
         newType;
 
     calcLightDepths(
@@ -576,7 +580,8 @@ void Level::tick() {
             random_.nextInt(height_);
 
         const int id =
-            getTile(x, y, z);
+            static_cast<int>(
+                blocks_[index(x, y, z)]);
 
         if (id < 0 ||
             id >= Tile::MAX_TILES) {
