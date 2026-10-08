@@ -117,79 +117,98 @@ void Level::generateMap() {
 }
 
 bool Level::load() {
-    gzFile file =
-        gzopen("level.dat", "rb");
+    // The backup is only considered if the primary save cannot be opened or
+    // fails validation. This recovers from interruption during save replacement.
+    const char* const paths[] = {
+        "level.dat",
+        "level.dat.bak"
+    };
 
-    if (!file)
-        return false;
+    for (const char* path : paths) {
+        gzFile file = gzopen(path, "rb");
+        if (!file)
+            continue;
 
-    std::vector<std::uint8_t> loaded(
-        blocks_.size());
+        std::vector<std::uint8_t> loaded(blocks_.size());
+        std::size_t offset = 0;
 
-    std::size_t offset = 0;
+        while (offset < loaded.size()) {
+            const unsigned int remaining =
+                static_cast<unsigned int>(
+                    std::min<std::size_t>(
+                        loaded.size() - offset,
+                        0x7FFFFFFFu));
 
-    while (offset < loaded.size()) {
-        const unsigned int remaining =
-            static_cast<unsigned int>(
-                std::min<std::size_t>(
-                    loaded.size() - offset,
-                    0x7FFFFFFFu));
+            const int read =
+                gzread(
+                    file,
+                    loaded.data() + offset,
+                    remaining);
 
-        const int read =
-            gzread(
-                file,
-                loaded.data() + offset,
-                remaining);
+            if (read <= 0)
+                break;
 
-        if (read <= 0)
-            break;
+            offset += static_cast<std::size_t>(read);
+        }
 
-        offset +=
-            static_cast<std::size_t>(read);
+        // Read once beyond the expected payload to force zlib to validate the
+        // GZIP trailer (CRC and uncompressed size) and reject extra data.
+        unsigned char extra = 0;
+        const int extraRead =
+            offset == loaded.size()
+                ? gzread(file, &extra, 1)
+                : -1;
+
+        const int closeResult = gzclose(file);
+
+        if (offset != loaded.size() ||
+            extraRead != 0 ||
+            closeResult != Z_OK) {
+            continue;
+        }
+
+        blocks_.swap(loaded);
+        calcLightDepths(
+            0, 0,
+            width_,
+            height_);
+
+        for (LevelListener* listener : listeners_) {
+            if (listener)
+                listener->allChanged();
+        }
+
+        return true;
     }
 
-    const int closeResult =
-        gzclose(file);
-
-    if (offset != loaded.size() ||
-        closeResult != Z_OK) {
-        return false;
-    }
-
-    blocks_.swap(loaded);
-    calcLightDepths(
-        0, 0,
-        width_,
-        height_);
-
-    for (LevelListener* listener : listeners_) {
-        if (listener)
-            listener->allChanged();
-    }
-
-    return true;
+    return false;
 }
 
 void Level::save() const {
-    // java.util.zip.GZIPOutputStream used by the historical client writes:
-    //   1f 8b 08 00 00 00 00 00 00 00
-    // followed by raw DEFLATE and an 8-byte CRC/size trailer.
-    // zlib's gzopen() uses OS=3 on Unix, so write the GZIP member ourselves
-    // to preserve the historical container byte-for-byte.
+    constexpr const char* SAVE_PATH = "level.dat";
+    constexpr const char* TEMP_PATH = "level.dat.tmp";
+    constexpr const char* BACKUP_PATH = "level.dat.bak";
+
     if (blocks_.size() > 0xFFFFFFFFu) {
-        std::fputs("level.dat: world is too large for the historical GZIP format.\n",
-                   stderr);
+        std::fputs(
+            "level.dat: world is too large for the historical GZIP format.\n",
+            stderr);
         return;
     }
 
-    std::FILE* file =
-        std::fopen("level.dat", "wb");
+    // Do not truncate the last good save before the new file is complete.
+    // The temporary file lives beside level.dat so replacement stays on the
+    // same filesystem.
+    std::FILE* file = std::fopen(TEMP_PATH, "wb");
 
     if (!file) {
-        std::perror("level.dat");
+        std::perror(TEMP_PATH);
         return;
     }
 
+    // java.util.zip.GZIPOutputStream's historical fixed header. The DEFLATE
+    // stream itself may vary by zlib version; the uncompressed payload and
+    // standard GZIP framing are what provide save-file compatibility.
     const unsigned char header[10] = {
         0x1F, 0x8B, 0x08, 0x00,
         0x00, 0x00, 0x00, 0x00,
@@ -197,8 +216,9 @@ void Level::save() const {
     };
 
     if (std::fwrite(header, 1, sizeof(header), file) != sizeof(header)) {
-        std::perror("level.dat");
+        std::perror(TEMP_PATH);
         std::fclose(file);
+        std::remove(TEMP_PATH);
         return;
     }
 
@@ -210,9 +230,11 @@ void Level::save() const {
             -MAX_WBITS,
             8,
             Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::fputs("level.dat: could not initialize compression.\n",
-                   stderr);
+        std::fputs(
+            "level.dat: could not initialize compression.\n",
+            stderr);
         std::fclose(file);
+        std::remove(TEMP_PATH);
         return;
     }
 
@@ -225,8 +247,7 @@ void Level::save() const {
     bool ok = true;
 
     while (offset < blocks_.size()) {
-        const std::size_t remaining =
-            blocks_.size() - offset;
+        const std::size_t remaining = blocks_.size() - offset;
         const std::size_t inputSize =
             std::min(remaining, INPUT_CHUNK);
 
@@ -239,29 +260,30 @@ void Level::save() const {
             const_cast<Bytef*>(
                 reinterpret_cast<const Bytef*>(
                     blocks_.data() + offset));
-        stream.avail_in =
-            static_cast<uInt>(inputSize);
-
+        stream.avail_in = static_cast<uInt>(inputSize);
         offset += inputSize;
 
         while (stream.avail_in > 0) {
+            const uInt inputBefore = stream.avail_in;
+
             stream.next_out = output;
             stream.avail_out = OUTPUT_CHUNK;
 
-            const int result =
-                deflate(&stream, Z_NO_FLUSH);
-
-            if (result != Z_OK) {
-                ok = false;
-                break;
-            }
+            const int result = deflate(&stream, Z_NO_FLUSH);
 
             const std::size_t produced =
                 OUTPUT_CHUNK - stream.avail_out;
 
+            if (result != Z_OK ||
+                (stream.avail_in == inputBefore && produced == 0)) {
+                // Avoid an endless loop if the compression library reports
+                // success but neither consumes input nor produces output.
+                ok = false;
+                break;
+            }
+
             if (produced != 0 &&
-                std::fwrite(
-                    output, 1, produced, file) != produced) {
+                std::fwrite(output, 1, produced, file) != produced) {
                 ok = false;
                 break;
             }
@@ -272,7 +294,8 @@ void Level::save() const {
     }
 
     if (ok) {
-        int result;
+        int result = Z_OK;
+
         do {
             stream.next_in = Z_NULL;
             stream.avail_in = 0;
@@ -281,8 +304,7 @@ void Level::save() const {
 
             result = deflate(&stream, Z_FINISH);
 
-            if (result != Z_OK &&
-                result != Z_STREAM_END) {
+            if (result != Z_OK && result != Z_STREAM_END) {
                 ok = false;
                 break;
             }
@@ -291,15 +313,21 @@ void Level::save() const {
                 OUTPUT_CHUNK - stream.avail_out;
 
             if (produced != 0 &&
-                std::fwrite(
-                    output, 1, produced, file) != produced) {
+                std::fwrite(output, 1, produced, file) != produced) {
+                ok = false;
+                break;
+            }
+
+            if (result == Z_OK && produced == 0) {
+                // Z_FINISH must either emit bytes or finish the stream.
                 ok = false;
                 break;
             }
         } while (result != Z_STREAM_END);
     }
 
-    deflateEnd(&stream);
+    if (deflateEnd(&stream) != Z_OK)
+        ok = false;
 
     if (ok) {
         const unsigned char trailer[8] = {
@@ -324,11 +352,52 @@ void Level::save() const {
     if (std::fclose(file) != 0)
         ok = false;
 
-    if (!ok)
-        std::fputs("level.dat: failed while writing compressed world data.\n",
-                   stderr);
-}
+    if (!ok) {
+        std::fputs(
+            "level.dat: failed while writing the temporary world save; "
+            "the previous save was left untouched.\n",
+            stderr);
+        std::remove(TEMP_PATH);
+        return;
+    }
 
+    bool hadPreviousSave = false;
+    std::FILE* previous = std::fopen(SAVE_PATH, "rb");
+
+    if (previous) {
+        hadPreviousSave = true;
+        std::fclose(previous);
+
+        // On filesystems that cannot rename over an existing file, move the
+        // current save aside only after the replacement has been written.
+        // If the final rename fails, restore this backup.
+        std::remove(BACKUP_PATH);
+
+        if (std::rename(SAVE_PATH, BACKUP_PATH) != 0) {
+            std::perror("level.dat: could not preserve previous save");
+            std::remove(TEMP_PATH);
+            return;
+        }
+    }
+
+    if (std::rename(TEMP_PATH, SAVE_PATH) != 0) {
+        std::perror("level.dat: could not finalize save");
+
+        if (hadPreviousSave &&
+            std::rename(BACKUP_PATH, SAVE_PATH) != 0) {
+            std::fputs(
+                "level.dat: the previous save remains in level.dat.bak.\n",
+                stderr);
+        }
+
+        std::remove(TEMP_PATH);
+        return;
+    }
+
+    // The primary path now contains a complete validated-format save.
+    // Keep a backup only if it was needed for a failed replacement.
+    std::remove(BACKUP_PATH);
+}
 
 void Level::calcLightDepths(
     int x0, int y0,
