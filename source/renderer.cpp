@@ -818,13 +818,14 @@ void Renderer::appendBush(
             vertices.push_back(vertex);
         }
 
-        // Reverse face winding for the back-facing side, matching the source.
-        const int reverse[6] = {4, 5, 7, 4, 7, 6};
+        // The extracted source emits the second side in reverse order so
+        // both sides remain visible with back-face culling enabled.
+        const int reverse[6] = {4, 5, 6, 4, 6, 7};
         for (int index : reverse) {
             const int corner =
                 (index == 4 ? 0 :
                  index == 5 ? 1 :
-                 index == 7 ? 2 : 3);
+                 index == 6 ? 2 : 3);
 
             Vertex vertex{};
             vertex.x = positions[index][0];
