@@ -1,6 +1,24 @@
 #include "luckee/input.hpp"
 
 namespace luckee {
+namespace {
+
+constexpr float CIRCLE_PAD_MAX = 156.0f;
+constexpr float CIRCLE_PAD_DEADZONE = 0.18f;
+
+// Use an independent deadzone for each axis. This filters small accidental
+// vertical/horizontal offsets even while the other axis is intentionally held.
+float applyDeadzone(s16 raw) {
+    const float value =
+        static_cast<float>(raw) / CIRCLE_PAD_MAX;
+
+    return value > -CIRCLE_PAD_DEADZONE &&
+           value < CIRCLE_PAD_DEADZONE
+        ? 0.0f
+        : value;
+}
+
+} // namespace
 
 InputState readInput() {
     InputState state{};
@@ -10,11 +28,8 @@ InputState readInput() {
 
     // Match the reference movement axes:
     // left/right = +/-X and forward/back = -/+Z.
-    state.moveX =
-        static_cast<float>(circle.dx) / 156.0f;
-
-    state.moveY =
-        static_cast<float>(circle.dy) / 156.0f;
+    state.moveX = applyDeadzone(circle.dx);
+    state.moveY = applyDeadzone(circle.dy);
 
     const u32 down = hidKeysDown();
     const u32 held = hidKeysHeld();
