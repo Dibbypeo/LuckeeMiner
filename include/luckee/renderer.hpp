@@ -140,6 +140,7 @@ private:
     bool initialized_ = false;
 
     std::string error_;
+    bool frameActive_ = false;
 };
 
 } // namespace luckee
