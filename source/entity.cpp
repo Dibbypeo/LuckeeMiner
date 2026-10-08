@@ -24,8 +24,9 @@ Entity::Entity(Level& level)
 void Entity::resetPos() {
     const float x =
         random01() * static_cast<float>(level_.width());
+    // rd-132328 resets entities to three blocks above the level depth.
     const float y =
-        static_cast<float>(level_.depth()) + 10.0f;
+        static_cast<float>(level_.depth()) + 3.0f;
     const float z =
         random01() * static_cast<float>(level_.height());
 
