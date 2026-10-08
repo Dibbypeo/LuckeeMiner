@@ -12,6 +12,8 @@ ParticleEngine::ParticleEngine(Level& level)
     particles_.reserve(1024);
 }
 
+ParticleEngine::~ParticleEngine() = default;
+
 void ParticleEngine::add(std::unique_ptr<Particle> particle) {
     if (particle)
         particles_.push_back(std::move(particle));
