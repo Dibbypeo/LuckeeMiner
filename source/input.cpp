@@ -35,10 +35,10 @@ InputState readInput() {
         (down & KEY_X) != 0;
 
     state.nextBlockPressed =
-        (down & KEY_DOWN) != 0;
+        (down & KEY_DDOWN) != 0;
 
     state.previousBlockPressed =
-        (down & KEY_UP) != 0;
+        (down & KEY_DUP) != 0;
 
     state.spawnZombiePressed =
         (down & KEY_Y) != 0;
