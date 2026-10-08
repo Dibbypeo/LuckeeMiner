@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <fstream>
 #include <random>
+#include <cstdint>
 #include <vector>
 
 #include <zlib.h>
@@ -463,16 +464,18 @@ void Level::tick() {
     for (std::uint64_t i = 0;
          i < ticks;
          ++i) {
-        std::uniform_int_distribution<int> xDist(
-            0, width_ - 1);
-        std::uniform_int_distribution<int> yDist(
-            0, depth_ - 1);
-        std::uniform_int_distribution<int> zDist(
-            0, height_ - 1);
-
-        const int x = xDist(random_);
-        const int y = yDist(random_);
-        const int z = zDist(random_);
+        const int x =
+            static_cast<int>(
+                random_() %
+                static_cast<std::uint32_t>(width_));
+        const int y =
+            static_cast<int>(
+                random_() %
+                static_cast<std::uint32_t>(depth_));
+        const int z =
+            static_cast<int>(
+                random_() %
+                static_cast<std::uint32_t>(height_));
 
         const int id =
             getTile(x, y, z);
