@@ -10,8 +10,8 @@ struct InputState {
     float lookDeltaX = 0.0f;
     float lookDeltaY = 0.0f;
 
-    // The reference checks jump while held. Block editing, saving, and player
-    // reset are edge-triggered actions on the 3DS control mapping.
+    // Jump and player reset are held controls. Block editing, saving, block
+    // selection, and zombie spawning are edge-triggered on the 3DS mapping.
     bool jumpHeld = false;
     bool breakPressed = false;
     bool placePressed = false;
