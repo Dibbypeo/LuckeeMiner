@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <fstream>
-#include <random>
 #include <vector>
 
 #include <zlib.h>
@@ -173,38 +171,164 @@ bool Level::load() {
 }
 
 void Level::save() const {
-    gzFile file =
-        gzopen("level.dat", "wb");
+    // java.util.zip.GZIPOutputStream used by the historical client writes:
+    //   1f 8b 08 00 00 00 00 00 00 00
+    // followed by raw DEFLATE and an 8-byte CRC/size trailer.
+    // zlib's gzopen() uses OS=3 on Unix, so write the GZIP member ourselves
+    // to preserve the historical container byte-for-byte.
+    if (blocks_.size() > 0xFFFFFFFFu) {
+        std::fputs("level.dat: world is too large for the historical GZIP format.\n",
+                   stderr);
+        return;
+    }
+
+    std::FILE* file =
+        std::fopen("level.dat", "wb");
 
     if (!file) {
         std::perror("level.dat");
         return;
     }
 
-    std::size_t offset = 0;
+    const unsigned char header[10] = {
+        0x1F, 0x8B, 0x08, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00
+    };
 
-    while (offset < blocks_.size()) {
-        const unsigned int remaining =
-            static_cast<unsigned int>(
-                std::min<std::size_t>(
-                    blocks_.size() - offset,
-                    0x7FFFFFFFu));
-
-        const int written =
-            gzwrite(
-                file,
-                blocks_.data() + offset,
-                remaining);
-
-        if (written <= 0)
-            break;
-
-        offset +=
-            static_cast<std::size_t>(written);
+    if (std::fwrite(header, 1, sizeof(header), file) != sizeof(header)) {
+        std::perror("level.dat");
+        std::fclose(file);
+        return;
     }
 
-    gzclose(file);
+    z_stream stream{};
+    if (deflateInit2(
+            &stream,
+            Z_DEFAULT_COMPRESSION,
+            Z_DEFLATED,
+            -MAX_WBITS,
+            8,
+            Z_DEFAULT_STRATEGY) != Z_OK) {
+        std::fputs("level.dat: could not initialize compression.\\n",
+                   stderr);
+        std::fclose(file);
+        return;
+    }
+
+    constexpr std::size_t INPUT_CHUNK = 32768;
+    constexpr std::size_t OUTPUT_CHUNK = 32768;
+    unsigned char output[OUTPUT_CHUNK]{};
+
+    uLong crc = crc32(0L, Z_NULL, 0);
+    std::size_t offset = 0;
+    bool ok = true;
+
+    while (offset < blocks_.size()) {
+        const std::size_t remaining =
+            blocks_.size() - offset;
+        const std::size_t inputSize =
+            std::min(remaining, INPUT_CHUNK);
+
+        crc = crc32(
+            crc,
+            blocks_.data() + offset,
+            static_cast<uInt>(inputSize));
+
+        stream.next_in =
+            const_cast<Bytef*>(
+                reinterpret_cast<const Bytef*>(
+                    blocks_.data() + offset));
+        stream.avail_in =
+            static_cast<uInt>(inputSize);
+
+        offset += inputSize;
+
+        while (stream.avail_in > 0) {
+            stream.next_out = output;
+            stream.avail_out = OUTPUT_CHUNK;
+
+            const int result =
+                deflate(&stream, Z_NO_FLUSH);
+
+            if (result != Z_OK) {
+                ok = false;
+                break;
+            }
+
+            const std::size_t produced =
+                OUTPUT_CHUNK - stream.avail_out;
+
+            if (produced != 0 &&
+                std::fwrite(
+                    output, 1, produced, file) != produced) {
+                ok = false;
+                break;
+            }
+        }
+
+        if (!ok)
+            break;
+    }
+
+    if (ok) {
+        int result;
+        do {
+            stream.next_in = Z_NULL;
+            stream.avail_in = 0;
+            stream.next_out = output;
+            stream.avail_out = OUTPUT_CHUNK;
+
+            result = deflate(&stream, Z_FINISH);
+
+            if (result != Z_OK &&
+                result != Z_STREAM_END) {
+                ok = false;
+                break;
+            }
+
+            const std::size_t produced =
+                OUTPUT_CHUNK - stream.avail_out;
+
+            if (produced != 0 &&
+                std::fwrite(
+                    output, 1, produced, file) != produced) {
+                ok = false;
+                break;
+            }
+        } while (result != Z_STREAM_END);
+    }
+
+    deflateEnd(&stream);
+
+    if (ok) {
+        const unsigned char trailer[8] = {
+            static_cast<unsigned char>(crc & 0xFFu),
+            static_cast<unsigned char>((crc >> 8) & 0xFFu),
+            static_cast<unsigned char>((crc >> 16) & 0xFFu),
+            static_cast<unsigned char>((crc >> 24) & 0xFFu),
+            static_cast<unsigned char>(
+                static_cast<std::uint32_t>(blocks_.size()) & 0xFFu),
+            static_cast<unsigned char>(
+                (static_cast<std::uint32_t>(blocks_.size()) >> 8) & 0xFFu),
+            static_cast<unsigned char>(
+                (static_cast<std::uint32_t>(blocks_.size()) >> 16) & 0xFFu),
+            static_cast<unsigned char>(
+                (static_cast<std::uint32_t>(blocks_.size()) >> 24) & 0xFFu)
+        };
+
+        if (std::fwrite(trailer, 1, sizeof(trailer), file) != sizeof(trailer))
+            ok = false;
+    }
+
+    if (std::fclose(file) != 0)
+        ok = false;
+
+    if (!ok)
+        std::fputs("level.dat: failed while writing compressed world data.\\n",
+                   stderr);
 }
+
 
 void Level::calcLightDepths(
     int x0, int y0,
