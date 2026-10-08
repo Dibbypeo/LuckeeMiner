@@ -5,6 +5,8 @@
 
 namespace luckee {
 
+JavaRandom& mathRandom();
+
 /**
  * Small Java-compatible 48-bit linear-congruential RNG.
  *
