@@ -319,6 +319,18 @@ bool Renderer::initialize() {
         1000.0f,
         false);
 
+    // Match the reference HUD's orthographic coordinate system. The 3DS
+    // adaptation uses the full 400x240 top-screen area.
+    Mtx_OrthoTilt(
+        &hudProjection_,
+        0.0f,
+        400.0f,
+        240.0f,
+        0.0f,
+        100.0f,
+        300.0f,
+        false);
+
     if (!TextureLoader::loadTerrain(
             TERRAIN_TEXTURE_PATH,
             terrainTexture_,
@@ -1633,6 +1645,351 @@ void Renderer::renderParticles(
         static_cast<u32>(required));
 }
 
+void Renderer::renderHud(
+    int selectedTileId,
+    const Player& player) {
+
+    if (selectedTileId <= 0 ||
+        selectedTileId >= Tile::MAX_TILES) {
+        return;
+    }
+
+    Tile* tile =
+        Tile::tiles[selectedTileId];
+
+    if (!tile)
+        return;
+
+    const C3D_Mtx savedProjection =
+        projection_;
+
+    const float screenWidth = 400.0f;
+    const float screenHeight = 240.0f;
+
+    Mtx_OrthoTilt(
+        &projection_,
+        0.0f,
+        screenWidth,
+        screenHeight,
+        0.0f,
+        100.0f,
+        300.0f,
+        false);
+
+    C3D_Mtx modelView;
+    Mtx_Identity(&modelView);
+
+    Mtx_Translate(
+        &modelView,
+        screenWidth - 16.0f,
+        16.0f,
+        -200.0f,
+        true);
+
+    Mtx_Scale(
+        &modelView,
+        16.0f,
+        16.0f,
+        16.0f);
+
+    Mtx_RotateX(
+        &modelView,
+        30.0f * PI / 180.0f,
+        true);
+
+    Mtx_RotateY(
+        &modelView,
+        45.0f * PI / 180.0f,
+        true);
+
+    Mtx_Translate(
+        &modelView,
+        -1.5f,
+        0.5f,
+        -0.5f,
+        true);
+
+    Mtx_Scale(
+        &modelView,
+        -1.0f,
+        -1.0f,
+        1.0f);
+
+    C3D_FVUnifMtx4x4(
+        GPU_VERTEX_SHADER,
+        projectionLocation_,
+        &projection_);
+
+    C3D_FVUnifMtx4x4(
+        GPU_VERTEX_SHADER,
+        modelViewLocation_,
+        &modelView);
+
+    C3D_DepthTest(
+        false,
+        GPU_ALWAYS,
+        GPU_WRITE_ALL);
+
+    C3D_FogGasMode(
+        GPU_NO_FOG,
+        GPU_PLAIN_DENSITY,
+        false);
+
+    C3D_TexBind(
+        0,
+        &terrainTexture_);
+
+    C3D_TexEnv* env =
+        C3D_GetTexEnv(0);
+
+    const C3D_TexEnv savedEnv = *env;
+
+    C3D_TexEnvSrc(
+        env,
+        C3D_Both,
+        GPU_TEXTURE0,
+        GPU_PRIMARY_COLOR);
+
+    C3D_TexEnvFunc(
+        env,
+        C3D_Both,
+        GPU_MODULATE);
+
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+
+    auto sendVertex =
+        [](float x, float y, float z,
+           float r, float g, float b,
+           float u, float v) {
+            C3D_ImmSendAttrib(
+                x, y, z, 1.0f);
+            C3D_ImmSendAttrib(
+                r, g, b, 1.0f);
+            C3D_ImmSendAttrib(
+                u, v, 0.0f, 0.0f);
+        };
+
+    if (tile->isCrossPlant()) {
+        constexpr int textureId = 15;
+        const float minU =
+            static_cast<float>(textureId % 16) / 16.0f;
+        const float maxU =
+            minU + 0.0624375f;
+        const float minV =
+            static_cast<float>(textureId / 16) / 16.0f;
+        const float maxV =
+            minV + 0.0624375f;
+
+        const float uvs[4][2] = {
+            {maxU, minV},
+            {minU, minV},
+            {minU, maxV},
+            {maxU, maxV}
+        };
+
+        for (int r = 0; r < 2; ++r) {
+            const float angle =
+                static_cast<float>(r) * PI / 2.0f +
+                0.7853981633974483f;
+
+            const float xa =
+                std::sin(angle) * 0.5f;
+            const float za =
+                std::cos(angle) * 0.5f;
+
+            const float x0 =
+                -2.0f + 0.5f - xa;
+            const float x1 =
+                -2.0f + 0.5f + xa;
+            const float y0 = 0.0f;
+            const float y1 = 1.0f;
+            const float z0 =
+                0.5f - za;
+            const float z1 =
+                0.5f + za;
+
+            const float p[4][3] = {
+                {x0, y1, z0},
+                {x1, y1, z1},
+                {x1, y0, z1},
+                {x0, y0, z0}
+            };
+
+            const int first[6] =
+                {0, 1, 2, 0, 2, 3};
+
+            for (int i : first) {
+                sendVertex(
+                    p[i][0], p[i][1], p[i][2],
+                    1.0f, 1.0f, 1.0f,
+                    uvs[i][0], uvs[i][1]);
+            }
+
+            const float q[4][3] = {
+                {x1, y1, z1},
+                {x0, y1, z0},
+                {x0, y0, z0},
+                {x1, y0, z1}
+            };
+
+            const int second[6] =
+                {0, 1, 2, 0, 2, 3};
+
+            for (int i : second) {
+                sendVertex(
+                    q[i][0], q[i][1], q[i][2],
+                    1.0f, 1.0f, 1.0f,
+                    uvs[i][0], uvs[i][1]);
+            }
+        }
+    } else {
+        const int indices[6] =
+            {0, 1, 2, 0, 2, 3};
+
+        for (int face = 0; face < 6; ++face) {
+            const Face& f =
+                faces[face];
+
+            const int textureId =
+                tile->getTexture(face);
+
+            const float minU =
+                static_cast<float>(
+                    textureId % 16) / 16.0f;
+            const float maxU =
+                minU + 0.0624375f;
+            const float minV =
+                static_cast<float>(
+                    textureId / 16) / 16.0f;
+            const float maxV =
+                minV + 0.0624375f;
+
+            float u[4] = {};
+            float v[4] = {};
+
+            faceUvs(
+                face,
+                minU, maxU,
+                minV, maxV,
+                u, v);
+
+            for (int i : indices) {
+                const float x =
+                    f.p[i][0] - 2.0f;
+                const float y =
+                    f.p[i][1];
+                const float z =
+                    f.p[i][2];
+
+                sendVertex(
+                    x, y, z,
+                    f.shade,
+                    f.shade,
+                    f.shade,
+                    u[i], v[i]);
+            }
+        }
+    }
+
+    C3D_ImmDrawEnd();
+
+    // Draw the centered crosshair in the same HUD pass.
+    C3D_TexEnvSrc(
+        env,
+        C3D_Both,
+        GPU_PRIMARY_COLOR,
+        GPU_PRIMARY_COLOR);
+
+    C3D_TexEnvFunc(
+        env,
+        C3D_Both,
+        GPU_REPLACE);
+
+    Mtx_Identity(&modelView);
+
+    Mtx_Translate(
+        &modelView,
+        0.0f,
+        0.0f,
+        -200.0f,
+        true);
+
+    C3D_FVUnifMtx4x4(
+        GPU_VERTEX_SHADER,
+        modelViewLocation_,
+        &modelView);
+
+    const float cx =
+        screenWidth * 0.5f;
+    const float cy =
+        screenHeight * 0.5f;
+
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+
+    const float cross[8][3] = {
+        {cx + 1.0f, cy - 4.0f, 0.0f},
+        {cx + 0.0f, cy - 4.0f, 0.0f},
+        {cx + 0.0f, cy + 5.0f, 0.0f},
+        {cx + 1.0f, cy + 5.0f, 0.0f},
+        {cx + 5.0f, cy + 0.0f, 0.0f},
+        {cx - 4.0f, cy + 0.0f, 0.0f},
+        {cx - 4.0f, cy + 1.0f, 0.0f},
+        {cx + 5.0f, cy + 1.0f, 0.0f}
+    };
+
+    const int vertical[6] =
+        {0, 1, 2, 0, 2, 3};
+    const int horizontal[6] =
+        {4, 5, 6, 4, 6, 7};
+
+    for (int i : vertical) {
+        C3D_ImmSendAttrib(
+            cross[i][0],
+            cross[i][1],
+            cross[i][2],
+            1.0f);
+        C3D_ImmSendAttrib(
+            1.0f, 1.0f, 1.0f, 1.0f);
+        C3D_ImmSendAttrib(
+            0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    for (int i : horizontal) {
+        C3D_ImmSendAttrib(
+            cross[i][0],
+            cross[i][1],
+            cross[i][2],
+            1.0f);
+        C3D_ImmSendAttrib(
+            1.0f, 1.0f, 1.0f, 1.0f);
+        C3D_ImmSendAttrib(
+            0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    C3D_ImmDrawEnd();
+
+    C3D_SetTexEnv(
+        0,
+        const_cast<C3D_TexEnv*>(&savedEnv));
+
+    C3D_DepthTest(
+        true,
+        GPU_GREATER,
+        GPU_WRITE_ALL);
+
+    projection_ = savedProjection;
+
+    C3D_FVUnifMtx4x4(
+        GPU_VERTEX_SHADER,
+        projectionLocation_,
+        &projection_);
+
+    C3D_FVUnifMtx4x4(
+        GPU_VERTEX_SHADER,
+        modelViewLocation_,
+        &modelView);
+}
+
 void Renderer::renderHit() {
     if (!hasHit_)
         return;
@@ -1952,6 +2309,10 @@ void Renderer::render(
         false);
 
     renderHit();
+
+    renderHud(
+        selectedTileId,
+        player);
 
     C3D_FrameEnd(0);
     frameActive_ = false;
