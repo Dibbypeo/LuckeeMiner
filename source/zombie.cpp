@@ -92,8 +92,12 @@ void Zombie::tick() {
         random01() *
         0.08f;
 
-    const float xa = std::sin(rot_);
-    const float za = std::cos(rot_);
+    const float xa =
+        static_cast<float>(
+            std::sin(static_cast<double>(rot_)));
+    const float za =
+        static_cast<float>(
+            std::cos(static_cast<double>(rot_)));
 
     if (onGround_ && random01() < 0.08f)
         yd_ = 0.5f;
