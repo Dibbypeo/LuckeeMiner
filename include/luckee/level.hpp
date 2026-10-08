@@ -41,9 +41,6 @@ public:
         const AABB& box,
         std::vector<AABB>& result) const;
 
-    float getBrightness(
-        int x, int y, int z) const;
-
     bool setTile(
         int x, int y, int z, int type);
 
