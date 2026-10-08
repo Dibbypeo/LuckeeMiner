@@ -55,7 +55,7 @@ void Tile::tick(
 }
 
 void Tile::destroy(
-    Level&,
+    Level& level,
     int x, int y, int z,
     ParticleEngine& particleEngine) const {
     constexpr int SD = 4;
@@ -133,7 +133,7 @@ BushTile::BushTile(int id)
 void BushTile::tick(
     Level& level,
     int x, int y, int z,
-    std::mt19937&) {
+    JavaRandom&) {
     const int below =
         level.getTile(x, y - 1, z);
 
