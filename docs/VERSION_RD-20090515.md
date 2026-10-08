@@ -44,7 +44,7 @@ LuckeeMiner preserves the established 3DS controls where they remain useful and 
 | X | Reset player position |
 | START | Save and exit |
 
-The bottom screen remains a debug display rather than a recreation of a full desktop HUD. The top-screen crosshair and selected-block preview remain part of the version-specific front-end work.
+The bottom screen remains a debug display rather than a recreation of a full desktop HUD. The top-screen crosshair and selected-block preview are implemented with native Citro3D geometry.
 
 ## Implemented in the current branch
 
