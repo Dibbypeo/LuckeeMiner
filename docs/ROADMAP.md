@@ -60,7 +60,7 @@
 
 ## M6 — Verification and release
 
-- [ ] Perform a complete extracted-source audit across every Java class in rd-20090515.
+- [x] Perform a complete extracted-source audit across every Java class in rd-20090515.
 - [ ] Build the final release artifact.
 - [ ] Test on original 3DS/2DS hardware.
 - [ ] Test level.dat save/load and round-trip compatibility.
