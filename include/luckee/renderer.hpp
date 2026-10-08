@@ -136,7 +136,8 @@ private:
     C3D_Mtx hudProjection_{};
     C3D_Tex terrainTexture_{};
     C3D_Tex characterTexture_{};
-    C3D_FogLut fogLut_{};
+    C3D_FogLut dayFogLut_{};
+    C3D_FogLut shadowFogLut_{};
 
     void* characterVbo_ = nullptr;
     std::size_t characterVboCapacity_ = 0;
