@@ -2010,6 +2010,13 @@ void Renderer::renderHit() {
 
     const Face& face = faces[hitResult_.face];
 
+    // The reference temporarily disables alpha testing for the pulsing
+    // selection face because its alpha varies below the normal 0.5 cutoff.
+    C3D_AlphaTest(
+        false,
+        GPU_GREATER,
+        0x80);
+
     const auto now = std::chrono::system_clock::now();
     const auto milliseconds =
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -2080,6 +2087,11 @@ void Renderer::renderHit() {
         GPU_ONE, GPU_ZERO);
 
     C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+
+    C3D_AlphaTest(
+        true,
+        GPU_GREATER,
+        0x80);
 }
 
 void Renderer::render(
