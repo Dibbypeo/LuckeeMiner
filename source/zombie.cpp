@@ -36,18 +36,16 @@ CharacterPart makePart(
 
 } // namespace
 
-Zombie::Zombie(Level& level, float x, float y, float z)
+Zombie::Zombie(Level& level, float, float, float)
     : Entity(level),
       rot_(random01() * PI * 2.0f),
       timeOffs_(random01() * 1239813.0f),
       speed_(1.0f),
       rotA_((random01() + 1.0f) * 0.01f) {
-    // rd-132328 overwrites the position fields after Entity construction.
-    // Preserve that historical behavior, including the original AABB timing.
-    x_ = x;
-    y_ = y;
-    z_ = z;
-
+    // The Java prototype constructs zombies with a dummy (0,0,0) position.
+    // Entity construction already places them at a randomized reset position.
+    // Keeping that valid position/AABB pair avoids the prototype's stale-box
+    // initialization quirk, which otherwise makes zombies visibly teleport.
     parts_[0] = makePart(0, 0, -4.0f, -8.0f, -4.0f, 8, 8, 8);
     parts_[1] = makePart(16, 16, -4.0f, 0.0f, -2.0f, 8, 12, 4);
 
@@ -103,7 +101,8 @@ void Zombie::tick() {
     yd_ *= 0.98f;
     zd_ *= 0.91f;
 
-    if (y_ > 100.0f)
+    // Match rd-132328: entities reset after falling into the void.
+    if (y_ < -100.0f)
         resetPos();
 
     if (onGround_) {
