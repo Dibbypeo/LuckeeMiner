@@ -144,8 +144,24 @@ int main(int, char**) {
             luckee::readInput();
 
         // SELECT is the 3DS equivalent of the reference's manual save key.
-        if (input.savePressed)
-            level.save();
+        if (input.savePressed) {
+            consoleClear();
+            std::puts("LuckeeMiner - saving world\n");
+            std::puts("Compressing and writing level.dat...");
+            gfxFlushBuffers();
+            gfxSwapBuffers();
+            gspWaitForVBlank();
+
+            const bool saved = level.save();
+
+            std::puts(
+                saved
+                    ? "\nWorld save completed."
+                    : "\nSAVE FAILED. See the diagnostic message above.");
+            gfxFlushBuffers();
+            gfxSwapBuffers();
+            gspWaitForVBlank();
+        }
 
         const int selectableBlocks[] = {1, 3, 4, 5, 6};
 
