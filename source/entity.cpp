@@ -18,6 +18,56 @@ Entity::Entity(Level& level)
     resetPos();
 }
 
+Entity::Entity(Entity&& other) noexcept
+    : level_(other.level_),
+      xo_(other.xo_),
+      yo_(other.yo_),
+      zo_(other.zo_),
+      x_(other.x_),
+      y_(other.y_),
+      z_(other.z_),
+      xd_(other.xd_),
+      yd_(other.yd_),
+      zd_(other.zd_),
+      yRot_(other.yRot_),
+      xRot_(other.xRot_),
+      bb_(other.bb_),
+      onGround_(other.onGround_),
+      removed_(other.removed_),
+      heightOffset_(other.heightOffset_),
+      bbWidth_(other.bbWidth_),
+      bbHeight_(other.bbHeight_),
+      collisionCubes_(std::move(other.collisionCubes_)) {
+}
+
+Entity& Entity::operator=(Entity&& other) noexcept {
+    if (this == &other)
+        return *this;
+
+    // level_ is a reference and therefore cannot be rebound. The vector only
+    // contains entities belonging to the same Level in this program.
+    xo_ = other.xo_;
+    yo_ = other.yo_;
+    zo_ = other.zo_;
+    x_ = other.x_;
+    y_ = other.y_;
+    z_ = other.z_;
+    xd_ = other.xd_;
+    yd_ = other.yd_;
+    zd_ = other.zd_;
+    yRot_ = other.yRot_;
+    xRot_ = other.xRot_;
+    bb_ = other.bb_;
+    onGround_ = other.onGround_;
+    removed_ = other.removed_;
+    heightOffset_ = other.heightOffset_;
+    bbWidth_ = other.bbWidth_;
+    bbHeight_ = other.bbHeight_;
+    collisionCubes_ = std::move(other.collisionCubes_);
+
+    return *this;
+}
+
 void Entity::resetPos() {
     const float x =
         random01() * static_cast<float>(level_.width());
