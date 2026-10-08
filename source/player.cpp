@@ -9,10 +9,19 @@ Player::Player(Level& level)
     heightOffset_ = 1.62f;
 }
 
+void Player::resetPosition() {
+    resetPos();
+}
+
 void Player::tick(const InputState& input) {
+    // Keep the reference tick order: store previous position first, then
+    // process the position-reset key before movement and gravity.
     xo_ = x_;
     yo_ = y_;
     zo_ = z_;
+
+    if (input.resetPressed)
+        resetPosition();
 
     float xa = input.moveX;
     float za = input.moveY;
