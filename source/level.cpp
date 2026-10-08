@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <fstream>
 #include <random>
-#include <cstdint>
 #include <vector>
 
 #include <zlib.h>
@@ -13,26 +12,6 @@
 #include "luckee/tile.hpp"
 
 namespace luckee {
-namespace {
-
-std::uint32_t randomSeed() {
-    static std::uint32_t counter = 0;
-
-    const auto now =
-        std::chrono::steady_clock::now()
-            .time_since_epoch()
-            .count();
-
-    ++counter;
-
-    return static_cast<std::uint32_t>(now) ^
-           (static_cast<std::uint32_t>(
-                static_cast<std::uint64_t>(now) >> 32) *
-            0x9E3779B9u) ^
-           (counter * 0x85EBCA6Bu);
-}
-
-} // namespace
 
 Level::Level(int width, int height, int depth)
     : width_(width),
@@ -47,7 +26,7 @@ Level::Level(int width, int height, int depth)
           static_cast<std::size_t>(width) *
           static_cast<std::size_t>(height),
           0),
-      random_(randomSeed()) {
+      random_() {
     initializeTiles();
 
     const bool mapLoaded = load();
@@ -485,17 +464,11 @@ void Level::tick() {
          i < ticks;
          ++i) {
         const int x =
-            static_cast<int>(
-                random_() %
-                static_cast<std::uint32_t>(width_));
+            random_.nextInt(width_);
         const int y =
-            static_cast<int>(
-                random_() %
-                static_cast<std::uint32_t>(depth_));
+            random_.nextInt(depth_);
         const int z =
-            static_cast<int>(
-                random_() %
-                static_cast<std::uint32_t>(height_));
+            random_.nextInt(height_);
 
         const int id =
             getTile(x, y, z);
