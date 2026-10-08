@@ -137,6 +137,9 @@ private:
     std::size_t characterVboCapacity_ = 0;
     int characterVertexCount_ = 0;
 
+    void* particleVbo_ = nullptr;
+    std::size_t particleVboCapacity_ = 0;
+
     Frustum frustum_;
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
