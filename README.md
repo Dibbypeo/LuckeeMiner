@@ -34,7 +34,7 @@ The implementation is still being audited against the Java files extracted direc
 - Existing PC ↔ 3DS ↔ PC level.dat compatibility.
 - Bottom-screen runtime debug information.
 
-The desktop source also contains a small crosshair and selected-block preview HUD. The 3DS bottom screen remains a debug display during development while the top-screen front-end is brought into version parity.
+The rd-20090515 front-end now includes the centered crosshair and selected-block preview on the top screen. The bottom screen remains the runtime debug display during development.
 
 ## Controls
 
