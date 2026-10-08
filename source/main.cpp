@@ -1,8 +1,8 @@
 #include <3ds.h>
 #include <cstdio>
+#include <algorithm>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 #include "luckee/assets.hpp"
 #include "luckee/input.hpp"
