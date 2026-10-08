@@ -173,13 +173,19 @@ void Entity::moveRelative(float xa, float za, float speed) {
     if (dist < 0.01f)
         return;
 
-    dist = speed / std::sqrt(dist);
+    dist =
+        speed / static_cast<float>(
+            std::sqrt(
+                static_cast<double>(dist)));
 
-    const float radians =
-        yRot_ * 3.14159265358979323846f / 180.0f;
+    const double radians =
+        static_cast<double>(yRot_) *
+        3.14159265358979323846 / 180.0;
 
-    const float sin = std::sin(radians);
-    const float cos = std::cos(radians);
+    const float sin =
+        static_cast<float>(std::sin(radians));
+    const float cos =
+        static_cast<float>(std::cos(radians));
 
     xa *= dist;
     za *= dist;
