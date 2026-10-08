@@ -10,11 +10,13 @@ struct InputState {
     float lookDeltaX = 0.0f;
     float lookDeltaY = 0.0f;
 
-    // The reference checks the jump key while held. L/R remain edge-triggered
-    // because the reference handles block actions as mouse-button events.
+    // The reference checks jump while held. Block editing, saving, and player
+    // reset are edge-triggered actions on the 3DS control mapping.
     bool jumpHeld = false;
     bool breakPressed = false;
     bool placePressed = false;
+    bool savePressed = false;
+    bool resetPressed = false;
 };
 
 InputState readInput();
