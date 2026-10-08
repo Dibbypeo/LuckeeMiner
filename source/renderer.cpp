@@ -1100,7 +1100,8 @@ void Renderer::appendCharacterCube(
     const Zombie& zombie,
     const CharacterPart& part,
     double time,
-    float alpha) const {
+    float alpha,
+    float brightness) const {
 
     constexpr float size = 0.058333334f;
     const float yy =
