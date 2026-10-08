@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "luckee/level.hpp"
+#include "luckee/java_random.hpp"
 #include "luckee/particle.hpp"
 #include "luckee/particle_engine.hpp"
 
@@ -20,11 +21,8 @@ Tile* Tile::bush = nullptr;
 
 namespace {
 
-int randomInt(std::mt19937& random, int bound) {
-    if (bound <= 0)
-        return 0;
-    return static_cast<int>(
-        random() % static_cast<std::mt19937::result_type>(bound));
+int randomInt(JavaRandom& random, int bound) {
+    return random.nextInt(bound);
 }
 
 } // namespace
@@ -53,7 +51,7 @@ AABB Tile::getAABB(int x, int y, int z) const {
 void Tile::tick(
     Level&,
     int, int, int,
-    std::mt19937&) {
+    JavaRandom&) {
 }
 
 void Tile::destroy(
@@ -103,7 +101,7 @@ int GrassTile::getTexture(int face) const {
 void GrassTile::tick(
     Level& level,
     int x, int y, int z,
-    std::mt19937& random) {
+    JavaRandom& random) {
     if (!level.isLit(x, y, z)) {
         level.setTile(
             x, y, z,
