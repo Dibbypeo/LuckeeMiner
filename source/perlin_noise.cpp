@@ -1,9 +1,7 @@
 #include "luckee/perlin_noise.hpp"
 
-#include <algorithm>
-#include <chrono>
 #include <cstdint>
- #include <random>
+
 #include "luckee/java_random.hpp"
 
 namespace luckee {
@@ -15,7 +13,7 @@ PerlinNoiseFilter::PerlinNoiseFilter(int levels)
 std::vector<int> PerlinNoiseFilter::read(
     int width,
     int height) {
-    std::mt19937 random(randomSeed());
+    JavaRandom random;
 
     std::vector<int> tmp(
         static_cast<std::size_t>(width) *
@@ -123,15 +121,11 @@ std::vector<int> PerlinNoiseFilter::read(
                             static_cast<std::size_t>(width)];
 
                 const int upperNoise =
-                    static_cast<int>(
-                        random() %
-                        static_cast<std::uint32_t>(value * 2)) -
+                    random.nextInt(value * 2) -
                     value;
 
                 const int lowerNoise =
-                    static_cast<int>(
-                        random() %
-                        static_cast<std::uint32_t>(value * 2)) -
+                    random.nextInt(value * 2) -
                     value;
 
                 tmp[
