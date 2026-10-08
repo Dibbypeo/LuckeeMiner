@@ -406,7 +406,7 @@ bool Renderer::initialize() {
 }
 
 void Renderer::shutdown() {
-    if (initialized_)
+    if (initialized_ && !frameActive_)
         C3D_FrameSync();
 
     for (ChunkMesh& chunk : chunks_)
@@ -1362,7 +1362,10 @@ void Renderer::render(
         return;
     }
 
-    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    if (!C3D_FrameBegin(C3D_FRAME_SYNCDRAW))
+        return;
+
+    frameActive_ = true;
 
     initializeChunks(level);
 
@@ -1582,6 +1585,7 @@ void Renderer::render(
     renderHit();
 
     C3D_FrameEnd(0);
+    frameActive_ = false;
 }
 
 } // namespace luckee
