@@ -1,7 +1,7 @@
 #include "luckee/particle_engine.hpp"
 
-#include <algorithm>
 #include <cstddef>
+#include <utility>
 
 #include "luckee/particle.hpp"
 
@@ -18,19 +18,27 @@ void ParticleEngine::add(std::unique_ptr<Particle> particle) {
 }
 
 void ParticleEngine::tick() {
-    for (std::size_t i = 0; i < particles_.size();) {
-        Particle& particle = *particles_[i];
+    std::size_t write = 0;
+
+    for (std::size_t read = 0;
+         read < particles_.size();
+         ++read) {
+        Particle& particle =
+            *particles_[read];
+
         particle.tick();
 
-        if (particle.removed()) {
-            particles_.erase(
-                particles_.begin() +
-                static_cast<std::ptrdiff_t>(i));
+        if (particle.removed())
             continue;
-        }
 
-        ++i;
+        if (write != read)
+            particles_[write] =
+                std::move(particles_[read]);
+
+        ++write;
     }
+
+    particles_.resize(write);
 }
 
 } // namespace luckee
