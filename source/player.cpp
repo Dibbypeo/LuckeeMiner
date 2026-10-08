@@ -32,7 +32,9 @@ void Player::tick(const InputState& input) {
         za,
         onGround_ ? 0.1f : 0.02f);
 
-    yd_ -= 0.08f;
+    yd_ =
+        static_cast<float>(
+            static_cast<double>(yd_) - 0.08);
 
     move(
         xd_,
