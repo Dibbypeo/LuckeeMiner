@@ -13,7 +13,7 @@ LuckeeMiner currently uses the following Nintendo 3DS control mapping for the rd
 | **D-Pad Down** | Select the next placeable block |
 | **Y** | Spawn a zombie at the player's position |
 | **SELECT** | Save the current world immediately |
-| **X** | Reset the player's position |
+| **X** | Reset the player's position while held |
 | **START** | Save on exit and leave the homebrew application |
 
 ## Block selection
