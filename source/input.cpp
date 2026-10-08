@@ -4,18 +4,18 @@ namespace luckee {
 namespace {
 
 constexpr float CIRCLE_PAD_MAX = 156.0f;
-constexpr float CIRCLE_PAD_DEADZONE = 0.18f;
+constexpr int CIRCLE_PAD_DEADZONE = 28;
 
 // Use an independent deadzone for each axis. This filters small accidental
 // vertical/horizontal offsets even while the other axis is intentionally held.
+// 28 counts is equivalent to an 18% deadzone for the 156-count Circle Pad.
 float applyDeadzone(int raw) {
-    const float value =
-        static_cast<float>(raw) / CIRCLE_PAD_MAX;
+    if (raw >= -CIRCLE_PAD_DEADZONE &&
+        raw <= CIRCLE_PAD_DEADZONE) {
+        return 0.0f;
+    }
 
-    return value > -CIRCLE_PAD_DEADZONE &&
-           value < CIRCLE_PAD_DEADZONE
-        ? 0.0f
-        : value;
+    return static_cast<float>(raw) / CIRCLE_PAD_MAX;
 }
 
 } // namespace
