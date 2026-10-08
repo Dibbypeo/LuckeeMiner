@@ -83,6 +83,7 @@ private:
 
     void renderZombies(
         const std::vector<Zombie>& zombies,
+        const Player& player,
         float alpha);
 
     void appendCharacterCube(
