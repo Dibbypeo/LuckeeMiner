@@ -9,6 +9,7 @@
 #include "luckee/frustum.hpp"
 #include "luckee/hit_result.hpp"
 #include "luckee/level_listener.hpp"
+#include "luckee/particle_engine.hpp"
 #include "luckee/zombie.hpp"
 
 namespace luckee {
@@ -27,6 +28,7 @@ public:
         const Level& level,
         const Player& player,
         const std::vector<Zombie>& zombies,
+        const ParticleEngine& particleEngine,
         float alpha);
 
     const std::string& error() const { return error_; }
@@ -84,7 +86,14 @@ private:
     void renderZombies(
         const std::vector<Zombie>& zombies,
         const Player& player,
-        float alpha);
+        float alpha,
+        bool litLayer);
+
+    void renderParticles(
+        const ParticleEngine& particleEngine,
+        const Player& player,
+        float alpha,
+        bool litLayer);
 
     void appendCharacterCube(
         std::vector<Vertex>& vertices,
@@ -127,6 +136,7 @@ private:
     // Reused between chunk rebuilds to avoid repeated heap allocations.
     std::vector<Vertex> buildVertices_[2];
     std::vector<Vertex> characterVertices_;
+    std::vector<Vertex> particleVertices_;
 
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
