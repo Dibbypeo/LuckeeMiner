@@ -1,6 +1,7 @@
 #include "luckee/zombie.hpp"
 
 #include <cmath>
+
 #include "luckee/java_random.hpp"
 
 namespace luckee {
@@ -9,8 +10,8 @@ namespace {
 constexpr float PI = 3.14159265358979323846f;
 
 float random01() {
-    return static_cast<float>(std::rand()) /
-           static_cast<float>(RAND_MAX);
+    return static_cast<float>(
+        mathRandom().nextDouble());
 }
 
 CharacterPart makePart(
