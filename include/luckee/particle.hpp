@@ -15,6 +15,8 @@ public:
     void tick() override;
 
     int texture() const { return texture_; }
+    float uOffset() const { return uo_; }
+    float vOffset() const { return vo_; }
     float size() const { return size_; }
 
 private:
