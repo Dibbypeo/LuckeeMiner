@@ -194,7 +194,7 @@ static bool raycastSample(
     float t = 0.0f;
 
     // The reference can select tiles anywhere in the rendered world.
-    for (int step = 0; step < 256; ++step) {
+    for (int step = 0; step < 1024; ++step) {
         if (x < minX || y < minY || z < minZ ||
             x >= maxX || y >= maxY || z >= maxZ) {
             return false;
