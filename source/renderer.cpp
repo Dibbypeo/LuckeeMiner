@@ -43,6 +43,13 @@ constexpr float HIGHLIGHT_OFFSET = 0.002f;
 // 3DS linear heap. Four 16-block chunks is a conservative render distance.
 constexpr float RENDER_DISTANCE = 64.0f;
 constexpr float MESH_CACHE_DISTANCE = 80.0f;
+constexpr int MAX_REBUILDS_PER_FRAME = 8;
+
+static std::uint64_t currentTimeMs() {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+}
 
 struct Face {
     float p[4][3];
@@ -674,7 +681,10 @@ void Renderer::markDirtyRange(
                      static_cast<std::size_t>(chunkAmountZ_) +
                      static_cast<std::size_t>(z);
 
-                chunks_[index].dirty = true;
+                ChunkMesh& chunk = chunks_[index];
+                if (!chunk.dirty)
+                    chunk.dirtiedTimeMs = currentTimeMs();
+                chunk.dirty = true;
             }
         }
     }
@@ -705,8 +715,15 @@ void Renderer::lightColumnChanged(
 }
 
 void Renderer::allChanged() {
-    for (ChunkMesh& chunk : chunks_)
-        chunk.dirty = true;
+    if (!level_)
+        return;
+
+    markDirtyRange(
+        *level_,
+        0, 0, 0,
+        level_->width() - 1,
+        level_->depth() - 1,
+        level_->height() - 1);
 }
 
 void Renderer::appendFace(
@@ -2194,14 +2211,8 @@ void Renderer::render(
 
     frustum_.set(clip);
 
-    // The reference rebuilds a maximum of one chunk per rendered frame.
-    // Prefer a visible dirty chunk closest to the player.
-    std::size_t rebuildIndex =
-        chunks_.size();
-
-    float bestDistance =
-        std::numeric_limits<float>::infinity();
-
+    // Match LevelRenderer.updateDirtyChunks(): visible chunks are
+    // preferred, then recently-dirtied chunks, then nearest chunks.
     const float renderDistanceSquared =
         RENDER_DISTANCE * RENDER_DISTANCE;
 
@@ -2239,29 +2250,76 @@ void Renderer::render(
             continue;
 
         visible_[index] = 1;
-
-        if (!chunk.dirty)
-            continue;
-
-        const float distance =
-            distanceX * distanceX +
-            distanceZ * distanceZ;
-
-        if (rebuildIndex ==
-                chunks_.size() ||
-            distance < bestDistance) {
-
-            rebuildIndex = index;
-            bestDistance = distance;
-        }
     }
 
-    if (rebuildIndex <
-        chunks_.size()) {
+    const std::uint64_t nowMs = currentTimeMs();
 
-        rebuildChunk(
-            level,
-            chunks_[rebuildIndex]);
+    for (int rebuild = 0;
+         rebuild < MAX_REBUILDS_PER_FRAME;
+         ++rebuild) {
+
+        std::size_t rebuildIndex = chunks_.size();
+        std::uint64_t bestAgeBucket =
+            std::numeric_limits<std::uint64_t>::max();
+        float bestDistance =
+            std::numeric_limits<float>::infinity();
+
+        for (std::size_t index = 0;
+             index < chunks_.size();
+             ++index) {
+
+            const ChunkMesh& chunk =
+                chunks_[index];
+
+            if (!visible_[index] ||
+                !chunk.dirty) {
+                continue;
+            }
+
+            const std::uint64_t ageBucket =
+                (nowMs >= chunk.dirtiedTimeMs
+                     ? nowMs - chunk.dirtiedTimeMs
+                     : 0) /
+                2000u;
+
+            const float centerX =
+                (chunk.minX + chunk.maxX) * 0.5f;
+            const float centerY =
+                (chunk.minY + chunk.maxY) * 0.5f;
+            const float centerZ =
+                (chunk.minZ + chunk.maxZ) * 0.5f;
+
+            const float distanceX =
+                centerX - renderX;
+            const float distanceY =
+                centerY - renderY;
+            const float distanceZ =
+                centerZ - renderZ;
+
+            const float distance =
+                distanceX * distanceX +
+                distanceY * distanceY +
+                distanceZ * distanceZ;
+
+            if (rebuildIndex == chunks_.size() ||
+                ageBucket < bestAgeBucket ||
+                (ageBucket == bestAgeBucket &&
+                 distance < bestDistance)) {
+
+                rebuildIndex = index;
+                bestAgeBucket = ageBucket;
+                bestDistance = distance;
+            }
+        }
+
+        if (rebuildIndex == chunks_.size())
+            break;
+
+        if (!rebuildChunk(
+                level,
+                chunks_[rebuildIndex])) {
+            break;
+        }
     }
 
     C3D_RenderTargetClear(
