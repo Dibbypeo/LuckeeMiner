@@ -14,8 +14,6 @@ void Player::resetPosition() {
 }
 
 void Player::tick(const InputState& input) {
-    // Keep the reference tick order: store previous position first, then
-    // process the position-reset key before movement and gravity.
     xo_ = x_;
     yo_ = y_;
     zo_ = z_;
@@ -27,14 +25,14 @@ void Player::tick(const InputState& input) {
     float za = input.moveY;
 
     if (input.jumpHeld && onGround_)
-        yd_ = 0.12f;
+        yd_ = 0.5f;
 
     moveRelative(
         xa,
         za,
-        onGround_ ? 0.02f : 0.005f);
+        onGround_ ? 0.1f : 0.02f);
 
-    yd_ -= 0.005f;
+    yd_ -= 0.08f;
 
     move(
         xd_,
@@ -46,8 +44,8 @@ void Player::tick(const InputState& input) {
     zd_ *= 0.91f;
 
     if (onGround_) {
-        xd_ *= 0.8f;
-        zd_ *= 0.8f;
+        xd_ *= 0.7f;
+        zd_ *= 0.7f;
     }
 }
 
