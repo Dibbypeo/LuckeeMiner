@@ -2273,6 +2273,16 @@ void Renderer::render(
         CLEAR_COLOR,
         0);
 
+    // Grow entity buffers before the first draw of the frame. Reallocating a
+    // linear-memory VBO after the bright pass could free memory still queued
+    // for the GPU.
+    ensureCharacterVboCapacity(
+        zombies.size() *
+        static_cast<std::size_t>(ZOMBIE_VERTEX_COUNT));
+
+    ensureParticleVboCapacity(
+        particleEngine.particles().size() * 6u);
+
     C3D_FrameDrawOn(target_);
 
     C3D_BindProgram(
