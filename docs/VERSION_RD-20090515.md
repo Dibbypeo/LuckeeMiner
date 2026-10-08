@@ -73,7 +73,7 @@ The current native implementation has already introduced:
 
 The desktop reference uses LWJGL/OpenGL and display-list rendering. LuckeeMiner instead uses Citro3D vertex buffers, chunk caching, frustum culling, and bounded linear-memory allocations.
 
-The generated terrain remains the same kind of version-specific world generation, but the C++ random-number implementation is console-native rather than Java's exact Random implementation. The goal is to preserve the generated terrain characteristics and visible behavior without relying on desktop JVM internals.
+The native RNG reimplements Java's 48-bit java.util.Random algorithm, including bounded nextInt and nextDouble arithmetic. Default seeding remains runtime-dependent, just as Java's no-argument Random constructor is runtime-dependent, but every subsequent RNG operation uses the Java algorithm.
 
 The renderer keeps a bounded world cache and a conservative render distance for original 3DS hardware. These are performance adaptations rather than new gameplay systems.
 
@@ -90,6 +90,10 @@ LuckeeMiner continues to expect these as external assets under:
     SD:/3ds/assets/textures/char.png
 
 The project does not automatically bundle historical game assets.
+
+## Save-file compatibility
+
+The native reader and writer use the same raw block payload as the Java client. The writer emits the historical Java GZIP member structure with raw DEFLATE, CRC-32, and the 32-bit uncompressed size trailer. For matching DEFLATE implementations, the compressed byte stream is identical as well as the uncompressed payload.
 
 ## Verification status
 
