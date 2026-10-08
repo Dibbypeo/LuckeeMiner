@@ -20,7 +20,9 @@ LuckeeMiner now implements:
 
 ## Historical behavior preserved
 
-The rd-132328 Entity reset routine chooses random X/Z coordinates and starts an entity at level depth + 10.
+The rd-132328 Entity reset routine chooses random X/Z coordinates and starts an entity three blocks above the level depth.
+
+LuckeeMiner initializes zombies directly from that valid randomized position instead of reproducing the prototype's temporary stale bounding-box mismatch. This prevents zombies from appearing at y=0 and then visibly teleporting to their reset height on the first tick. Void reset also follows the reference's y < -100 condition.
 
 The historical Zombie constructor overwrites x/y/z after calling the Entity constructor without rebuilding the inherited AABB. LuckeeMiner preserves this ordering rather than silently fixing the prototype.
 
