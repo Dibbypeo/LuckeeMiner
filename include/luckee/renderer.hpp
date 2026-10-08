@@ -79,6 +79,11 @@ private:
         float brightness,
         int textureId) const;
 
+    void appendBush(
+        std::vector<Vertex>& vertices,
+        int x, int y, int z,
+        float brightness) const;
+
     void drawChunk(
         const ChunkMesh& chunk,
         int layer);
