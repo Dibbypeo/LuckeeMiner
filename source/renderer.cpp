@@ -193,7 +193,7 @@ static bool raycastSample(
     int enteredFace = -1;
     float t = 0.0f;
 
-    // The reference can select tiles anywhere in the rendered world.
+    // The ray is limited by the caller's reference selection volume.
     for (int step = 0; step < 1024; ++step) {
         if (x < minX || y < minY || z < minZ ||
             x >= maxX || y >= maxY || z >= maxZ) {
@@ -1129,14 +1129,20 @@ bool Renderer::pick(
 
     hasHit_ = false;
 
-    // GL selection in the reference searches the visible world rather
-    // than limiting the pick volume to a few blocks around the player.
-    const int minX = 0;
-    const int maxX = level.width();
-    const int minY = 0;
-    const int maxY = level.depth();
-    const int minZ = 0;
-    const int maxZ = level.height();
+    // The reference expands the player's bounding box by 3 blocks
+    // and only considers tiles inside that selection volume.
+    const AABB selectionBox =
+        player.boundingBox().grow(3.0f, 3.0f, 3.0f);
+
+    const int minX = static_cast<int>(selectionBox.x0);
+    const int maxX =
+        static_cast<int>(selectionBox.x1 + 1.0f);
+    const int minY = static_cast<int>(selectionBox.y0);
+    const int maxY =
+        static_cast<int>(selectionBox.y1 + 1.0f);
+    const int minZ = static_cast<int>(selectionBox.z0);
+    const int maxZ =
+        static_cast<int>(selectionBox.z1 + 1.0f);
 
     constexpr float screenWidth = 400.0f;
     constexpr float screenHeight = 240.0f;
@@ -1418,13 +1424,8 @@ void Renderer::renderZombies(
             continue;
         }
 
-        const AABB zombieBounds(
-            zombie.renderX(alpha) - 1.0f,
-            zombie.renderY(alpha) - 2.0f,
-            zombie.renderZ(alpha) - 1.0f,
-            zombie.renderX(alpha) + 1.0f,
-            zombie.renderY(alpha) + 1.0f,
-            zombie.renderZ(alpha) + 1.0f);
+        const AABB zombieBounds =
+            zombie.boundingBox();
 
         if (!frustum_.cubeInFrustum(zombieBounds))
             continue;
