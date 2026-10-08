@@ -4,11 +4,11 @@
 
 namespace luckee {
 
-// Fixed-rate simulation clock modeled after rd-132211's Timer.
-// Rendering may run at any rate, while simulation advances in 60 Hz steps.
+// Fixed-rate simulation clock modeled after the rd-20090515 Timer.
+// Rendering may run at any rate, while simulation advances in 20 Hz steps.
 class Timer {
 public:
-    explicit Timer(float ticksPerSecond = 60.0f);
+    explicit Timer(float ticksPerSecond = 20.0f);
 
     void advanceTime();
 
