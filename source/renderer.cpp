@@ -408,15 +408,24 @@ bool Renderer::initialize() {
         C3D_Both,
         GPU_MODULATE);
 
+    // The extracted client uses GL_EXP fog with different densities
+    // and colors for daylight and shadow passes.
     FogLut_Exp(
-        &fogLut_,
-        0.2f,
-        2.0f,
+        &dayFogLut_,
+        0.001f,
+        1.0f,
         0.05f,
         1000.0f);
 
-    C3D_FogColor(0x0E0B0A);
-    C3D_FogLutBind(&fogLut_);
+    FogLut_Exp(
+        &shadowFogLut_,
+        0.06f,
+        1.0f,
+        0.05f,
+        1000.0f);
+
+    C3D_FogColor(0xFEFBFA);
+    C3D_FogLutBind(&dayFogLut_);
 
     C3D_DepthTest(
         true,
@@ -2264,10 +2273,13 @@ void Renderer::render(
         modelViewLocation_,
         &modelView);
 
-    // Match the reference's two rendering passes: layer 0 is the bright,
-    // unfogged pass; layer 1 is the darker, fogged pass.
+    // Match the reference's two exponential fog passes.
+    C3D_FogColor(0xFEFBFA);
+    C3D_FogLutBind(&dayFogLut_);
+    C3D_FogColor(0x0E0B0A);
+    C3D_FogLutBind(&shadowFogLut_);
     C3D_FogGasMode(
-        GPU_NO_FOG,
+        GPU_FOG,
         GPU_PLAIN_DENSITY,
         false);
 
@@ -2308,6 +2320,7 @@ void Renderer::render(
                 1);
     }
 
+    C3D_FogLutBind(nullptr);
     C3D_FogGasMode(
         GPU_NO_FOG,
         GPU_PLAIN_DENSITY,
