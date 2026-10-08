@@ -54,8 +54,8 @@
 
 - [x] Keep the bottom screen as a runtime debug display during development.
 - [x] Preserve block interaction and reference-oriented targeting behavior.
-- [ ] Add the extracted client's centered crosshair to the top screen.
-- [ ] Add the selected-block preview to the top-right of the top screen.
+- [x] Add the extracted client's centered crosshair to the top screen.
+- [x] Add the selected-block preview to the top-right of the top screen.
 - [ ] Audit character and terrain visual parity with the extracted JAR assets.
 
 ## M6 — Verification and release
