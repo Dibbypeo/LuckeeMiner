@@ -141,7 +141,6 @@ private:
     DVLB_s* shaderDvlb_ = nullptr;
     shaderProgram_s program_{};
     C3D_Mtx projection_{};
-    C3D_Mtx hudProjection_{};
     C3D_Tex terrainTexture_{};
     C3D_Tex characterTexture_{};
     C3D_FogLut dayFogLut_{};
