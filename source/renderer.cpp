@@ -198,7 +198,7 @@ static bool raycastSample(
             return false;
         }
 
-        if (level.isSolidTile(x, y, z)) {
+        if (level.isTile(x, y, z)) {
             result.x = x;
             result.y = y;
             result.z = z;
@@ -770,11 +770,6 @@ void Renderer::appendBush(
             {minU, minV},
             {minU, maxV},
             {maxU, maxV}
-        };
-
-        const int order[8] = {
-            0, 1, 2, 0,
-            4, 5, 6, 7
         };
 
         // Two crossed quads, each split into two triangles.
