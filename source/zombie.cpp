@@ -36,16 +36,23 @@ CharacterPart makePart(
 
 } // namespace
 
-Zombie::Zombie(Level& level, float, float, float)
-    : Entity(level),
-      rot_(random01() * PI * 2.0f),
-      rotA_((random01() + 1.0f) * 0.009999999776482582f),
-      timeOffs_(random01() * 1239813.0f),
-      speed_(1.0f) {
-    // The Java prototype constructs zombies with a dummy (0,0,0) position.
-    // Entity construction already places them at a randomized reset position.
-    // Keeping that valid position/AABB pair avoids the prototype's stale-box
-    // initialization quirk, which otherwise makes zombies visibly teleport.
+Zombie::Zombie(Level& level, float x, float y, float z)
+    : Entity(level) {
+    // Match the extracted jar's initialization order: rotA is initialized
+    // at field declaration before the constructor initializes timeOffs/rot.
+    rotA_ =
+        (random01() + 1.0f) *
+        0.01f;
+    setPos(x, y, z);
+    timeOffs_ =
+        random01() *
+        1239813.0f;
+    rot_ =
+        random01() *
+        PI * 2.0f;
+    speed_ = 1.0f;
+    // rd-20090515 explicitly calls resetPos() after constructing each initial
+    // zombie. Spawned zombies instead receive the player's current position.
     parts_[0] = makePart(0, 0, -4.0f, -8.0f, -4.0f, 8, 8, 8);
     parts_[1] = makePart(16, 16, -4.0f, 0.0f, -2.0f, 8, 12, 4);
 
@@ -71,26 +78,31 @@ void Zombie::tick() {
     yo_ = y_;
     zo_ = z_;
 
+    // The prototype removes a zombie for falling into the void but continues
+    // processing the remainder of this tick.
+    if (y_ < -100.0f)
+        remove();
+
     rot_ += rotA_;
     rotA_ *= 0.99f;
     rotA_ +=
         (random01() - random01()) *
         random01() *
         random01() *
-        0.01f;
+        0.08f;
 
     const float xa = std::sin(rot_);
     const float za = std::cos(rot_);
 
-    if (onGround_ && random01() < 0.01f)
-        yd_ = 0.12f;
+    if (onGround_ && random01() < 0.08f)
+        yd_ = 0.5f;
 
     moveRelative(
         xa,
         za,
-        onGround_ ? 0.02f : 0.005f);
+        onGround_ ? 0.1f : 0.02f);
 
-    yd_ -= 0.005f;
+    yd_ -= 0.08f;
 
     move(
         xd_,
@@ -102,12 +114,9 @@ void Zombie::tick() {
     zd_ *= 0.91f;
 
     // Match rd-132328: entities reset after falling into the void.
-    if (y_ < -100.0f)
-        resetPos();
-
     if (onGround_) {
-        xd_ *= 0.8f;
-        zd_ *= 0.8f;
+        xd_ *= 0.7f;
+        zd_ *= 0.7f;
     }
 }
 
