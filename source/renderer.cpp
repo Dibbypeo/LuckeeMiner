@@ -788,7 +788,7 @@ void Renderer::appendBush(
             vertex.a = 1.0f;
             vertex.u = uvs[uvIndex][0];
             vertex.v = uvs[uvIndex][1];
-            vertices.push_back(vertex);
+            particleVertices_.push_back(vertex);
         }
 
         // Reverse face winding for the back-facing side, matching the source.
@@ -1445,8 +1445,9 @@ void Renderer::renderParticles(
     if (particles.empty())
         return;
 
-    std::vector<Vertex> vertices;
-    vertices.reserve(particles.size() * 6u);
+    particleVertices_.clear();
+    particleVertices_.reserve(
+        particleVertices_.size() + particles.size() * 6u);
 
     const float yaw =
         player.yRot() * PI / 180.0f;
@@ -1476,11 +1477,14 @@ void Renderer::renderParticles(
 
         const float u0 =
             (static_cast<float>(tex % 16) +
-             0.0f) / 16.0f;
+             particle.uOffset() / 4.0f) /
+            16.0f;
         const float u1 =
             u0 + 0.015609375f;
         const float v0 =
-            static_cast<float>(tex / 16) / 16.0f;
+            (static_cast<float>(tex / 16) +
+             particle.vOffset() / 4.0f) /
+            16.0f;
         const float v1 =
             v0 + 0.015609375f;
 
@@ -1542,11 +1546,11 @@ void Renderer::renderParticles(
         }
     }
 
-    if (vertices.empty())
+    if (particleVertices_.empty())
         return;
 
-    std::size_t required =
-        vertices.size();
+    const std::size_t required =
+        particleVertices_.size();
 
     if (required > characterVboCapacity_) {
         const std::size_t doubled =
@@ -1573,7 +1577,7 @@ void Renderer::renderParticles(
 
     std::memcpy(
         characterVbo_,
-        vertices.data(),
+        particleVertices_.data(),
         required * sizeof(Vertex));
 
     C3D_TexBind(
