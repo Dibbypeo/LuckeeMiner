@@ -112,8 +112,14 @@ void Entity::setPos(float x, float y, float z) {
 }
 
 void Entity::turn(float deltaX, float deltaY) {
-    yRot_ += deltaX * 0.15f;
-    xRot_ -= deltaY * 0.15f;
+    yRot_ =
+        static_cast<float>(
+            static_cast<double>(yRot_) +
+            static_cast<double>(deltaX) * 0.15);
+    xRot_ =
+        static_cast<float>(
+            static_cast<double>(xRot_) -
+            static_cast<double>(deltaY) * 0.15);
 
     if (xRot_ < -90.0f)
         xRot_ = -90.0f;
