@@ -29,10 +29,12 @@ Particle::Particle(
         (random01() + random01() + 1.0f) * 0.15f;
 
     const float dd =
-        std::sqrt(
-            xd_ * xd_ +
-            yd_ * yd_ +
-            zd_ * zd_);
+        static_cast<float>(
+            std::sqrt(
+                static_cast<double>(
+                    xd_ * xd_ +
+                    yd_ * yd_ +
+                    zd_ * zd_)));
 
     if (dd > 0.000001f) {
         xd_ = xd_ / dd * speed * 0.4f;
