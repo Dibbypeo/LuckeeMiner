@@ -14,6 +14,14 @@
 
 namespace {
 
+void presentStartupStage(const char* stage) {
+    consoleClear();
+    std::printf("LuckeeMiner startup\n\n%s\n", stage);
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
+}
+
 void waitForStart() {
     while (aptMainLoop()) {
         hidScanInput();
@@ -55,8 +63,11 @@ int main(int, char**) {
         return 1;
     }
 
+    presentStartupStage("Assets OK");
+
     luckee::Level level;
     luckee::Player player(level);
+    presentStartupStage("Level and player created");
 
     std::vector<luckee::Zombie> zombies;
     zombies.reserve(100);
@@ -68,6 +79,8 @@ int main(int, char**) {
             0.0f,
             128.0f);
     }
+
+    presentStartupStage("100 zombies created");
 
     luckee::Renderer renderer;
 
@@ -89,6 +102,8 @@ int main(int, char**) {
         gfxExit();
         return 1;
     }
+
+    presentStartupStage("Renderer initialized");
 
     luckee::Timer timer(60.0f);
 
