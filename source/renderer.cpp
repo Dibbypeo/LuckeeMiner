@@ -1346,20 +1346,20 @@ void Renderer::appendCharacterCube(
         // (u1,v0), (u0,v0), (u0,v1), (u1,v1).
         const float uv[4][2] = {
             {
-                static_cast<float>(quad.u1) / 64.0f,
-                static_cast<float>(quad.v0) / 32.0f
+                static_cast<float>(quad.u1) / 63.999f,
+                static_cast<float>(quad.v0) / 31.999f
             },
             {
-                static_cast<float>(quad.u0) / 64.0f,
-                static_cast<float>(quad.v0) / 32.0f
+                static_cast<float>(quad.u0) / 63.999f,
+                static_cast<float>(quad.v0) / 31.999f
             },
             {
-                static_cast<float>(quad.u0) / 64.0f,
-                static_cast<float>(quad.v1) / 32.0f
+                static_cast<float>(quad.u0) / 63.999f,
+                static_cast<float>(quad.v1) / 31.999f
             },
             {
-                static_cast<float>(quad.u1) / 64.0f,
-                static_cast<float>(quad.v1) / 32.0f
+                static_cast<float>(quad.u1) / 63.999f,
+                static_cast<float>(quad.v1) / 31.999f
             }
         };
 
