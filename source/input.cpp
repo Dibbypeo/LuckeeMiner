@@ -34,6 +34,15 @@ InputState readInput() {
     state.resetPressed =
         (down & KEY_X) != 0;
 
+    state.nextBlockPressed =
+        (down & KEY_DOWN) != 0;
+
+    state.previousBlockPressed =
+        (down & KEY_UP) != 0;
+
+    state.spawnZombiePressed =
+        (down & KEY_Y) != 0;
+
     static bool wasTouching = false;
     static touchPosition previous{};
 
