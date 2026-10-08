@@ -328,18 +328,6 @@ bool Renderer::initialize() {
         1000.0f,
         false);
 
-    // Match the reference HUD's orthographic coordinate system. The 3DS
-    // adaptation uses the full 400x240 top-screen area.
-    Mtx_OrthoTilt(
-        &hudProjection_,
-        0.0f,
-        400.0f,
-        240.0f,
-        0.0f,
-        100.0f,
-        300.0f,
-        false);
-
     if (!TextureLoader::loadTerrain(
             TERRAIN_TEXTURE_PATH,
             terrainTexture_,
