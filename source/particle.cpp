@@ -1,16 +1,13 @@
 #include "luckee/particle.hpp"
 
 #include <cmath>
-#include <cstdlib>
+#include "luckee/java_random.hpp"
 
 namespace luckee {
 namespace {
-
 float random01() {
-    return static_cast<float>(std::rand()) /
-           static_cast<float>(RAND_MAX);
+    return static_cast<float>(mathRandom().nextDouble());
 }
-
 } // namespace
 
 Particle::Particle(
