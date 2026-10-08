@@ -15,6 +15,8 @@ LuckeeMiner now implements:
 - Zombie head, arm, and leg animation.
 - External 64×32 char.png loading.
 - Zombie rendering between the two terrain passes, matching the reference render order.
+- Distance and frustum culling for zombie rendering on original 3DS hardware.
+- Nearby-only zombie simulation using the same 64-block range as terrain rendering.
 
 ## Historical behavior preserved
 
@@ -23,6 +25,8 @@ The rd-132328 Entity reset routine chooses random X/Z coordinates and starts an 
 The historical Zombie constructor overwrites x/y/z after calling the Entity constructor without rebuilding the inherited AABB. LuckeeMiner preserves this ordering rather than silently fixing the prototype.
 
 The original character model consists of a head, body, two arms, and two legs. LuckeeMiner reproduces the same box dimensions, atlas offsets, model scale, Y inversion, body rotation, interpolation, and animation formulas with native 3DS vertex buffers.
+
+The original simulates and renders all zombies, but the 3DS port deliberately limits simulation and rendering to nearby zombies because reproducing all 100 off-screen entities wastes CPU and GPU time on the original hardware.
 
 The original uses LWJGL/OpenGL immediate-mode rendering. LuckeeMiner does not copy that renderer. It recreates the resulting geometry, texture mapping, transforms, animation, ordering, and behavior using Citro3D.
 
