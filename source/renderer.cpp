@@ -2285,11 +2285,9 @@ void Renderer::render(
         modelViewLocation_,
         &modelView);
 
-    // Match the reference's two exponential fog passes.
+    // Match the reference's daylight exponential fog pass.
     C3D_FogColor(0xFEFBFA);
     C3D_FogLutBind(&dayFogLut_);
-    C3D_FogColor(0x0E0B0A);
-    C3D_FogLutBind(&shadowFogLut_);
     C3D_FogGasMode(
         GPU_FOG,
         GPU_PLAIN_DENSITY,
@@ -2317,6 +2315,9 @@ void Renderer::render(
         alpha,
         true);
 
+    // Switch to the shadow fog LUT and color for the second pass.
+    C3D_FogColor(0x0E0B0A);
+    C3D_FogLutBind(&shadowFogLut_);
     C3D_FogGasMode(
         GPU_FOG,
         GPU_PLAIN_DENSITY,
