@@ -101,7 +101,7 @@ std::vector<int> PerlinNoiseFilter::read(
                 const int mu =
                     tmp[
                         static_cast<std::size_t>(
-                            (x + half - step) & (width - 1)) +
+                            (x + half) & (width - 1)) +
                         static_cast<std::size_t>(
                             (y + half - step) & (height - 1)) *
                             static_cast<std::size_t>(width)];
