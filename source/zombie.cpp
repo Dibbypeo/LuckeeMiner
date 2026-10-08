@@ -1,7 +1,7 @@
 #include "luckee/zombie.hpp"
 
 #include <cmath>
-#include <cstdlib>
+#include "luckee/java_random.hpp"
 
 namespace luckee {
 namespace {
