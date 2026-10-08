@@ -210,7 +210,7 @@ void Level::save() const {
             -MAX_WBITS,
             8,
             Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::fputs("level.dat: could not initialize compression.\\n",
+        std::fputs("level.dat: could not initialize compression.\n",
                    stderr);
         std::fclose(file);
         return;
@@ -325,7 +325,7 @@ void Level::save() const {
         ok = false;
 
     if (!ok)
-        std::fputs("level.dat: failed while writing compressed world data.\\n",
+        std::fputs("level.dat: failed while writing compressed world data.\n",
                    stderr);
 }
 
