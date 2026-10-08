@@ -44,4 +44,4 @@ X performs the established LuckeeMiner player reset adaptation. It uses the rd-2
 
 The desktop reference also contains a small top-screen crosshair and selected-block preview. The 3DS bottom screen remains a debug display during development while those version-specific front-end elements are implemented.
 
-A is held rather than edge-triggered. L, R, D-Pad selection, Y, SELECT, and X are edge-triggered adaptations.
+A and X are held rather than edge-triggered. L, R, D-Pad selection, Y, and SELECT are edge-triggered adaptations.
