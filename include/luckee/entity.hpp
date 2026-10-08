@@ -13,6 +13,12 @@ public:
     explicit Entity(Level& level);
     virtual ~Entity() = default;
 
+    Entity(const Entity&) = delete;
+    Entity& operator=(const Entity&) = delete;
+
+    Entity(Entity&& other) noexcept;
+    Entity& operator=(Entity&& other) noexcept;
+
     virtual void tick();
 
     void turn(float deltaX, float deltaY);
