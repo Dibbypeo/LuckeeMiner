@@ -1,5 +1,7 @@
 #include "luckee/entity.hpp"
 
+#include <utility>
+
 #include <cmath>
 #include "luckee/java_random.hpp"
 
