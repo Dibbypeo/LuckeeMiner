@@ -351,11 +351,13 @@ bool Renderer::initialize() {
 
     characterTextureLoaded_ = true;
 
+    // rd-20090515 starts with ten zombies; grow only if the player spawns
+    // additional zombies so the original 3DS does not reserve unused memory.
     characterVertices_.reserve(
-        100u * ZOMBIE_VERTEX_COUNT);
+        10u * ZOMBIE_VERTEX_COUNT);
 
     characterVboCapacity_ =
-        100u * ZOMBIE_VERTEX_COUNT;
+        10u * ZOMBIE_VERTEX_COUNT;
 
     characterVbo_ =
         linearAlloc(
