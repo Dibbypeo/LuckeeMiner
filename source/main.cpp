@@ -148,6 +148,7 @@ int main(int, char**) {
             consoleClear();
             std::puts("LuckeeMiner - saving world\n");
             std::puts("Compressing and writing level.dat...");
+            std::fflush(stdout);
             gfxFlushBuffers();
             gfxSwapBuffers();
             gspWaitForVBlank();
@@ -158,6 +159,7 @@ int main(int, char**) {
                 saved
                     ? "\nWorld save completed."
                     : "\nSAVE FAILED. See the diagnostic message above.");
+            std::fflush(stdout);
             gfxFlushBuffers();
             gfxSwapBuffers();
             gspWaitForVBlank();
