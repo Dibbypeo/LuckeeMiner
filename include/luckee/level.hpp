@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <random>
+#include "luckee/java_random.hpp"
 #include <vector>
 
 #include "luckee/aabb.hpp"
@@ -67,7 +67,7 @@ private:
     std::vector<int> lightDepths_;
     std::vector<LevelListener*> listeners_;
 
-    std::mt19937 random_;
+    JavaRandom random_;
     std::uint64_t unprocessed_ = 0;
 };
 
