@@ -17,6 +17,9 @@ struct InputState {
     bool placePressed = false;
     bool savePressed = false;
     bool resetPressed = false;
+    bool nextBlockPressed = false;
+    bool previousBlockPressed = false;
+    bool spawnZombiePressed = false;
 };
 
 InputState readInput();
