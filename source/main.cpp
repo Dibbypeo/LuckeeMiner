@@ -14,6 +14,10 @@
 
 namespace {
 
+constexpr float ZOMBIE_SIMULATION_DISTANCE = 64.0f;
+constexpr float ZOMBIE_SIMULATION_DISTANCE_SQUARED =
+    ZOMBIE_SIMULATION_DISTANCE * ZOMBIE_SIMULATION_DISTANCE;
+
 void presentStartupStage(const char* stage) {
     consoleClear();
     std::printf("LuckeeMiner startup\n\n%s\n", stage);
@@ -110,7 +114,7 @@ int main(int, char**) {
     std::puts("LuckeeMiner - rd-132328 recreation\n");
     std::puts("World: 256 x 64 x 256");
     std::puts("Blocks: rock + grass");
-    std::puts("Zombies: 100");
+    std::puts("Zombies: 100 (64-block simulation/render range)");
     std::puts("Simulation: 60 ticks/sec");
     std::puts("Assets: terrain.png + char.png\n");
     std::puts("Circle Pad : move");
@@ -138,8 +142,22 @@ int main(int, char**) {
         for (int tick = 0;
              tick < timer.ticks();
              ++tick) {
-            for (luckee::Zombie& zombie : zombies)
+            const float playerX = player.x();
+            const float playerY = player.y();
+            const float playerZ = player.z();
+
+            for (luckee::Zombie& zombie : zombies) {
+                const float dx = zombie.x() - playerX;
+                const float dy = zombie.y() - playerY;
+                const float dz = zombie.z() - playerZ;
+
+                if (dx * dx + dy * dy + dz * dz >
+                    ZOMBIE_SIMULATION_DISTANCE_SQUARED) {
+                    continue;
+                }
+
                 zombie.tick();
+            }
 
             player.tick(input);
         }
