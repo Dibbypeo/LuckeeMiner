@@ -356,6 +356,18 @@ bool Renderer::initialize() {
         return false;
     }
 
+    particleVboCapacity_ = 4096;
+    particleVbo_ =
+        linearAlloc(
+            particleVboCapacity_ * sizeof(Vertex));
+
+    if (!particleVbo_) {
+        error_ =
+            "Could not allocate particle buffer.";
+        shutdown();
+        return false;
+    }
+
     C3D_TexSetFilter(
         &terrainTexture_,
         GPU_NEAREST,
@@ -432,6 +444,14 @@ void Renderer::shutdown() {
     characterVboCapacity_ = 0;
     characterVertexCount_ = 0;
     characterVertices_.clear();
+
+    if (particleVbo_) {
+        linearFree(particleVbo_);
+        particleVbo_ = nullptr;
+    }
+
+    particleVboCapacity_ = 0;
+    particleVertices_.clear();
 
     if (characterTextureLoaded_) {
         C3D_TexDelete(&characterTexture_);
@@ -1562,10 +1582,10 @@ void Renderer::renderParticles(
     const std::size_t required =
         particleVertices_.size();
 
-    if (required > characterVboCapacity_) {
+    if (required > particleVboCapacity_) {
         const std::size_t doubled =
-            characterVboCapacity_ > 0
-                ? characterVboCapacity_ * 2u
+            particleVboCapacity_ > 0
+                ? particleVboCapacity_ * 2u
                 : required;
 
         const std::size_t newCapacity =
@@ -1578,11 +1598,11 @@ void Renderer::renderParticles(
         if (!replacement)
             return;
 
-        if (characterVbo_)
-            linearFree(characterVbo_);
+        if (particleVbo_)
+            linearFree(particleVbo_);
 
-        characterVbo_ = replacement;
-        characterVboCapacity_ = newCapacity;
+        particleVbo_ = replacement;
+        particleVboCapacity_ = newCapacity;
     }
 
     std::memcpy(
@@ -1600,7 +1620,7 @@ void Renderer::renderParticles(
     BufInfo_Init(bufInfo);
     BufInfo_Add(
         bufInfo,
-        characterVbo_,
+        particleVbo_,
         sizeof(Vertex),
         3,
         0x210);
