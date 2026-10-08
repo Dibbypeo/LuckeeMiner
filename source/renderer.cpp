@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <vector>
 
 #include "luckee/level.hpp"
@@ -1621,7 +1622,7 @@ void Renderer::renderParticles(
     }
 
     std::memcpy(
-        characterVbo_,
+        particleVbo_,
         particleVertices_.data(),
         required * sizeof(Vertex));
 
@@ -1648,8 +1649,7 @@ void Renderer::renderParticles(
 }
 
 void Renderer::renderHud(
-    int selectedTileId,
-    const Player& player) {
+    int selectedTileId) {
 
     if (selectedTileId <= 0 ||
         selectedTileId >= Tile::MAX_TILES) {
@@ -2313,8 +2313,7 @@ void Renderer::render(
     renderHit();
 
     renderHud(
-        selectedTileId,
-        player);
+        selectedTileId);
 
     C3D_FrameEnd(0);
     frameActive_ = false;
