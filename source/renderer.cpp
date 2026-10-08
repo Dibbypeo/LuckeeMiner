@@ -1487,29 +1487,8 @@ void Renderer::renderZombies(
     if (required == 0)
         return;
 
-    if (required > characterVboCapacity_) {
-        const std::size_t doubled =
-            characterVboCapacity_ > 0
-                ? characterVboCapacity_ * 2u
-                : static_cast<std::size_t>(
-                    ZOMBIE_VERTEX_COUNT);
-
-        const std::size_t newCapacity =
-            std::max(required, doubled);
-
-        void* replacement =
-            linearAlloc(
-                newCapacity * sizeof(Vertex));
-
-        if (!replacement)
-            return;
-
-        if (characterVbo_)
-            linearFree(characterVbo_);
-
-        characterVbo_ = replacement;
-        characterVboCapacity_ = newCapacity;
-    }
+    if (required > characterVboCapacity_)
+        return;
 
     std::memcpy(
         characterVbo_,
@@ -1666,28 +1645,8 @@ void Renderer::renderParticles(
     const std::size_t required =
         particleVertices_.size();
 
-    if (required > particleVboCapacity_) {
-        const std::size_t doubled =
-            particleVboCapacity_ > 0
-                ? particleVboCapacity_ * 2u
-                : required;
-
-        const std::size_t newCapacity =
-            std::max(required, doubled);
-
-        void* replacement =
-            linearAlloc(
-                newCapacity * sizeof(Vertex));
-
-        if (!replacement)
-            return;
-
-        if (particleVbo_)
-            linearFree(particleVbo_);
-
-        particleVbo_ = replacement;
-        particleVboCapacity_ = newCapacity;
-    }
+    if (required > particleVboCapacity_)
+        return;
 
     std::memcpy(
         particleVbo_,
