@@ -33,10 +33,13 @@ void Frustum::set(const C3D_Mtx& clip) {
     };
 
     for (int i = 0; i < 6; ++i) {
-        const float length = std::sqrt(
-            rows[i][0] * rows[i][0] +
-            rows[i][1] * rows[i][1] +
-            rows[i][2] * rows[i][2]);
+        const float length =
+            static_cast<float>(
+                std::sqrt(
+                    static_cast<double>(
+                        rows[i][0] * rows[i][0] +
+                        rows[i][1] * rows[i][1] +
+                        rows[i][2] * rows[i][2])));
 
         if (length <= 0.0f) {
             planes_[i][0] = 0.0f;
