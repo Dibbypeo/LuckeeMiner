@@ -77,11 +77,13 @@ int main(int, char**) {
     zombies.reserve(100);
 
     for (int i = 0; i < 100; ++i) {
+        // rd-132328 passes a dummy position; Entity provides the randomized
+        // spawn position used by the native port.
         zombies.emplace_back(
             level,
-            128.0f,
             0.0f,
-            128.0f);
+            0.0f,
+            0.0f);
     }
 
     presentStartupStage("100 zombies created");
