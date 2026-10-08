@@ -2,7 +2,7 @@
 
 ## Reference
 
-LuckeeMiner targets the historical RubyDung / Minecraft prototype represented by rd-132328. The Java source is treated as behavioral documentation for the front-end and simulation rules. LuckeeMiner uses an original C++ implementation rather than copying the Java implementation.
+LuckeeMiner is developed against historical RubyDung / Minecraft prototype clients one version at a time. The current target is **rd-20090515**. The supplied Java source is treated as behavioral documentation for the front-end and simulation rules. LuckeeMiner uses an original C++ implementation rather than copying the Java implementation.
 
 Reference repository:
 
