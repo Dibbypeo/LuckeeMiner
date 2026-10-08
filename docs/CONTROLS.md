@@ -1,30 +1,47 @@
 # Controls
 
-LuckeeMiner uses a Nintendo 3DS control mapping for the rd-132328 recreation. The controls are shown on the application's bottom screen while the game is running.
+LuckeeMiner currently uses the following Nintendo 3DS control mapping for the rd-20090515 recreation. The bottom screen displays the same mapping alongside runtime debug information.
 
 | Input | Action |
 |---|---|
 | **Circle Pad** | Move relative to the player's horizontal facing |
 | **Touch screen drag** | Look / camera movement |
 | **A** | Jump while held and grounded |
-| **L** | Place a block against the currently targeted face |
-| **R** | Break the currently targeted block |
+| **L** | Place the selected block against the targeted face |
+| **R** | Break the targeted block |
+| **D-Pad Up** | Select the previous placeable block |
+| **D-Pad Down** | Select the next placeable block |
+| **Y** | Spawn a zombie at the player's position |
 | **SELECT** | Save the current world immediately |
 | **X** | Reset the player's position |
 | **START** | Save on exit and leave the homebrew application |
 
-## Behavior notes
+## Block selection
 
-The Circle Pad movement follows the player's horizontal facing. Touch dragging uses the reference yaw/pitch convention and the same sensitivity and pitch limits.
+The extracted desktop client uses number keys to select rock, dirt, stone brick, wood, and bush. LuckeeMiner adapts that selection to D-Pad cycling:
 
-A is checked while held, so holding it while grounded can trigger the reference-style jump behavior.
+1. Rock (ID 1)
+2. Dirt (ID 3)
+3. Stone brick (ID 4)
+4. Wood (ID 5)
+5. Bush (ID 6)
 
-L and R are edge-triggered actions. They affect the block selected by the centered 5×5 target region.
+D-Pad Up moves backward through the list and D-Pad Down moves forward.
 
-SELECT performs the manual world save provided by the reference's Enter-key save action. The save is written to level.dat.
+## Zombie spawning
 
-X performs the player's position reset before that simulation tick continues, matching the position-reset behavior of the reference player. The reset chooses a new randomized X/Z location and starts the player three blocks above the level depth.
+The extracted desktop client uses G to spawn a zombie at the player's current position. LuckeeMiner uses Y for that same gameplay action.
 
-START leaves the application. LuckeeMiner also saves the world during normal shutdown so the current world state is preserved when exiting normally.
+## Saving and reset
 
-Rendering uses interpolation between fixed simulation ticks, so the control display and simulation timing are independent of the render frame rate.
+SELECT performs the manual save action corresponding to the reference client's Enter key.
+
+START exits normally and also saves level.dat.
+
+X performs the established LuckeeMiner player reset adaptation. It uses the rd-20090515 Entity reset routine: a randomized X/Z location and a starting Y of depth + 10, then continues the simulation tick.
+
+## Notes
+
+The desktop reference also contains a small top-screen crosshair and selected-block preview. The 3DS bottom screen remains a debug display during development while those version-specific front-end elements are implemented.
+
+A is held rather than edge-triggered. L, R, D-Pad selection, Y, SELECT, and X are edge-triggered adaptations.
