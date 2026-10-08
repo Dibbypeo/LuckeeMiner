@@ -9,9 +9,12 @@ namespace {
 
 constexpr float PI = 3.14159265358979323846f;
 
+double randomDouble() {
+    return mathRandom().nextDouble();
+}
+
 float random01() {
-    return static_cast<float>(
-        mathRandom().nextDouble());
+    return static_cast<float>(randomDouble());
 }
 
 CharacterPart makePart(
@@ -42,15 +45,19 @@ Zombie::Zombie(Level& level, float x, float y, float z)
     // Match the extracted jar's initialization order: rotA is initialized
     // at field declaration before the constructor initializes timeOffs/rot.
     rotA_ =
-        (random01() + 1.0f) *
-        0.01f;
+        static_cast<float>(
+            (randomDouble() + 1.0) *
+            0.01);
     setPos(x, y, z);
     timeOffs_ =
-        random01() *
+        static_cast<float>(
+            randomDouble()) *
         1239813.0f;
     rot_ =
-        random01() *
-        PI * 2.0f;
+        static_cast<float>(
+            randomDouble() *
+            3.14159265358979323846 *
+            2.0);
     speed_ = 1.0f;
     // rd-20090515 explicitly calls resetPos() after constructing each initial
     // zombie. Spawned zombies instead receive the player's current position.
@@ -85,12 +92,20 @@ void Zombie::tick() {
         remove();
 
     rot_ += rotA_;
-    rotA_ *= 0.99f;
-    rotA_ +=
-        (random01() - random01()) *
-        random01() *
-        random01() *
-        0.08f;
+    rotA_ =
+        static_cast<float>(
+            static_cast<double>(rotA_) * 0.99);
+
+    const double randomDelta =
+        (randomDouble() - randomDouble()) *
+        randomDouble() *
+        randomDouble() *
+        0.08;
+
+    rotA_ =
+        static_cast<float>(
+            static_cast<double>(rotA_) +
+            randomDelta);
 
     const float xa =
         static_cast<float>(
@@ -99,7 +114,7 @@ void Zombie::tick() {
         static_cast<float>(
             std::cos(static_cast<double>(rot_)));
 
-    if (onGround_ && random01() < 0.08f)
+    if (onGround_ && randomDouble() < 0.08)
         yd_ = 0.5f;
 
     moveRelative(
