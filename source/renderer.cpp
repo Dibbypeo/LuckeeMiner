@@ -2110,6 +2110,7 @@ void Renderer::render(
     const Player& player,
     const std::vector<Zombie>& zombies,
     const ParticleEngine& particleEngine,
+    int selectedTileId,
     float alpha) {
 
     if (!initialized_ ||
