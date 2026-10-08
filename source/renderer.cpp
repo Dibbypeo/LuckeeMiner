@@ -815,7 +815,7 @@ void Renderer::appendBush(
             vertex.a = 1.0f;
             vertex.u = uvs[uvIndex][0];
             vertex.v = uvs[uvIndex][1];
-            particleVertices_.push_back(vertex);
+            vertices.push_back(vertex);
         }
 
         // Reverse face winding for the back-facing side, matching the source.
