@@ -184,7 +184,7 @@ bool Level::load() {
     return false;
 }
 
-void Level::save() const {
+bool Level::save() const {
     constexpr const char* SAVE_PATH = "level.dat";
     constexpr const char* TEMP_PATH = "level.dat.tmp";
     constexpr const char* BACKUP_PATH = "level.dat.bak";
@@ -193,7 +193,7 @@ void Level::save() const {
         std::fputs(
             "level.dat: world is too large for the historical GZIP format.\n",
             stderr);
-        return;
+        return false;
     }
 
     // Do not truncate the last good save before the new file is complete.
@@ -203,7 +203,7 @@ void Level::save() const {
 
     if (!file) {
         std::perror(TEMP_PATH);
-        return;
+        return false;
     }
 
     // java.util.zip.GZIPOutputStream's historical fixed header. The DEFLATE
@@ -219,7 +219,7 @@ void Level::save() const {
         std::perror(TEMP_PATH);
         std::fclose(file);
         std::remove(TEMP_PATH);
-        return;
+        return false;
     }
 
     z_stream stream{};
@@ -235,7 +235,7 @@ void Level::save() const {
             stderr);
         std::fclose(file);
         std::remove(TEMP_PATH);
-        return;
+        return false;
     }
 
     constexpr std::size_t INPUT_CHUNK = 32768;
@@ -358,7 +358,7 @@ void Level::save() const {
             "the previous save was left untouched.\n",
             stderr);
         std::remove(TEMP_PATH);
-        return;
+        return false;
     }
 
     bool hadPreviousSave = false;
@@ -376,7 +376,7 @@ void Level::save() const {
         if (std::rename(SAVE_PATH, BACKUP_PATH) != 0) {
             std::perror("level.dat: could not preserve previous save");
             std::remove(TEMP_PATH);
-            return;
+            return false;
         }
     }
 
@@ -391,12 +391,13 @@ void Level::save() const {
         }
 
         std::remove(TEMP_PATH);
-        return;
+        return false;
     }
 
     // The primary path now contains a complete validated-format save.
     // Keep a backup only if it was needed for a failed replacement.
     std::remove(BACKUP_PATH);
+    return true;
 }
 
 void Level::calcLightDepths(
