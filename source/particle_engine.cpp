@@ -22,8 +22,9 @@ void ParticleEngine::tick() {
         particle.tick();
 
         if (particle.removed()) {
-            particles_[i] = std::move(particles_.back());
-            particles_.pop_back();
+            particles_.erase(
+                particles_.begin() +
+                static_cast<std::ptrdiff_t>(i));
             continue;
         }
 
