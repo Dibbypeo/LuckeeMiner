@@ -826,7 +826,6 @@ void Renderer::appendBush(
 
         // Two crossed quads, each split into two triangles.
         const int first[6] = {0, 1, 2, 0, 2, 3};
-        const int second[6] = {4, 5, 6, 4, 6, 7};
 
         for (int index : first) {
             const int uvIndex = index;
