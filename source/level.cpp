@@ -241,7 +241,10 @@ bool Level::save() const {
 
     constexpr std::size_t INPUT_CHUNK = 32768;
     constexpr std::size_t OUTPUT_CHUNK = 32768;
-    unsigned char output[OUTPUT_CHUNK]{};
+    // Keep the 32 KiB scratch buffer out of the small 3DS main stack.
+    // Saving is synchronous, so this reusable static buffer is not shared by
+    // concurrent save calls.
+    static unsigned char output[OUTPUT_CHUNK];
 
     uLong crc = crc32(0L, Z_NULL, 0);
     std::size_t offset = 0;
