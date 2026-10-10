@@ -1,18 +1,14 @@
 # LuckeeMiner
 
-**A native C++ Nintendo 3DS recreation of early RubyDung / Minecraft prototype clients, currently targeting rd-20090515.**
+**A native C++ Nintendo 3DS recreation of early RubyDung / Minecraft prototype clients.**
 
 LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an original C++ implementation for the Nintendo 3DS. The extracted Java source from each selected client is used as behavioral documentation. The Java implementation is not copied into the project.
 
 ## Current status
 
-**rd-132328 recreation: RELEASED**
-
-**rd-20090515 recreation: READY FOR MANUAL RELEASE (not published)**
+**rd-20090515 recreation: COMPLETE**
 
 The rd-20090515 implementation includes the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, bounded dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, bounded block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
-
-The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The maintainer has confirmed the current gameplay works. Build, package, tag, and publish the version manually using the existing project workflow.
 
 ## rd-20090515 features
 
@@ -140,7 +136,3 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 ## License
 
 LuckeeMiner is released under the MIT License. See LICENSE for the complete text.
-
-## Release process
-
-Build and test locally using the existing workflow, prepare the release files, then create the version tag and GitHub Release manually. The repository does not automate building, packaging, tagging, or publishing.
