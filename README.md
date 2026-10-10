@@ -8,11 +8,11 @@ LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an
 
 **rd-132328 recreation: RELEASED**
 
-**rd-20090515 recreation: IN DEVELOPMENT (source audit complete; build and hardware sign-off pending)**
+**rd-20090515 recreation: RELEASE CANDIDATE (release not published)**
 
-The rd-20090515 implementation has its core simulation systems and native renderer in place. The current branch contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, bounded dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, bounded block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
+The rd-20090515 implementation includes the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, bounded dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, bounded block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
-The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The release is not marked complete yet: a clean final build, save/load round-trip, and target-hardware verification remain required.
+The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The maintainer has confirmed the current gameplay works. A GitHub Actions workflow now performs a clean devkitPro build and assembles a release archive as a temporary workflow artifact. It does **not** create a GitHub Release, publish a version, or create a tag.
 
 ## rd-20090515 features
 
@@ -31,10 +31,10 @@ The extracted rd-20090515 Java source and native implementation have received a 
 - Lit and shadow terrain/entity rendering passes.
 - Original 3DS chunk caching and frustum culling.
 - Fixed-step simulation with interpolated rendering.
-- Existing PC ↔ 3DS ↔ PC level.dat compatibility.
+- PC ↔ 3DS ↔ PC level.dat payload/layout compatibility.
 - Bottom-screen runtime debug information.
 
-The rd-20090515 front-end now includes the centered crosshair and selected-block preview on the top screen. The bottom screen remains the runtime debug display during development.
+The rd-20090515 front-end includes the centered crosshair and selected-block preview on the top screen. The bottom screen remains a runtime debug display.
 
 ## Controls
 
@@ -52,30 +52,29 @@ The rd-20090515 front-end now includes the centered crosshair and selected-block
 | X | Reset the player's position |
 | START | Save and exit |
 
-The full control description is in docs/CONTROLS.md, and the same information is shown on the bottom-screen debug display. Original-3DS safety budgets limit the game to 32 active zombies and 512 active particles; when the particle pool cannot fit a full 64-particle burst, that burst is skipped.
+The full control description is in docs/CONTROLS.md. Original-3DS safety budgets limit the game to 32 active zombies and 512 active particles; when the particle pool cannot fit a full 64-particle burst, that burst is skipped.
 
 ## Installation
 
-LuckeeMiner expects the executable and external assets under the SD card's 3ds directory.
+Copy the built executable to:
 
     SD:/3ds/LuckeeMiner.3dsx
+
+Required external assets:
+
     SD:/3ds/assets/textures/terrain.png
     SD:/3ds/assets/textures/char.png
-
-Required assets:
 
 - terrain.png: 256 × 256 terrain atlas from the target client.
 - char.png: 64 × 32 character atlas from the target client.
 
-The application checks for both files before starting and reports missing assets on the bottom screen.
+The application checks for both files before starting and reports missing assets on the bottom screen. Historical game assets are not bundled; see assets/README.md.
 
 A saved world is stored as:
 
     SD:/3ds/level.dat
 
-when the application is launched from that directory.
-
-LuckeeMiner does not automatically bundle historical game assets. See assets/README.md for the external asset layout and distribution note.
+when the application is launched from the documented directory.
 
 ## Building from source
 
@@ -89,8 +88,10 @@ Requirements:
 
 Build:
 
-    cd LuckeeMiner
+    make clean
     make
+
+The `.github/workflows/build-rd-20090515.yml` workflow runs the same clean build in a devkitPro container and uploads a temporary ZIP artifact for inspection. It does not publish a release. Workflow artifacts expire after 30 days.
 
 ## Save-file compatibility
 
@@ -122,8 +123,9 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 - source/renderer.cpp — chunk meshing, tile/character/particle rendering, frustum culling, picking, and hit highlighting.
 - source/texture_loader.cpp — terrain and character PNG loading plus 3DS texture conversion.
 - include/luckee/ — native engine interfaces and data structures.
-- docs/ — version notes, controls, prototype notes, and roadmap.
+- docs/ — version notes, controls, audit, release notes, and roadmap.
 - assets/ — external asset layout documentation.
+- .github/workflows/build-rd-20090515.yml — non-publishing build and archive workflow.
 - Makefile — devkitPro 3DS build configuration.
 - LICENSE — MIT License.
 
@@ -133,16 +135,15 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 - docs/PROTOTYPE_NOTES.md — recreation rules and version-specific behavior.
 - docs/VERSION_RD-132328.md — previous released target.
 - docs/VERSION_RD-20090515.md — current version-specific notes and implementation status.
-- docs/AUDIT_RD-20090515.md — source-audit findings and remaining release blockers.
+- docs/AUDIT_RD-20090515.md — source-audit findings.
+- docs/RELEASE_NOTES_RD-20090515.md — prepared release notes.
 - docs/ROADMAP.md — milestone tracking.
 - assets/README.md — external assets.
 
 ## License
 
-LuckeeMiner is released under the MIT License.
+LuckeeMiner is released under the MIT License. See LICENSE for the complete text.
 
-See LICENSE for the complete license text.
+## Release workflow
 
-## Current release workflow
-
-The rd-132328 version has already been released. The rd-20090515 version will be released only after its extracted-source audit, hardware testing, and final packaging are complete.
+The rd-20090515 release archive is prepared by GitHub Actions as a workflow artifact, for testing and download by the repository maintainer. No version tag or public GitHub Release is created automatically. The maintainer will create the tag and publish the version manually.
