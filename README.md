@@ -8,11 +8,11 @@ LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an
 
 **rd-132328 recreation: RELEASED**
 
-**rd-20090515 recreation: RELEASE CANDIDATE (release not published)**
+**rd-20090515 recreation: READY FOR MANUAL RELEASE (not published)**
 
 The rd-20090515 implementation includes the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, bounded dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, bounded block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
-The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The maintainer has confirmed the current gameplay works. A GitHub Actions workflow now performs a clean devkitPro build and assembles a release archive as a temporary workflow artifact. It does **not** create a GitHub Release, publish a version, or create a tag.
+The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The maintainer has confirmed the current gameplay works. Build, package, tag, and publish the version manually using the existing project workflow.
 
 ## rd-20090515 features
 
@@ -91,8 +91,6 @@ Build:
     make clean
     make
 
-The `.github/workflows/build-rd-20090515.yml` workflow runs the same clean build in a devkitPro container and uploads a temporary ZIP artifact for inspection. It does not publish a release. Workflow artifacts expire after 30 days.
-
 ## Save-file compatibility
 
 The block save format is the historical GZIP-compressed block array used by the rd-20090515 client. For the default 256 × 64 × 256 world, the uncompressed block payload is exactly 4,194,304 bytes.
@@ -125,7 +123,6 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 - include/luckee/ — native engine interfaces and data structures.
 - docs/ — version notes, controls, audit, release notes, and roadmap.
 - assets/ — external asset layout documentation.
-- .github/workflows/build-rd-20090515.yml — non-publishing build and archive workflow.
 - Makefile — devkitPro 3DS build configuration.
 - LICENSE — MIT License.
 
@@ -144,6 +141,6 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 
 LuckeeMiner is released under the MIT License. See LICENSE for the complete text.
 
-## Release workflow
+## Release process
 
-The rd-20090515 release archive is prepared by GitHub Actions as a workflow artifact, for testing and download by the repository maintainer. No version tag or public GitHub Release is created automatically. The maintainer will create the tag and publish the version manually.
+Build and test locally using the existing workflow, prepare the release files, then create the version tag and GitHub Release manually. The repository does not automate building, packaging, tagging, or publishing.
