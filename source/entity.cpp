@@ -100,15 +100,19 @@ void Entity::setPos(float x, float y, float z) {
     z_ = z;
 
     const float halfWidth = bbWidth_ / 2.0f;
-    const float halfHeight = bbHeight_ / 2.0f;
+    const float bottom = y - heightOffset_;
 
+    // Entity y_ is the reference position used by movement/rendering:
+    // the feet are y_ - heightOffset_, not y_ - height/2. Keeping setPos
+    // consistent with move() prevents the initial/reset AABB from being
+    // vertically displaced (notably for the player's 1.62-unit eye offset).
     bb_ = AABB(
         x - halfWidth,
-        y - halfHeight,
+        bottom,
         z - halfWidth,
         x + halfWidth,
-        y + halfHeight,
-        z + halfHeight);
+        bottom + bbHeight_,
+        z + halfWidth);
 }
 
 void Entity::turn(float deltaX, float deltaY) {
