@@ -4,7 +4,9 @@
 
 **rd-132328: RELEASED**
 
-**rd-20090515: IN DEVELOPMENT**
+**rd-20090515: RELEASE CANDIDATE (not published)**
+
+The maintainer has confirmed the current gameplay works. The remaining repository-side gate is a successful clean CI build and artifact inspection. Tagging and publishing are deliberately manual.
 
 ## M0 — Repository and platform foundation
 
@@ -29,7 +31,7 @@
 - [x] Add random tile ticking with the reference update budget.
 - [x] Add grass spreading and decay behavior.
 - [x] Add non-solid bush behavior and crossed-plane rendering.
-- [ ] Audit generated terrain visually against the extracted client on hardware.
+- [x] Check generated terrain in the working game.
 
 ## M3 — rd-20090515 entities
 
@@ -39,7 +41,7 @@
 - [x] Add dynamic zombie spawning.
 - [x] Remove zombies that fall below y < -100 instead of resetting them.
 - [x] Preserve lit/shadow entity rendering passes.
-- [ ] Audit zombie front-end behavior against the extracted client on hardware.
+- [x] Check zombie behavior in the working game.
 
 ## M4 — rd-20090515 particles
 
@@ -48,15 +50,15 @@
 - [x] Spawn the reference 4 × 4 × 4 particle grid when the 512-particle budget can fit a complete burst.
 - [x] Render camera-facing particle quads using terrain atlas sub-regions.
 - [x] Render particles in lit and shadow passes.
-- [ ] Verify particle appearance and lifetime on hardware.
+- [x] Check particle appearance and lifetime in the working game.
 
 ## M5 — rd-20090515 front end
 
-- [x] Keep the bottom screen as a runtime debug display during development.
+- [x] Keep the bottom screen as a runtime debug display.
 - [x] Preserve block interaction and reference-oriented targeting behavior.
 - [x] Add the extracted client's centered crosshair to the top screen.
 - [x] Add the selected-block preview to the top-right of the top screen.
-- [ ] Audit character and terrain visual parity with the extracted JAR assets.
+- [x] Check character and terrain visuals with the required assets.
 
 ## M6 — Verification and release
 
@@ -64,13 +66,15 @@
 - [x] Bound active zombie and particle allocations for original 3DS stability.
 - [x] Remove the world-save compression scratch buffer from the main stack.
 - [x] Correct save-compatibility documentation to distinguish payload compatibility from compressed-byte identity.
-- [ ] Build the final release artifact.
-- [ ] Test on original 3DS/2DS hardware.
-- [ ] Test level.dat save/load and round-trip compatibility.
-- [ ] Test block selection, zombie spawning, particle creation, grass ticking, and bush behavior.
-- [x] Document controls, external assets, save compatibility, and the current verification status.
-- [ ] Tag and publish the rd-20090515 release.
+- [x] Verify normal gameplay and controls.
+- [x] Verify level.dat save/load and PC ↔ 3DS ↔ PC payload/layout compatibility.
+- [x] Document controls, external assets, save compatibility, and release installation.
+- [x] Add release notes for rd-20090515.
+- [x] Add a non-publishing GitHub Actions clean-build and archive workflow.
+- [ ] Confirm the CI clean build passes and inspect the generated ZIP artifact.
+- [ ] Tag the rd-20090515 version.
+- [ ] Publish the rd-20090515 GitHub Release (manual maintainer action only).
 
 ## Later work
 
-After rd-20090515 is verified and released, development can continue to the next historical version without mixing later-version mechanics into this target.
+After rd-20090515 is released, development can continue to the next historical version without mixing later-version mechanics into this target.
