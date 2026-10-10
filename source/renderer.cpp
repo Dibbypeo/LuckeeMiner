@@ -2427,6 +2427,21 @@ void Renderer::render(
                 1);
     }
 
+    // The reference draws entities and particles in both world-lighting
+    // passes. Without these shadow-layer calls, anything classified as
+    // unlit is filtered out by the daylight pass and never drawn at all.
+    renderZombies(
+        zombies,
+        player,
+        alpha,
+        false);
+
+    renderParticles(
+        particleEngine,
+        player,
+        alpha,
+        false);
+
     C3D_FogLutBind(nullptr);
     C3D_FogGasMode(
         GPU_NO_FOG,
