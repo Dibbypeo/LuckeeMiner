@@ -7,6 +7,11 @@ namespace luckee {
 Player::Player(Level& level)
     : Entity(level) {
     heightOffset_ = 1.62f;
+
+    // Entity's base constructor establishes a temporary position before the
+    // player-specific eye offset is known. Rebuild the AABB now so its bottom
+    // and top match the player's actual feet/height from the first frame.
+    setPos(x_, y_, z_);
 }
 
 void Player::resetPosition() {
