@@ -1,0 +1,52 @@
+name: Build rd-20090515 artifact
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Nintendo 3DS homebrew
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitarm:latest
+
+    steps:
+      - name: Install 3DS dependencies
+        run: dkp-pacman -S --noconfirm 3ds-dev 3ds-libpng 3ds-zlib
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Clean build
+        run: |
+          make clean
+          make
+
+      - name: Verify output
+        run: |
+          test -s LuckeeMiner.3dsx
+          test -s LuckeeMiner.smdh
+          file LuckeeMiner.3dsx
+
+      - name: Assemble release-ready archive
+        run: |
+          mkdir -p dist/LuckeeMiner-rd-20090515/docs dist/LuckeeMiner-rd-20090515/assets
+          cp LuckeeMiner.3dsx LuckeeMiner.smdh dist/LuckeeMiner-rd-20090515/
+          cp README.md LICENSE dist/LuckeeMiner-rd-20090515/
+          cp docs/CONTROLS.md docs/VERSION_RD-20090515.md docs/RELEASE_NOTES_RD-20090515.md dist/LuckeeMiner-rd-20090515/docs/
+          cp assets/README.md dist/LuckeeMiner-rd-20090515/assets/
+          cd dist
+          zip -r LuckeeMiner-rd-20090515.zip LuckeeMiner-rd-20090515
+
+      - name: Upload build artifact (not a GitHub Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuckeeMiner-rd-20090515-${{ github.sha }}
+          path: dist/LuckeeMiner-rd-20090515.zip
+          if-no-files-found: error
+          retention-days: 30
