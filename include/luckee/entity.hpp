@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 #include "luckee/aabb.hpp"
@@ -10,7 +11,7 @@ class Level;
 
 class Entity {
 public:
-    explicit Entity(Level& level);
+    explicit Entity(Level& level, std::size_t collisionCubeReserve = 32);
     virtual ~Entity() = default;
 
     Entity(const Entity&) = delete;

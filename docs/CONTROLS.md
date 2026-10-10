@@ -11,7 +11,7 @@ LuckeeMiner currently uses the following Nintendo 3DS control mapping for the rd
 | **R** | Break the targeted block |
 | **D-Pad Up** | Select the previous placeable block |
 | **D-Pad Down** | Select the next placeable block |
-| **Y** | Spawn a zombie at the player's position |
+| **Y** | Spawn a zombie at the player's position (up to 32 active zombies) |
 | **SELECT** | Save the current world immediately |
 | **X** | Reset the player's position while held |
 | **START** | Save on exit and leave the homebrew application |
@@ -32,7 +32,7 @@ The Circle Pad uses an independent 18% deadzone on each axis. Small accidental o
 
 ## Zombie spawning
 
-The extracted desktop client uses G to spawn a zombie at the player's current position. LuckeeMiner uses Y for that same gameplay action.
+The extracted desktop client uses G to spawn a zombie at the player's current position. LuckeeMiner uses Y for that gameplay action. To protect the original 3DS's limited memory, additional requests are ignored while 32 zombies are active.
 
 ## Saving and reset
 
@@ -47,3 +47,5 @@ X performs the established LuckeeMiner player reset adaptation. It uses the rd-2
 The desktop reference also contains a small top-screen crosshair and selected-block preview. The 3DS bottom screen remains a debug display during development while those version-specific front-end elements are implemented.
 
 A and X are held rather than edge-triggered. L, R, D-Pad selection, Y, and SELECT are edge-triggered adaptations.
+
+For original-3DS stability, LuckeeMiner keeps at most 32 active zombies and 512 active particles. A block break creates the full 64-particle burst only when the particle pool has room for all 64; otherwise that burst is skipped.

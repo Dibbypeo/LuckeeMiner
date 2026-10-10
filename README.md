@@ -8,11 +8,11 @@ LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an
 
 **rd-132328 recreation: RELEASED**
 
-**rd-20090515 recreation: IN DEVELOPMENT**
+**rd-20090515 recreation: IN DEVELOPMENT (source audit complete; build and hardware sign-off pending)**
 
 The rd-20090515 upgrade has begun. The current branch already contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
-The extracted rd-20090515 Java source audit is complete at the source level. Hardware verification for the new version has not yet been completed.
+The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The release is not marked complete yet: a clean final build, save/load round-trip, and target-hardware verification remain required.
 
 ## rd-20090515 features
 
@@ -24,9 +24,9 @@ The extracted rd-20090515 Java source audit is complete at the source level. Har
 - Grass growth and decay through random tile ticks.
 - Non-solid, non-light-blocking bush tiles rendered as crossed planes.
 - Ten initial zombies.
-- Dynamic zombie spawning.
+- Dynamic zombie spawning, bounded to 32 active zombies on original 3DS hardware.
 - Updated zombie movement, jumping, gravity, friction, and void removal.
-- Terrain-textured block destruction particles.
+- Terrain-textured block destruction particles, bounded to 512 active particles.
 - Particle gravity, friction, random size, lifetime, and billboard rendering.
 - Lit and shadow terrain/entity rendering passes.
 - Original 3DS chunk caching and frustum culling.
@@ -52,7 +52,7 @@ The rd-20090515 front-end now includes the centered crosshair and selected-block
 | X | Reset the player's position |
 | START | Save and exit |
 
-The full control description is in docs/CONTROLS.md, and the same information is shown on the bottom-screen debug display.
+The full control description is in docs/CONTROLS.md, and the same information is shown on the bottom-screen debug display. Original-3DS safety budgets limit the game to 32 active zombies and 512 active particles; when the particle pool cannot fit a full 64-particle burst, that burst is skipped.
 
 ## Installation
 
@@ -98,7 +98,7 @@ The block save format is the historical GZIP-compressed block array used by the 
 
 LuckeeMiner stores that payload byte-for-byte in the same `(y * height + z) * width + x` layout. Its writer uses raw DEFLATE with the historical Java GZIP header/trailer format, while its reader accepts the same GZIP data produced by the Java client.
 
-SELECT performs a save and shows its status on the bottom screen. START performs a normal shutdown save. The writer first completes `level.dat.tmp`, then replaces `level.dat`; the loader can recover `level.dat.bak` if the primary save is missing or fails validation. Compression favors speed on the 3DS while keeping the file standard GZIP with the same uncompressed block payload.
+SELECT performs a save and shows its status on the bottom screen. START performs a normal shutdown save. The writer first completes `level.dat.tmp`, then replaces `level.dat`; the loader can recover `level.dat.bak` if the primary save is missing or fails validation. Compression favors speed on the 3DS. The compressed DEFLATE bytes are not promised to match Java's output byte-for-byte, but the GZIP stream and uncompressed block payload/layout remain compatible.
 
 ## Version-specific development
 

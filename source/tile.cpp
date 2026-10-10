@@ -57,6 +57,11 @@ void Tile::destroy(
     int x, int y, int z,
     ParticleEngine& particleEngine) const {
     constexpr int SD = 4;
+    constexpr std::size_t PARTICLE_COUNT = SD * SD * SD;
+
+    // Keep each destruction effect complete; do not partially fill the pool.
+    if (!particleEngine.hasCapacityFor(PARTICLE_COUNT))
+        return;
 
     for (int xx = 0; xx < SD; ++xx) {
         for (int yy = 0; yy < SD; ++yy) {

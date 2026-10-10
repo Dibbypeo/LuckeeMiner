@@ -61,6 +61,9 @@
 ## M6 — Verification and release
 
 - [x] Perform a complete extracted-source audit across every Java class in rd-20090515.
+- [x] Bound active zombie and particle allocations for original 3DS stability.
+- [x] Remove the world-save compression scratch buffer from the main stack.
+- [x] Correct save-compatibility documentation to distinguish payload compatibility from compressed-byte identity.
 - [ ] Build the final release artifact.
 - [ ] Test on original 3DS/2DS hardware.
 - [ ] Test level.dat save/load and round-trip compatibility.

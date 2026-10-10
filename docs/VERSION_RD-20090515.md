@@ -21,7 +21,7 @@ Compared with rd-132328, rd-20090515 changes the game loop and adds several new 
 - Grass becomes a ticking tile that can spread in sunlight and turn into dirt without light.
 - Bushes are non-solid, do not block light, render as crossed planes, and disappear when their conditions are no longer valid.
 - The world performs random tile ticks every game tick.
-- Breaking a block creates 64 terrain-textured particles.
+- Breaking a block creates a 64-particle terrain-textured effect when the bounded particle pool has room; at most 512 particles can be active.
 - Particles use gravity, friction, lifetime, random size, and camera-facing billboard rendering.
 - Zombies and particles are rendered separately in lit and shadow passes.
 - The desktop client adds number-key block selection, a zombie-spawn key, a crosshair, and a selected-block HUD preview.
@@ -54,7 +54,7 @@ The current native implementation has already introduced:
 - rd-20090515 player physics.
 - rd-20090515 zombie physics and removal behavior.
 - Ten initial zombies with the source's (128, 0, 128) constructor followed by resetPos().
-- Dynamic zombie spawning.
+- Dynamic zombie spawning, with a 32-active-zombie safety budget for original 3DS hardware.
 - A generalized tile registry.
 - Rock, grass, dirt, stone brick, wood, and bush tile definitions.
 - Per-face atlas texture selection.
@@ -75,7 +75,7 @@ The desktop reference uses LWJGL/OpenGL and display-list rendering. LuckeeMiner 
 
 The native RNG reimplements Java's 48-bit java.util.Random algorithm, including bounded nextInt and nextDouble arithmetic. Default seeding remains runtime-dependent, just as Java's no-argument Random constructor is runtime-dependent, but every subsequent RNG operation uses the Java algorithm.
 
-The renderer keeps a bounded world cache and a conservative render distance for original 3DS hardware. These are performance adaptations rather than new gameplay systems.
+The renderer keeps a bounded world cache and a conservative render distance for original 3DS hardware. Dynamic zombies and particles also have explicit active-count budgets to prevent unbounded heap/linear-memory growth. These are original-3DS stability adaptations rather than new gameplay systems.
 
 ## Reference asset paths
 
@@ -93,10 +93,10 @@ The project does not automatically bundle historical game assets.
 
 ## Save-file compatibility
 
-The native reader and writer use the same raw block payload as the Java client. The writer emits the historical Java GZIP member structure with raw DEFLATE, CRC-32, and the 32-bit uncompressed size trailer. For matching DEFLATE implementations, the compressed byte stream is identical as well as the uncompressed payload.
+The native reader and writer use the same raw block payload and `(y * height + z) * width + x` layout as the Java client. The writer emits a valid GZIP member with raw DEFLATE, CRC-32, and the 32-bit uncompressed size trailer. LuckeeMiner uses `Z_BEST_SPEED` for 3DS performance, unlike Java's default compression level, so the compressed DEFLATE bytes are not expected to be identical. Compatibility is at the GZIP/payload level, not compressed-byte identity.
 
 ## Verification status
 
-The rd-20090515 Java source audit is complete. Every extracted Java class has been checked against the native implementation or an intentional 3DS-native replacement, and the source tree has been checked for signature, ownership, and structural errors.
+The source-level audit covers every extracted Java class in the supplied rd-20090515 archive and the corresponding native implementation or intentional Citro3D/libctru replacement. The native review also checked save/load failure paths, stack use in the save routine, tile index validation, renderer resource ownership, and entity/effect allocation bounds. See `docs/AUDIT_RD-20090515.md` for findings.
 
-Remaining verification is hardware-dependent: visual terrain/zombie/particle parity and final original-3DS/2DS performance testing still need to be performed on the target hardware.
+This is not yet a completed release. A successful final devkitPro build, PC ↔ 3DS ↔ PC save/load round-trip, and original 3DS/2DS gameplay and performance checks remain release blockers.

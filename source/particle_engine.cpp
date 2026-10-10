@@ -9,13 +9,13 @@ namespace luckee {
 
 ParticleEngine::ParticleEngine(Level& level)
     : level_(level) {
-    particles_.reserve(1024);
+    particles_.reserve(MAX_ACTIVE_PARTICLES);
 }
 
 ParticleEngine::~ParticleEngine() = default;
 
 void ParticleEngine::add(std::unique_ptr<Particle> particle) {
-    if (particle)
+    if (particle && hasCapacityFor(1))
         particles_.push_back(std::move(particle));
 }
 

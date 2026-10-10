@@ -19,7 +19,9 @@ Particle::Particle(
     float x, float y, float z,
     float xa, float ya, float za,
     int texture)
-    : Entity(level),
+    // Particles query small collision volumes; avoid reserving 32 AABBs for
+    // every short-lived effect. The vector can still grow if a query needs it.
+    : Entity(level, 8),
       texture_(texture) {
     setSize(0.2f, 0.2f);
     heightOffset_ = bbHeight_ / 2.0f;

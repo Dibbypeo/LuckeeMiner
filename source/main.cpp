@@ -1,5 +1,6 @@
 #include <3ds.h>
 #include <cstdio>
+#include <cstddef>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -15,6 +16,8 @@
 #include "luckee/zombie.hpp"
 
 namespace {
+
+constexpr std::size_t MAX_ACTIVE_ZOMBIES = 32;
 
 void presentStartupStage(const char* stage) {
     consoleClear();
@@ -68,7 +71,7 @@ int main(int, char**) {
     presentStartupStage("Level and player created");
 
     std::vector<luckee::Zombie> zombies;
-    zombies.reserve(32);
+    zombies.reserve(MAX_ACTIVE_ZOMBIES);
 
     for (int i = 0; i < 10; ++i) {
         // The extracted rd-20090515 jar creates ten zombies at the
@@ -116,7 +119,7 @@ int main(int, char**) {
     std::puts("LuckeeMiner - rd-20090515 recreation\n");
     std::puts("World: 256 x 64 x 256");
     std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone brick, 5 wood, 6 bush");
-    std::puts("Zombies: 10 initial");
+    std::puts("Zombies: 10 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
     std::puts("Assets: terrain.png + char.png\n");
@@ -127,7 +130,7 @@ int main(int, char**) {
     std::puts("R           : break");
     std::puts("D-Pad Up   : previous block");
     std::puts("D-Pad Down : next block");
-    std::puts("Y           : spawn zombie");
+    std::puts("Y           : spawn zombie (max 32 active)");
     std::puts("SELECT      : save world");
     std::puts("X           : reset player position");
     std::puts("START       : exit\n");
@@ -188,7 +191,8 @@ int main(int, char**) {
                 selectableBlocks[selectedIndex];
         }
 
-        if (input.spawnZombiePressed) {
+        if (input.spawnZombiePressed &&
+            zombies.size() < MAX_ACTIVE_ZOMBIES) {
             zombies.emplace_back(
                 level,
                 player.x(),
@@ -331,9 +335,14 @@ int main(int, char**) {
                 timer.ticks());
 
             std::printf(
-                "Particles: %u\n\n",
-                static_cast<unsigned int>(
-                    particleEngine.particles().size()));
+                "Zombies: %u/%u\n",
+                static_cast<unsigned int>(zombies.size()),
+                static_cast<unsigned int>(MAX_ACTIVE_ZOMBIES));
+
+            std::printf(
+                "Particles: %u/%u\n\n",
+                static_cast<unsigned int>(particleEngine.particles().size()),
+                static_cast<unsigned int>(luckee::ParticleEngine::MAX_ACTIVE_PARTICLES));
 
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
@@ -342,7 +351,7 @@ int main(int, char**) {
             std::puts("R           : break");
             std::puts("D-Pad Up    : previous block");
             std::puts("D-Pad Down  : next block");
-            std::puts("Y           : spawn zombie");
+            std::puts("Y           : spawn zombie (max 32 active)");
             std::puts("SELECT      : save world");
             std::puts("X           : reset player position");
             std::puts("START       : exit");

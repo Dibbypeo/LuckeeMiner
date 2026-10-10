@@ -14,9 +14,9 @@ float random01() {
 }
 } // namespace
 
-Entity::Entity(Level& level)
+Entity::Entity(Level& level, std::size_t collisionCubeReserve)
     : level_(level) {
-    collisionCubes_.reserve(32);
+    collisionCubes_.reserve(collisionCubeReserve);
     resetPos();
 }
 
