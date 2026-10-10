@@ -2,6 +2,9 @@
 
 **A native C++ Nintendo 3DS recreation of early RubyDung / Minecraft prototype clients.**
 
+<img width="400" height="240" alt="2026-10-09_21-38-17 279_top" src="https://github.com/user-attachments/assets/f85fd93c-eeb3-4717-9db7-d8d887c44d46" />
+<img width="320" height="240" alt="2026-10-09_21-38-17 279_bot" src="https://github.com/user-attachments/assets/f90c3133-59a0-4d01-9875-c565816203ea" />
+
 LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an original C++ implementation for the Nintendo 3DS. The extracted Java source from each selected client is used as behavioral documentation. The Java implementation is not copied into the project.
 
 ## Current status
