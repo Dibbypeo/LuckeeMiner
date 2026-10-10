@@ -10,7 +10,7 @@ LuckeeMiner recreates historical RubyDung / Minecraft prototype behavior with an
 
 **rd-20090515 recreation: IN DEVELOPMENT (source audit complete; build and hardware sign-off pending)**
 
-The rd-20090515 upgrade has begun. The current branch already contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
+The rd-20090515 implementation has its core simulation systems and native renderer in place. The current branch contains the version's 20 TPS simulation clock, updated player and zombie physics, ten initial zombies, bounded dynamic zombie spawning, the expanded tile registry, per-face block textures, Perlin terrain generation, random tile ticking, grass behavior, bush behavior, bounded block-destruction particles, particle simulation/rendering, and lit/shadow entity passes.
 
 The extracted rd-20090515 Java source and native implementation have received a full source-level audit. The release is not marked complete yet: a clean final build, save/load round-trip, and target-hardware verification remain required.
 
@@ -133,6 +133,7 @@ The C++ renderer uses Citro3D vertex buffers, cached chunks, frustum culling, an
 - docs/PROTOTYPE_NOTES.md — recreation rules and version-specific behavior.
 - docs/VERSION_RD-132328.md — previous released target.
 - docs/VERSION_RD-20090515.md — current version-specific notes and implementation status.
+- docs/AUDIT_RD-20090515.md — source-audit findings and remaining release blockers.
 - docs/ROADMAP.md — milestone tracking.
 - assets/README.md — external assets.
 

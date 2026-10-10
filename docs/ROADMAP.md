@@ -45,7 +45,7 @@
 
 - [x] Add Particle entity state and movement.
 - [x] Add ParticleEngine ownership and ticking.
-- [x] Spawn the reference 4 × 4 × 4 particle grid when a block is destroyed.
+- [x] Spawn the reference 4 × 4 × 4 particle grid when the 512-particle budget can fit a complete burst.
 - [x] Render camera-facing particle quads using terrain atlas sub-regions.
 - [x] Render particles in lit and shadow passes.
 - [ ] Verify particle appearance and lifetime on hardware.
@@ -68,7 +68,7 @@
 - [ ] Test on original 3DS/2DS hardware.
 - [ ] Test level.dat save/load and round-trip compatibility.
 - [ ] Test block selection, zombie spawning, particle creation, grass ticking, and bush behavior.
-- [ ] Document final release controls, assets, and version details.
+- [x] Document controls, external assets, save compatibility, and the current verification status.
 - [ ] Tag and publish the rd-20090515 release.
 
 ## Later work
