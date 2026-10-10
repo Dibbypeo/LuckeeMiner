@@ -4,9 +4,9 @@
 
 **rd-132328: RELEASED**
 
-**rd-20090515: RELEASE CANDIDATE (not published)**
+**rd-20090515: READY FOR MANUAL RELEASE (not published)**
 
-The maintainer has confirmed the current gameplay works. The remaining repository-side gate is a successful clean CI build and artifact inspection. Tagging and publishing are deliberately manual.
+The maintainer has confirmed the current gameplay works. Build, package, tag, and publish this version manually using the existing project workflow.
 
 ## M0 — Repository and platform foundation
 
@@ -70,8 +70,8 @@ The maintainer has confirmed the current gameplay works. The remaining repositor
 - [x] Verify level.dat save/load and PC ↔ 3DS ↔ PC payload/layout compatibility.
 - [x] Document controls, external assets, save compatibility, and release installation.
 - [x] Add release notes for rd-20090515.
-- [x] Add a non-publishing GitHub Actions clean-build and archive workflow.
-- [ ] Confirm the CI clean build passes and inspect the generated ZIP artifact.
+- [ ] Build and package the final version locally.
+- [ ] Final maintainer review of release files.
 - [ ] Tag the rd-20090515 version.
 - [ ] Publish the rd-20090515 GitHub Release (manual maintainer action only).
 
