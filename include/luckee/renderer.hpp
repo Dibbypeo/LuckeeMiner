@@ -65,6 +65,8 @@ private:
 
         void* vbo[2] = {nullptr, nullptr};
         int vertexCount[2] = {0, 0};
+        void* fluidVbo[2] = {nullptr, nullptr};
+        int fluidVertexCount[2] = {0, 0};
         bool dirty = true;
         std::uint64_t dirtiedTimeMs = 0;
     };
@@ -87,7 +89,16 @@ private:
         int x, int y, int z,
         float brightness) const;
 
+    void appendFluidFace(
+        std::vector<Vertex>& vertices,
+        int x, int y, int z,
+        int face, float brightness, int textureId) const;
+
     void drawChunk(
+        const ChunkMesh& chunk,
+        int layer);
+
+    void drawFluidChunk(
         const ChunkMesh& chunk,
         int layer);
 
@@ -157,6 +168,7 @@ private:
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
     std::vector<Vertex> buildVertices_[2];
+    std::vector<Vertex> buildFluidVertices_[2];
     std::vector<Vertex> characterVertices_;
     std::vector<Vertex> particleVertices_;
 

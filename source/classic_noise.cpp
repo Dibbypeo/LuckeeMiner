@@ -62,28 +62,31 @@ double ClassicImprovedNoise::sample(double x, double z) const {
     const int ba = permutation_[static_cast<std::size_t>(b)];
     const int bb = permutation_[static_cast<std::size_t>(b + 1)];
 
+    // The Java implementation evaluates the input coordinate as (x, z, 0),
+    // not (x, 0, z): its permutation hash and gradient arguments use X/Z as
+    // the first two axes and the third coordinate is fixed at zero.
     return lerp(
         w,
         lerp(
             v,
             lerp(
                 u,
-                gradient(permutation_[static_cast<std::size_t>(aa)], x, y, z),
-                gradient(permutation_[static_cast<std::size_t>(ba)], x - 1.0, y, z)),
+                gradient(permutation_[static_cast<std::size_t>(aa)], x, z, y),
+                gradient(permutation_[static_cast<std::size_t>(ba)], x - 1.0, z, y)),
             lerp(
                 u,
-                gradient(permutation_[static_cast<std::size_t>(ab)], x, y - 1.0, z),
-                gradient(permutation_[static_cast<std::size_t>(bb)], x - 1.0, y - 1.0, z))),
+                gradient(permutation_[static_cast<std::size_t>(ab)], x, z - 1.0, y),
+                gradient(permutation_[static_cast<std::size_t>(bb)], x - 1.0, z - 1.0, y))),
         lerp(
             v,
             lerp(
                 u,
-                gradient(permutation_[static_cast<std::size_t>(aa + 1)], x, y, z - 1.0),
-                gradient(permutation_[static_cast<std::size_t>(ba + 1)], x - 1.0, y, z - 1.0)),
+                gradient(permutation_[static_cast<std::size_t>(aa + 1)], x, z, y - 1.0),
+                gradient(permutation_[static_cast<std::size_t>(ba + 1)], x - 1.0, z, y - 1.0)),
             lerp(
                 u,
-                gradient(permutation_[static_cast<std::size_t>(ab + 1)], x, y - 1.0, z - 1.0),
-                gradient(permutation_[static_cast<std::size_t>(bb + 1)], x - 1.0, y - 1.0, z - 1.0))));
+                gradient(permutation_[static_cast<std::size_t>(ab + 1)], x, z - 1.0, y - 1.0),
+                gradient(permutation_[static_cast<std::size_t>(bb + 1)], x - 1.0, z - 1.0, y - 1.0))));
 }
 
 ClassicOctaveNoise::ClassicOctaveNoise(

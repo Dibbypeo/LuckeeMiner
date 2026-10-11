@@ -129,7 +129,7 @@ void GrassTile::tick(
             z + randomInt(random, 3) - 1;
 
         if (level.getTile(xt, yt, zt) == dirt->id() &&
-            level.isLit(xt, yt, zt)) {
+            level.isLit(xt, yt + 1, zt)) {
             level.setTile(
                 xt, yt, zt,
                 grass->id());
@@ -180,9 +180,15 @@ bool FluidTile::hasOpenFlowNeighbor(
 
 void FluidTile::neighborChanged(
     Level& level, int x, int y, int z, int changedType) {
+    // The stationary subclass reacts only to the flowing opposite fluid;
+    // the flowing subclass reacts to either flowing or stationary opposite
+    // fluid, matching their different Java neighborChanged overrides.
     const bool opposite =
-        (family_ == 1 && (changedType == 10 || changedType == 11)) ||
-        (family_ == 2 && (changedType == 8 || changedType == 9));
+        stationary_
+            ? ((family_ == 1 && changedType == 10) ||
+               (family_ == 2 && changedType == 8))
+            : ((family_ == 1 && (changedType == 10 || changedType == 11)) ||
+               (family_ == 2 && (changedType == 8 || changedType == 9)));
     if (opposite) {
         level.setTileRaw(x, y, z, Tile::rock->id());
         return;

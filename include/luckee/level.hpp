@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include "luckee/java_random.hpp"
 #include <vector>
 
@@ -68,6 +69,10 @@ private:
     JavaRandom random_;
     std::uint32_t randomTickState_ = 0;
     std::uint64_t unprocessed_ = 0;
+
+    std::string worldName_ = "A Nice World";
+    std::string creator_ = "LuckeeMiner";
+    std::uint64_t creationTimeMs_ = 0;
 };
 
 } // namespace luckee

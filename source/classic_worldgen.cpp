@@ -13,9 +13,7 @@ namespace {
 constexpr std::uint8_t ROCK = 1;
 constexpr std::uint8_t GRASS = 2;
 constexpr std::uint8_t DIRT = 3;
-constexpr std::uint8_t FLOWING_WATER = 8;
 constexpr std::uint8_t STILL_WATER = 9;
-constexpr std::uint8_t FLOWING_LAVA = 10;
 constexpr std::uint8_t STILL_LAVA = 11;
 
 std::size_t blockIndex(int x, int y, int z, int width, int height) {
@@ -43,11 +41,6 @@ std::uint64_t floodFill(
     std::uint8_t fluidId) {
     if (!inside(startX, startY, startZ, width, height, depth))
         return 0;
-
-    const std::uint8_t oppositeA =
-        fluidId == STILL_LAVA ? FLOWING_WATER : 0;
-    const std::uint8_t oppositeB =
-        fluidId == STILL_LAVA ? STILL_WATER : 0;
 
     std::vector<std::uint32_t> frontier;
     frontier.reserve(1024);
@@ -97,17 +90,17 @@ std::uint64_t floodFill(
             const int nextNegZ = z - 1;
             const int nextPosZ = z + 1;
 
-            auto queueNeighbor = [&](int nx, int ny, int nz, bool& previousEmpty) {
+            auto queueNeighbor = [&](int nx, int ny, int nz,
+                                     bool& previousEmpty, bool below) {
                 std::uint8_t neighbor = read(nx, ny, nz);
-
-                if (fluidId == STILL_LAVA &&
-                    (neighbor == oppositeA || neighbor == oppositeB)) {
-                    if (inside(nx, ny, nz, width, height, depth)) {
-                        blocks[blockIndex(nx, ny, nz, width, height)] = ROCK;
-                    }
+                // Classic's lava pass turns water directly beneath lava into
+                // rock; runtime neighbor callbacks implement the other cases.
+                if (fluidId == STILL_LAVA && below &&
+                    (neighbor == 8 || neighbor == 9) &&
+                    inside(nx, ny, nz, width, height, depth)) {
+                    blocks[blockIndex(nx, ny, nz, width, height)] = ROCK;
                     neighbor = ROCK;
                 }
-
                 const bool empty = neighbor == 0;
                 if (empty && !previousEmpty && inside(nx, ny, nz, width, height, depth)) {
                     frontier.push_back(static_cast<std::uint32_t>(
@@ -116,9 +109,9 @@ std::uint64_t floodFill(
                 previousEmpty = empty;
             };
 
-            queueNeighbor(fillX, nextY, z, previousDown);
-            queueNeighbor(fillX, y, nextNegZ, previousNegZ);
-            queueNeighbor(fillX, y, nextPosZ, previousPosZ);
+            queueNeighbor(fillX, nextY, z, previousDown, true);
+            queueNeighbor(fillX, y, nextNegZ, previousNegZ, false);
+            queueNeighbor(fillX, y, nextPosZ, previousPosZ, false);
         }
     }
 
@@ -180,7 +173,7 @@ std::vector<std::uint8_t> generateClassicWorld(
                 int& h = heights[static_cast<std::size_t>(x) +
                                  static_cast<std::size_t>(z) *
                                      static_cast<std::size_t>(width)];
-                h = (((h - selectorBit) / 2) << 1) + selectorBit;
+                h = (((h - selectorBit) / 2) * 2) + selectorBit;
             }
         }
     }

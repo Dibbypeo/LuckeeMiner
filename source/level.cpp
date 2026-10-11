@@ -1,8 +1,11 @@
 #include "luckee/level.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include <zlib.h>
@@ -12,6 +15,177 @@
 #include "luckee/tile.hpp"
 
 namespace luckee {
+
+namespace {
+constexpr std::uint32_t CLASSIC_SAVE_MAGIC = 656127880u;
+constexpr std::uint8_t CLASSIC_SAVE_VERSION = 1;
+
+bool gzExact(gzFile file, void* data, std::size_t length) {
+    auto* bytes = static_cast<std::uint8_t*>(data);
+    std::size_t offset = 0;
+    while (offset < length) {
+        const unsigned int n = static_cast<unsigned int>(
+            std::min<std::size_t>(length - offset, 32768u));
+        const int read = gzread(file, bytes + offset, n);
+        if (read <= 0) return false;
+        offset += static_cast<std::size_t>(read);
+    }
+    return true;
+}
+
+bool gzWriteExact(gzFile file, const void* data, std::size_t length) {
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
+    std::size_t offset = 0;
+    while (offset < length) {
+        const unsigned int n = static_cast<unsigned int>(
+            std::min<std::size_t>(length - offset, 32768u));
+        const int written = gzwrite(file, bytes + offset, n);
+        if (written <= 0) return false;
+        offset += static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
+void append16(std::vector<std::uint8_t>& out, std::uint16_t n) {
+    out.push_back(static_cast<std::uint8_t>(n >> 8));
+    out.push_back(static_cast<std::uint8_t>(n));
+}
+void append32(std::vector<std::uint8_t>& out, std::uint32_t n) {
+    out.push_back(static_cast<std::uint8_t>(n >> 24));
+    out.push_back(static_cast<std::uint8_t>(n >> 16));
+    out.push_back(static_cast<std::uint8_t>(n >> 8));
+    out.push_back(static_cast<std::uint8_t>(n));
+}
+void append64(std::vector<std::uint8_t>& out, std::uint64_t n) {
+    for (int shift = 56; shift >= 0; shift -= 8)
+        out.push_back(static_cast<std::uint8_t>(n >> shift));
+}
+void appendMutfUnit(std::vector<std::uint8_t>& out, std::uint16_t c) {
+    if (c >= 1 && c <= 0x7F) out.push_back(static_cast<std::uint8_t>(c));
+    else if (c <= 0x7FF) {
+        out.push_back(static_cast<std::uint8_t>(0xC0 | ((c >> 6) & 0x1F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | (c & 0x3F)));
+    } else {
+        out.push_back(static_cast<std::uint8_t>(0xE0 | ((c >> 12) & 0x0F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | ((c >> 6) & 0x3F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | (c & 0x3F)));
+    }
+}
+void appendUtf8(std::string& out, std::uint32_t cp) {
+    if (cp <= 0x7F) out.push_back(static_cast<char>(cp));
+    else if (cp <= 0x7FF) {
+        out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else if (cp <= 0xFFFF) {
+        out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else {
+        out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    }
+}
+bool appendJavaUtf(std::vector<std::uint8_t>& out, const std::string& text) {
+    std::vector<std::uint8_t> encoded;
+    encoded.reserve(text.size() + 8);
+    for (std::size_t i = 0; i < text.size();) {
+        const auto a = static_cast<std::uint8_t>(text[i]);
+        std::uint32_t cp = 0xFFFD;
+        std::size_t n = 1;
+        if (a < 0x80) cp = a;
+        else if ((a & 0xE0) == 0xC0 && i + 1 < text.size()) {
+            cp = ((a & 0x1F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 1]) & 0x3F);
+            n = 2;
+        } else if ((a & 0xF0) == 0xE0 && i + 2 < text.size()) {
+            cp = ((a & 0x0F) << 12) |
+                 ((static_cast<std::uint8_t>(text[i + 1]) & 0x3F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 2]) & 0x3F);
+            n = 3;
+        } else if ((a & 0xF8) == 0xF0 && i + 3 < text.size()) {
+            cp = ((a & 7) << 18) |
+                 ((static_cast<std::uint8_t>(text[i + 1]) & 0x3F) << 12) |
+                 ((static_cast<std::uint8_t>(text[i + 2]) & 0x3F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 3]) & 0x3F);
+            n = 4;
+        }
+        i += n;
+        if (cp <= 0xFFFF) appendMutfUnit(encoded, static_cast<std::uint16_t>(cp));
+        else if (cp <= 0x10FFFF) {
+            cp -= 0x10000;
+            appendMutfUnit(encoded, static_cast<std::uint16_t>(0xD800 + (cp >> 10)));
+            appendMutfUnit(encoded, static_cast<std::uint16_t>(0xDC00 + (cp & 0x3FF)));
+        } else appendMutfUnit(encoded, 0xFFFD);
+        if (encoded.size() > 65535u) return false;
+    }
+    append16(out, static_cast<std::uint16_t>(encoded.size()));
+    out.insert(out.end(), encoded.begin(), encoded.end());
+    return true;
+}
+bool read16(gzFile file, std::uint16_t& value) {
+    std::uint8_t b[2];
+    if (!gzExact(file, b, 2)) return false;
+    value = (static_cast<std::uint16_t>(b[0]) << 8) | b[1];
+    return true;
+}
+bool read32(gzFile file, std::uint32_t& value) {
+    std::uint8_t b[4];
+    if (!gzExact(file, b, 4)) return false;
+    value = (static_cast<std::uint32_t>(b[0]) << 24) |
+            (static_cast<std::uint32_t>(b[1]) << 16) |
+            (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
+    return true;
+}
+bool read64(gzFile file, std::uint64_t& value) {
+    std::uint8_t b[8];
+    if (!gzExact(file, b, 8)) return false;
+    value = 0;
+    for (std::uint8_t c : b) value = (value << 8) | c;
+    return true;
+}
+bool readJavaUtf(gzFile file, std::string& output) {
+    std::uint16_t length = 0;
+    if (!read16(file, length)) return false;
+    std::vector<std::uint8_t> bytes(length);
+    if (length && !gzExact(file, bytes.data(), length)) return false;
+    std::vector<std::uint16_t> units;
+    units.reserve(length);
+    for (std::size_t i = 0; i < bytes.size();) {
+        const std::uint8_t a = bytes[i++];
+        if ((a & 0x80) == 0) {
+            if (a == 0) return false;
+            units.push_back(a);
+        } else if ((a & 0xE0) == 0xC0) {
+            if (i >= bytes.size() || (bytes[i] & 0xC0) != 0x80) return false;
+            units.push_back(static_cast<std::uint16_t>(((a & 0x1F) << 6) | (bytes[i++] & 0x3F)));
+        } else if ((a & 0xF0) == 0xE0) {
+            if (i + 1 >= bytes.size() || (bytes[i] & 0xC0) != 0x80 ||
+                (bytes[i + 1] & 0xC0) != 0x80) return false;
+            units.push_back(static_cast<std::uint16_t>(
+                ((a & 0x0F) << 12) | ((bytes[i] & 0x3F) << 6) | (bytes[i + 1] & 0x3F)));
+            i += 2;
+        } else return false;
+    }
+    output.clear();
+    for (std::size_t i = 0; i < units.size(); ++i) {
+        std::uint32_t cp = units[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF) {
+            if (i + 1 >= units.size() || units[i + 1] < 0xDC00 || units[i + 1] > 0xDFFF)
+                return false;
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (units[++i] - 0xDC00);
+        } else if (cp >= 0xDC00 && cp <= 0xDFFF) return false;
+        appendUtf8(output, cp);
+    }
+    return true;
+}
+std::uint32_t be32(const std::uint8_t b[4]) {
+    return (static_cast<std::uint32_t>(b[0]) << 24) |
+           (static_cast<std::uint32_t>(b[1]) << 16) |
+           (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
+}
+} // namespace
 
 Level::Level(int width, int height, int depth)
     : width_(width),
@@ -52,6 +226,12 @@ std::size_t Level::index(
 }
 
 void Level::generateMap() {
+    worldName_ = "A Nice World";
+    creator_ = "LuckeeMiner";
+    creationTimeMs_ = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+
     // The Classic generator owns a separate stream for noise construction,
     // cave carving and water/lava source placement.
     JavaRandom generationRandom;
@@ -60,70 +240,69 @@ void Level::generateMap() {
 }
 
 bool Level::load() {
-    // The backup is only considered if the primary save cannot be opened or
-    // fails validation. This recovers from interruption during save replacement.
-    const char* const paths[] = {
-        "level.dat",
-        "level.dat.bak"
-    };
-
+    const char* const paths[] = {"level.dat", "level.dat.bak"};
     for (const char* path : paths) {
         gzFile file = gzopen(path, "rb");
-        if (!file)
-            continue;
+        if (!file) continue;
 
-        std::vector<std::uint8_t> loaded(blocks_.size());
-        std::size_t offset = 0;
+        bool valid = true;
+        std::uint8_t first[4]{};
+        valid = gzExact(file, first, sizeof(first));
+        std::vector<std::uint8_t> loaded(blocks_.size(), 0);
+        std::string loadedName = "--";
+        std::string loadedCreator = "unknown";
+        std::uint64_t loadedTime = 0;
+        bool hasMetadata = false;
 
-        while (offset < loaded.size()) {
-            const unsigned int remaining =
-                static_cast<unsigned int>(
-                    std::min<std::size_t>(
-                        loaded.size() - offset,
-                        0x7FFFFFFFu));
-
-            const int read =
-                gzread(
-                    file,
-                    loaded.data() + offset,
-                    remaining);
-
-            if (read <= 0)
-                break;
-
-            offset += static_cast<std::size_t>(read);
+        if (valid && be32(first) == CLASSIC_SAVE_MAGIC) {
+            hasMetadata = true;
+            std::uint8_t version = 0;
+            std::uint16_t width = 0, height = 0, depth = 0;
+            valid = gzExact(file, &version, 1) &&
+                    version <= CLASSIC_SAVE_VERSION &&
+                    readJavaUtf(file, loadedName) &&
+                    readJavaUtf(file, loadedCreator) &&
+                    read64(file, loadedTime) &&
+                    read16(file, width) &&
+                    read16(file, height) &&
+                    read16(file, depth);
+            if (valid &&
+                (width != width_ || height != height_ || depth != depth_))
+                valid = false;
+        } else if (valid) {
+            // Legacy format contains the raw block bytes directly.
+            if (loaded.size() < sizeof(first)) valid = false;
+            else {
+                std::copy(first, first + sizeof(first), loaded.begin());
+                valid = gzExact(
+                    file, loaded.data() + sizeof(first),
+                    loaded.size() - sizeof(first));
+            }
         }
 
-        // Read once beyond the expected payload to force zlib to validate the
-        // GZIP trailer (CRC and uncompressed size) and reject extra data.
-        unsigned char extra = 0;
-        const int extraRead =
-            offset == loaded.size()
-                ? gzread(file, &extra, 1)
-                : -1;
+        if (valid && hasMetadata)
+            valid = gzExact(file, loaded.data(), loaded.size());
 
+        std::uint8_t extra = 0;
+        const int extraRead = valid ? gzread(file, &extra, 1) : -1;
         const int closeResult = gzclose(file);
-
-        if (offset != loaded.size() ||
-            extraRead != 0 ||
-            closeResult != Z_OK) {
-            continue;
-        }
+        if (!valid || extraRead != 0 || closeResult != Z_OK) continue;
 
         blocks_.swap(loaded);
-        calcLightDepths(
-            0, 0,
-            width_,
-            height_);
-
-        for (LevelListener* listener : listeners_) {
-            if (listener)
-                listener->allChanged();
+        if (hasMetadata) {
+            worldName_ = loadedName;
+            creator_ = loadedCreator;
+            creationTimeMs_ = loadedTime;
+        } else {
+            worldName_ = "--";
+            creator_ = "unknown";
+            creationTimeMs_ = 0;
         }
-
+        calcLightDepths(0, 0, width_, height_);
+        for (LevelListener* listener : listeners_)
+            if (listener) listener->allChanged();
         return true;
     }
-
     return false;
 }
 
@@ -132,217 +311,59 @@ bool Level::save() const {
     constexpr const char* TEMP_PATH = "level.dat.tmp";
     constexpr const char* BACKUP_PATH = "level.dat.bak";
 
-    if (blocks_.size() > 0xFFFFFFFFu) {
-        std::fputs(
-            "level.dat: world is too large for the historical GZIP format.\n",
-            stderr);
+    std::vector<std::uint8_t> header;
+    header.reserve(64 + worldName_.size() + creator_.size());
+    append32(header, CLASSIC_SAVE_MAGIC);
+    header.push_back(CLASSIC_SAVE_VERSION);
+    if (!appendJavaUtf(header, worldName_) ||
+        !appendJavaUtf(header, creator_)) {
+        std::fputs("level.dat: world metadata exceeds Java's UTF limit.\n", stderr);
         return false;
     }
+    append64(header, creationTimeMs_);
+    append16(header, static_cast<std::uint16_t>(width_));
+    append16(header, static_cast<std::uint16_t>(height_));
+    append16(header, static_cast<std::uint16_t>(depth_));
 
-    // Do not truncate the last good save before the new file is complete.
-    // The temporary file lives beside level.dat so replacement stays on the
-    // same filesystem.
-    std::FILE* file = std::fopen(TEMP_PATH, "wb");
-
+    gzFile file = gzopen(TEMP_PATH, "wb1");
     if (!file) {
         std::perror(TEMP_PATH);
         return false;
     }
-
-    // java.util.zip.GZIPOutputStream's historical fixed header. Favor fast
-    // compression on the 3DS; the DEFLATE stream may vary by zlib version.
-    // The exact uncompressed payload and standard GZIP framing provide
-    // save-file compatibility.
-    const unsigned char header[10] = {
-        0x1F, 0x8B, 0x08, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00
-    };
-
-    if (std::fwrite(header, 1, sizeof(header), file) != sizeof(header)) {
-        std::perror(TEMP_PATH);
-        std::fclose(file);
-        std::remove(TEMP_PATH);
-        return false;
-    }
-
-    z_stream stream{};
-    if (deflateInit2(
-            &stream,
-            Z_BEST_SPEED,
-            Z_DEFLATED,
-            -MAX_WBITS,
-            8,
-            Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::fputs(
-            "level.dat: could not initialize compression.\n",
-            stderr);
-        std::fclose(file);
-        std::remove(TEMP_PATH);
-        return false;
-    }
-
-    constexpr std::size_t INPUT_CHUNK = 32768;
-    constexpr std::size_t OUTPUT_CHUNK = 32768;
-    // Keep the 32 KiB scratch buffer out of the small 3DS main stack.
-    // Saving is synchronous, so this reusable static buffer is not shared by
-    // concurrent save calls.
-    static unsigned char output[OUTPUT_CHUNK];
-
-    uLong crc = crc32(0L, Z_NULL, 0);
+    bool ok = gzWriteExact(file, header.data(), header.size());
     std::size_t offset = 0;
-    bool ok = true;
-
-    while (offset < blocks_.size()) {
-        const std::size_t remaining = blocks_.size() - offset;
-        const std::size_t inputSize =
-            std::min(remaining, INPUT_CHUNK);
-
-        crc = crc32(
-            crc,
-            blocks_.data() + offset,
-            static_cast<uInt>(inputSize));
-
-        stream.next_in =
-            const_cast<Bytef*>(
-                reinterpret_cast<const Bytef*>(
-                    blocks_.data() + offset));
-        stream.avail_in = static_cast<uInt>(inputSize);
-        offset += inputSize;
-
-        while (stream.avail_in > 0) {
-            const uInt inputBefore = stream.avail_in;
-
-            stream.next_out = output;
-            stream.avail_out = OUTPUT_CHUNK;
-
-            const int result = deflate(&stream, Z_NO_FLUSH);
-
-            const std::size_t produced =
-                OUTPUT_CHUNK - stream.avail_out;
-
-            if (result != Z_OK ||
-                (stream.avail_in == inputBefore && produced == 0)) {
-                // Avoid an endless loop if the compression library reports
-                // success but neither consumes input nor produces output.
-                ok = false;
-                break;
-            }
-
-            if (produced != 0 &&
-                std::fwrite(output, 1, produced, file) != produced) {
-                ok = false;
-                break;
-            }
-        }
-
-        if (!ok)
-            break;
+    while (ok && offset < blocks_.size()) {
+        const std::size_t count =
+            std::min<std::size_t>(blocks_.size() - offset, 32768u);
+        ok = gzWriteExact(file, blocks_.data() + offset, count);
+        offset += count;
     }
-
-    if (ok) {
-        int result = Z_OK;
-
-        do {
-            stream.next_in = Z_NULL;
-            stream.avail_in = 0;
-            stream.next_out = output;
-            stream.avail_out = OUTPUT_CHUNK;
-
-            result = deflate(&stream, Z_FINISH);
-
-            if (result != Z_OK && result != Z_STREAM_END) {
-                ok = false;
-                break;
-            }
-
-            const std::size_t produced =
-                OUTPUT_CHUNK - stream.avail_out;
-
-            if (produced != 0 &&
-                std::fwrite(output, 1, produced, file) != produced) {
-                ok = false;
-                break;
-            }
-
-            if (result == Z_OK && produced == 0) {
-                // Z_FINISH must either emit bytes or finish the stream.
-                ok = false;
-                break;
-            }
-        } while (result != Z_STREAM_END);
-    }
-
-    if (deflateEnd(&stream) != Z_OK)
-        ok = false;
-
-    if (ok) {
-        const unsigned char trailer[8] = {
-            static_cast<unsigned char>(crc & 0xFFu),
-            static_cast<unsigned char>((crc >> 8) & 0xFFu),
-            static_cast<unsigned char>((crc >> 16) & 0xFFu),
-            static_cast<unsigned char>((crc >> 24) & 0xFFu),
-            static_cast<unsigned char>(
-                static_cast<std::uint32_t>(blocks_.size()) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 8) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 16) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 24) & 0xFFu)
-        };
-
-        if (std::fwrite(trailer, 1, sizeof(trailer), file) != sizeof(trailer))
-            ok = false;
-    }
-
-    if (std::fclose(file) != 0)
-        ok = false;
-
-    if (!ok) {
-        std::fputs(
-            "level.dat: failed while writing the temporary world save; "
-            "the previous save was left untouched.\n",
-            stderr);
+    const int closeResult = gzclose(file);
+    if (!ok || closeResult != Z_OK) {
+        std::fputs("level.dat: could not complete compressed Classic save.\n", stderr);
         std::remove(TEMP_PATH);
         return false;
     }
 
-    bool hadPreviousSave = false;
+    bool hadPrevious = false;
     std::FILE* previous = std::fopen(SAVE_PATH, "rb");
-
     if (previous) {
-        hadPreviousSave = true;
+        hadPrevious = true;
         std::fclose(previous);
-
-        // On filesystems that cannot rename over an existing file, move the
-        // current save aside only after the replacement has been written.
-        // If the final rename fails, restore this backup.
         std::remove(BACKUP_PATH);
-
         if (std::rename(SAVE_PATH, BACKUP_PATH) != 0) {
             std::perror("level.dat: could not preserve previous save");
             std::remove(TEMP_PATH);
             return false;
         }
     }
-
     if (std::rename(TEMP_PATH, SAVE_PATH) != 0) {
         std::perror("level.dat: could not finalize save");
-
-        if (hadPreviousSave &&
-            std::rename(BACKUP_PATH, SAVE_PATH) != 0) {
-            std::fputs(
-                "level.dat: the previous save remains in level.dat.bak.\n",
-                stderr);
-        }
-
+        if (hadPrevious && std::rename(BACKUP_PATH, SAVE_PATH) != 0)
+            std::fputs("level.dat: previous save remains in level.dat.bak.\n", stderr);
         std::remove(TEMP_PATH);
         return false;
     }
-
-    // The primary path now contains a complete validated-format save.
-    // Keep a backup only if it was needed for a failed replacement.
     std::remove(BACKUP_PATH);
     return true;
 }
@@ -503,7 +524,7 @@ void Level::getCubes(
                     const bool boundary =
                         x < 0 || x >= width_ ||
                         z < 0 || z >= height_ || y < 0;
-                    if (boundary && y < depth_ && Tile::boundary)
+                    if (boundary && Tile::boundary)
                         result.push_back(
                             Tile::boundary->getAABB(x, y, z));
                     continue;

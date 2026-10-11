@@ -1,6 +1,7 @@
 #include "luckee/player.hpp"
 
 #include "luckee/input.hpp"
+#include "luckee/level.hpp"
 
 namespace luckee {
 

@@ -874,6 +874,39 @@ void Renderer::appendBush(
     }
 }
 
+void Renderer::appendFluidFace(
+    std::vector<Vertex>& vertices,
+    int x, int y, int z,
+    int face,
+    float brightness,
+    int textureId) const {
+
+    const Face& f = faces[face];
+    const int indices[6] = {0, 1, 2, 0, 2, 3};
+    const float minU = static_cast<float>(textureId % 16) / 16.0f;
+    const float maxU = minU + 0.0624375f;
+    const float minV = static_cast<float>(textureId / 16) / 16.0f;
+    const float maxV = minV + 0.0624375f;
+    float u[4]{};
+    float v[4]{};
+    faceUvs(face, minU, maxU, minV, maxV, u, v);
+
+    for (int index : indices) {
+        Vertex vertex{};
+        vertex.x = x + f.p[index][0];
+        // Classic liquid bounds extend from y - 0.1 to y + 0.9.
+        vertex.y = y + (f.p[index][1] > 0.5f ? 0.9f : -0.1f);
+        vertex.z = z + f.p[index][2];
+        vertex.r = brightness;
+        vertex.g = brightness;
+        vertex.b = brightness;
+        vertex.a = 1.0f;
+        vertex.u = u[index];
+        vertex.v = v[index];
+        vertices.push_back(vertex);
+    }
+}
+
 bool Renderer::rebuildChunk(
     const Level& level,
     ChunkMesh& chunk) {
@@ -882,6 +915,7 @@ bool Renderer::rebuildChunk(
          layer < LAYERS;
          ++layer) {
         buildVertices_[layer].clear();
+        buildFluidVertices_[layer].clear();
     }
 
     for (int x = chunk.minX;
@@ -909,6 +943,38 @@ bool Renderer::rebuildChunk(
 
                 if (!tile)
                     continue;
+
+                if (tile->isLiquid()) {
+                    for (int face = 0; face < 6; ++face) {
+                        const Face& f = faces[face];
+                        const int nx = x + f.nx;
+                        const int ny = y + f.ny;
+                        const int nz = z + f.nz;
+
+                        if (nx < 0 || nx >= level.width() ||
+                            nz < 0 || nz >= level.height() || ny < 0)
+                            continue;
+                        if (level.isSolidTile(nx, ny, nz))
+                            continue;
+
+                        const int neighborId = level.getTile(nx, ny, nz);
+                        if (neighborId > 0 && neighborId < Tile::MAX_TILES) {
+                            const Tile* neighbor = Tile::tiles[neighborId];
+                            if (neighbor && neighbor->isLiquid() &&
+                                neighbor->liquidFamily() == tile->liquidFamily())
+                                continue;
+                        }
+
+                        const bool lit = level.isLit(nx, ny, nz);
+                        const int renderLayer = lit ? 0 : 1;
+                        appendFluidFace(
+                            buildFluidVertices_[renderLayer],
+                            x, y, z, face,
+                            lit ? f.shade : f.shade * 0.6f,
+                            tile->getTexture(face));
+                    }
+                    continue;
+                }
 
                 if (tile->isCrossPlant()) {
                     const int renderLayer =
@@ -965,65 +1031,69 @@ bool Renderer::rebuildChunk(
         }
     }
 
-    void* newVbo[LAYERS] =
-        {nullptr, nullptr};
+    void* newVbo[LAYERS] = {nullptr, nullptr};
+    void* newFluidVbo[LAYERS] = {nullptr, nullptr};
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        const std::size_t solidBytes =
+            buildVertices_[layer].size() * sizeof(Vertex);
+        const std::size_t fluidBytes =
+            buildFluidVertices_[layer].size() * sizeof(Vertex);
 
-        const std::size_t bytes =
-            buildVertices_[layer].size() *
-            sizeof(Vertex);
-
-        if (bytes == 0)
-            continue;
-
-        newVbo[layer] =
-            linearAlloc(bytes);
-
-        if (!newVbo[layer]) {
-            for (int cleanupLayer = 0;
-                 cleanupLayer < LAYERS;
-                 ++cleanupLayer) {
-
-                if (newVbo[cleanupLayer])
-                    linearFree(
-                        newVbo[cleanupLayer]);
-            }
-
-            // Do not leave stale geometry behind when the linear heap is
-            // temporarily too full for a replacement mesh. Releasing the
-            // old mesh lets the next frame retry with the memory reclaimed.
-            releaseChunkMesh(chunk);
-            chunk.dirty = true;
-            return false;
+        if (solidBytes != 0) {
+            newVbo[layer] = linearAlloc(solidBytes);
+            if (!newVbo[layer])
+                goto allocation_failed;
+            std::memcpy(newVbo[layer], buildVertices_[layer].data(), solidBytes);
         }
-
-        std::memcpy(
-            newVbo[layer],
-            buildVertices_[layer].data(),
-            bytes);
+        if (fluidBytes != 0) {
+            newFluidVbo[layer] = linearAlloc(fluidBytes);
+            if (!newFluidVbo[layer])
+                goto allocation_failed;
+            std::memcpy(
+                newFluidVbo[layer], buildFluidVertices_[layer].data(), fluidBytes);
+        }
     }
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
-
-        if (chunk.vbo[layer])
-            linearFree(
-                chunk.vbo[layer]);
-
-        chunk.vbo[layer] =
-            newVbo[layer];
-
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        if (chunk.vbo[layer]) linearFree(chunk.vbo[layer]);
+        if (chunk.fluidVbo[layer]) linearFree(chunk.fluidVbo[layer]);
+        chunk.vbo[layer] = newVbo[layer];
         chunk.vertexCount[layer] =
-            static_cast<int>(
-                buildVertices_[layer].size());
+            static_cast<int>(buildVertices_[layer].size());
+        chunk.fluidVbo[layer] = newFluidVbo[layer];
+        chunk.fluidVertexCount[layer] =
+            static_cast<int>(buildFluidVertices_[layer].size());
     }
 
     chunk.dirty = false;
     return true;
+
+allocation_failed:
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        if (newVbo[layer]) linearFree(newVbo[layer]);
+        if (newFluidVbo[layer]) linearFree(newFluidVbo[layer]);
+    }
+    releaseChunkMesh(chunk);
+    chunk.dirty = true;
+    return false;
+
+    chunk.dirty = false;
+    return true;
+}
+
+void Renderer::drawFluidChunk(
+    const ChunkMesh& chunk,
+    int layer) {
+    if (!chunk.fluidVbo[layer] || chunk.fluidVertexCount[layer] <= 0)
+        return;
+
+    C3D_BufInfo* bufInfo = C3D_GetBufInfo();
+    BufInfo_Init(bufInfo);
+    BufInfo_Add(bufInfo, chunk.fluidVbo[layer], sizeof(Vertex), 3, 0x210);
+    C3D_SetBufInfo(bufInfo);
+    C3D_DrawArrays(GPU_TRIANGLES, 0,
+        static_cast<u32>(chunk.fluidVertexCount[layer]));
 }
 
 void Renderer::drawChunk(
@@ -1115,17 +1185,17 @@ bool Renderer::ensureParticleVboCapacity(
 void Renderer::releaseChunkMesh(
     ChunkMesh& chunk) {
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
-
+    for (int layer = 0; layer < LAYERS; ++layer) {
         if (chunk.vbo[layer]) {
-            linearFree(
-                chunk.vbo[layer]);
+            linearFree(chunk.vbo[layer]);
             chunk.vbo[layer] = nullptr;
         }
-
+        if (chunk.fluidVbo[layer]) {
+            linearFree(chunk.fluidVbo[layer]);
+            chunk.fluidVbo[layer] = nullptr;
+        }
         chunk.vertexCount[layer] = 0;
+        chunk.fluidVertexCount[layer] = 0;
     }
 }
 
@@ -2426,6 +2496,36 @@ void Renderer::render(
                 chunks_[index],
                 1);
     }
+
+    // Render liquids after opaque geometry. Water alpha is present in the
+    // original texture atlas; use alpha blending but leave the opaque depth
+    // buffer unchanged so back faces and terrain remain visible through it.
+    C3D_FogColor(0xFEFBFA);
+    C3D_FogLutBind(&dayFogLut_);
+    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+
+    for (std::size_t index = 0; index < chunks_.size(); ++index)
+        if (visible_[index])
+            drawFluidChunk(chunks_[index], 0);
+
+    C3D_FogColor(0x0E0B0A);
+    C3D_FogLutBind(&shadowFogLut_);
+    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+
+    for (std::size_t index = 0; index < chunks_.size(); ++index)
+        if (visible_[index])
+            drawFluidChunk(chunks_[index], 1);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
 
     // The reference draws entities and particles in both world-lighting
     // passes. Without these shadow-layer calls, anything classified as
