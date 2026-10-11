@@ -121,7 +121,12 @@ std::uint64_t floodFill(
 } // namespace
 
 std::vector<std::uint8_t> generateClassicWorld(
-    int width, int height, int depth, JavaRandom& random) {
+    int width, int height, int depth, JavaRandom& random,
+    ClassicGenerationProgress progress) {
+    const auto report = [&](const char* stage, int percent) {
+        if (progress)
+            progress(stage, std::max(0, std::min(100, percent)));
+    };
     const std::size_t planeSize =
         static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
     const std::size_t totalSize =
@@ -141,7 +146,10 @@ std::vector<std::uint8_t> generateClassicWorld(
     ClassicOctaveNoise selector(random, 8);
 
     // Raising.
+    report("Raising terrain", 0);
     for (int x = 0; x < width; ++x) {
+        if ((x & 7) == 0)
+            report("Raising terrain", x * 100 / width);
         for (int z = 0; z < height; ++z) {
             const double first = raisingA.sample(x, z) / 8.0 - 8.0;
             double second = raisingB.sample(x, z) / 8.0 + 8.0;
@@ -156,7 +164,9 @@ std::vector<std::uint8_t> generateClassicWorld(
         }
     }
 
+    report("Raising terrain", 100);
     // Eroding.
+    report("Eroding terrain", 0);
     ClassicOctaveNoise erosionA1(random, 8);
     ClassicOctaveNoise erosionA2(random, 8);
     ClassicDistortedNoise erosionNoise(erosionA1, erosionA2);
@@ -165,6 +175,8 @@ std::vector<std::uint8_t> generateClassicWorld(
     ClassicDistortedNoise erosionSelector(erosionB1, erosionB2);
 
     for (int x = 0; x < width; ++x) {
+        if ((x & 7) == 0)
+            report("Eroding terrain", x * 100 / width);
         for (int z = 0; z < height; ++z) {
             const double noise = erosionNoise.sample(x << 1, z << 1) / 8.0;
             const int selectorBit =
@@ -178,8 +190,12 @@ std::vector<std::uint8_t> generateClassicWorld(
         }
     }
 
+    report("Eroding terrain", 100);
     // Soiling. Classic uses Y = heightmap + depth/2, with two dirt layers.
+    report("Soiling terrain", 0);
     for (int x = 0; x < width; ++x) {
+        if ((x & 7) == 0)
+            report("Soiling terrain", x * 100 / width);
         for (int y = 0; y < depth; ++y) {
             for (int z = 0; z < height; ++z) {
                 const int top =
@@ -203,10 +219,14 @@ std::vector<std::uint8_t> generateClassicWorld(
         }
     }
 
+    report("Soiling terrain", 100);
     // Carving. This follows the original ellipsoidal worm walk and its
     // asymmetrical vertical weighting.
+    report("Carving caves", 0);
     const int caveCount = width * height * depth / 256 / 64;
     for (int cave = 0; cave < caveCount; ++cave) {
+        if ((cave & 7) == 0)
+            report("Carving caves", cave * 100 / std::max(1, caveCount));
         float x = random.nextFloat() * width;
         float y = random.nextFloat() * depth;
         float z = random.nextFloat() * height;
@@ -263,10 +283,14 @@ std::vector<std::uint8_t> generateClassicWorld(
         }
     }
 
+    report("Carving caves", 100);
     // Watering from the perimeter at sea level and from random interior
     // openings. The fill uses STILL_WATER (9), as the original did.
+    report("Filling water", 0);
     const int waterY = depth / 2 - 1;
     for (int x = 0; x < width; ++x) {
+        if ((x & 7) == 0)
+            report("Filling water", x * 45 / width);
         floodFill(blocks, width, height, depth, x, waterY, 0, STILL_WATER);
         floodFill(blocks, width, height, depth, x, waterY, height - 1, STILL_WATER);
     }
@@ -275,8 +299,12 @@ std::vector<std::uint8_t> generateClassicWorld(
         floodFill(blocks, width, height, depth, width - 1, waterY, z, STILL_WATER);
     }
 
+    report("Filling water", 55);
     const int waterSources = width * height / 200;
     for (int source = 0; source < waterSources; ++source) {
+        if ((source & 15) == 0)
+            report("Filling water",
+                55 + source * 45 / std::max(1, waterSources));
         const int x = random.nextInt(width);
         const int y = depth / 2 - 1 - random.nextInt(3);
         const int z = random.nextInt(height);
@@ -284,12 +312,16 @@ std::vector<std::uint8_t> generateClassicWorld(
             floodFill(blocks, width, height, depth, x, y, z, STILL_WATER);
     }
 
+    report("Filling water", 100);
     // Melting. The source count and vertical range match c0.0.13a_03.
+    report("Generating lava", 0);
     const int lavaSources = static_cast<int>(
         static_cast<std::size_t>(width) *
         static_cast<std::size_t>(height) *
         static_cast<std::size_t>(depth) / 10000u);
     for (int source = 0; source < lavaSources; ++source) {
+        if ((source & 15) == 0)
+            report("Generating lava", source * 100 / std::max(1, lavaSources));
         const int x = random.nextInt(width);
         const int y = random.nextInt(std::max(1, depth / 2 - 4));
         const int z = random.nextInt(height);
@@ -297,6 +329,7 @@ std::vector<std::uint8_t> generateClassicWorld(
             floodFill(blocks, width, height, depth, x, y, z, STILL_LAVA);
     }
 
+    report("Generating lava", 100);
     return blocks;
 }
 

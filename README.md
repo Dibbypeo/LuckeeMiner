@@ -42,7 +42,7 @@ devkitPro build or a 3DS emulator/hardware test**.
 | Y | Spawn a zombie (testing convenience) |
 | SELECT | Save world |
 | X | Reset player position |
-| START | Save and exit |
+| START | Open pause menu (resume/save/load/regenerate/exit) |
 
 The original Classic menus and controls will replace or subsume these temporary
 debug-oriented controls as that system is implemented.
@@ -88,7 +88,7 @@ From the project directory:
     make clean
     make
 
-The current editing environment did not have devkitPro available, so there is
+The current editing environment does not have devkitPro available, so there is
 no verified compile result to report for this branch yet.
 
 ## Source layout

@@ -40,6 +40,110 @@ void waitForStart() {
     }
 }
 
+void showGenerationProgress(const char* stage, int percent) {
+    consoleClear();
+    std::printf("Minecraft Classic c0.0.13a_03\n\n");
+    std::printf("Generating world: %s\n\n", stage ? stage : "Working");
+    constexpr int BAR_WIDTH = 24;
+    const int filled = std::max(0, std::min(BAR_WIDTH, percent * BAR_WIDTH / 100));
+    std::putchar('[');
+    for (int i = 0; i < BAR_WIDTH; ++i)
+        std::putchar(i < filled ? '#' : '.');
+    std::printf("] %d%%\n", std::max(0, std::min(100, percent)));
+    std::fflush(stdout);
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
+}
+
+void runPauseMenu(
+    luckee::Level& level,
+    luckee::Player& player,
+    std::vector<luckee::Zombie>& zombies,
+    luckee::ParticleEngine& particles,
+    luckee::Renderer& renderer,
+    luckee::Timer& timer,
+    int& selectedTileId,
+    bool& shouldExit) {
+    static const char* const entries[] = {
+        "Resume game",
+        "Save world",
+        "Load saved world",
+        "Generate new world",
+        "Exit game"
+    };
+    constexpr int ENTRY_COUNT = 5;
+    int selected = 0;
+    std::string status;
+    bool done = false;
+
+    while (aptMainLoop() && !done && !shouldExit) {
+        hidScanInput();
+        const u32 down = hidKeysDown();
+
+        if (down & (KEY_B | KEY_START)) {
+            done = true;
+            continue;
+        }
+        if (down & KEY_DUP)
+            selected = (selected + ENTRY_COUNT - 1) % ENTRY_COUNT;
+        if (down & KEY_DDOWN)
+            selected = (selected + 1) % ENTRY_COUNT;
+
+        if (down & KEY_A) {
+            switch (selected) {
+            case 0:
+                done = true;
+                break;
+            case 1:
+                status = level.save()
+                    ? "Saved level.dat successfully."
+                    : "Save failed. Check level.dat and filesystem space.";
+                break;
+            case 2:
+                if (level.load()) {
+                    player.resetPosition();
+                    zombies.clear();
+                    particles.clear();
+                    status = "Loaded level.dat.";
+                } else {
+                    status = "No valid level.dat or level.dat.bak was found.";
+                }
+                break;
+            case 3:
+                level.generateNewWorld(&showGenerationProgress);
+                player.resetPosition();
+                zombies.clear();
+                particles.clear();
+                selectedTileId = luckee::Tile::rock->id();
+                status = "Generated a new Classic world.";
+                break;
+            case 4:
+                shouldExit = true;
+                done = true;
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (!done && !shouldExit) {
+            consoleClear();
+            std::puts("Minecraft Classic c0.0.13a_03 - Paused\n");
+            std::puts("D-Pad: select    A: choose    B/START: resume\n");
+            for (int i = 0; i < ENTRY_COUNT; ++i)
+                std::printf("%s %s\n", i == selected ? ">" : " ", entries[i]);
+            if (!status.empty())
+                std::printf("\n%s\n", status.c_str());
+
+            renderer.render(
+                level, player, zombies, particles,
+                selectedTileId, timer.alpha());
+            gspWaitForVBlank();
+        }
+    }
+}
+
 } // namespace
 
 int main(int, char**) {
@@ -66,7 +170,11 @@ int main(int, char**) {
 
     presentStartupStage("Assets OK");
 
-    luckee::Level level;
+    luckee::Level level(
+        luckee::Level::WIDTH,
+        luckee::Level::HEIGHT,
+        luckee::Level::DEPTH,
+        &showGenerationProgress);
     luckee::Player player(level);
     presentStartupStage("Level and player created");
 
@@ -81,7 +189,7 @@ int main(int, char**) {
     int selectedTileId =
         luckee::Tile::rock->id();
 
-    presentStartupStage("10 zombies and particle engine created");
+    presentStartupStage("Particle engine created");
 
     luckee::Renderer renderer;
 
@@ -129,6 +237,7 @@ int main(int, char**) {
     std::puts("START       : exit\n");
 
     int frames = 0;
+    bool shouldExit = false;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -138,6 +247,15 @@ int main(int, char**) {
 
         const luckee::InputState input =
             luckee::readInput();
+
+        if (down & KEY_START) {
+            runPauseMenu(
+                level, player, zombies, particleEngine,
+                renderer, timer, selectedTileId, shouldExit);
+            if (shouldExit)
+                break;
+            continue;
+        }
 
         // SELECT is the 3DS equivalent of the reference's manual save key.
         if (input.savePressed) {
@@ -286,9 +404,6 @@ int main(int, char**) {
             }
         }
 
-        if (down & KEY_START)
-            break;
-
         if ((frames++ & 15) == 0) {
             consoleClear();
 
@@ -347,7 +462,7 @@ int main(int, char**) {
             std::puts("Y           : spawn zombie (max 32 active)");
             std::puts("SELECT      : save world");
             std::puts("X           : reset player position");
-            std::puts("START       : exit");
+            std::puts("START       : pause/menu");
         }
 
         renderer.render(

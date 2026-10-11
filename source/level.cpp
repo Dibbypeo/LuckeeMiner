@@ -187,7 +187,9 @@ std::uint32_t be32(const std::uint8_t b[4]) {
 }
 } // namespace
 
-Level::Level(int width, int height, int depth)
+Level::Level(
+    int width, int height, int depth,
+    ClassicGenerationProgress progress)
     : width_(width),
       height_(height),
       depth_(depth),
@@ -207,7 +209,7 @@ Level::Level(int width, int height, int depth)
     const bool mapLoaded = load();
 
     if (!mapLoaded)
-        generateMap();
+        generateMap(progress);
 
     calcLightDepths(
         0, 0,
@@ -225,7 +227,7 @@ std::size_t Level::index(
         static_cast<std::size_t>(x);
 }
 
-void Level::generateMap() {
+void Level::generateMap(ClassicGenerationProgress progress) {
     worldName_ = "A Nice World";
     creator_ = "LuckeeMiner";
     creationTimeMs_ = static_cast<std::uint64_t>(
@@ -236,7 +238,18 @@ void Level::generateMap() {
     // cave carving and water/lava source placement.
     JavaRandom generationRandom;
     blocks_ = generateClassicWorld(
-        width_, height_, depth_, generationRandom);
+        width_, height_, depth_, generationRandom, progress);
+}
+
+void Level::generateNewWorld(ClassicGenerationProgress progress) {
+    unprocessed_ = 0;
+    randomTickState_ = static_cast<std::uint32_t>(random_.nextInt());
+    generateMap(progress);
+    calcLightDepths(0, 0, width_, height_);
+    for (LevelListener* listener : listeners_) {
+        if (listener)
+            listener->allChanged();
+    }
 }
 
 bool Level::load() {
@@ -257,15 +270,15 @@ bool Level::load() {
         if (valid && be32(first) == CLASSIC_SAVE_MAGIC) {
             hasMetadata = true;
             std::uint8_t version = 0;
-            std::uint16_t width = 0, height = 0, depth = 0;
+            std::uint32_t width = 0, height = 0, depth = 0;
             valid = gzExact(file, &version, 1) &&
                     version <= CLASSIC_SAVE_VERSION &&
                     readJavaUtf(file, loadedName) &&
                     readJavaUtf(file, loadedCreator) &&
                     read64(file, loadedTime) &&
-                    read16(file, width) &&
-                    read16(file, height) &&
-                    read16(file, depth);
+                    read32(file, width) &&
+                    read32(file, height) &&
+                    read32(file, depth);
             if (valid &&
                 (width != width_ || height != height_ || depth != depth_))
                 valid = false;
@@ -321,9 +334,9 @@ bool Level::save() const {
         return false;
     }
     append64(header, creationTimeMs_);
-    append16(header, static_cast<std::uint16_t>(width_));
-    append16(header, static_cast<std::uint16_t>(height_));
-    append16(header, static_cast<std::uint16_t>(depth_));
+    append32(header, static_cast<std::uint32_t>(width_));
+    append32(header, static_cast<std::uint32_t>(height_));
+    append32(header, static_cast<std::uint32_t>(depth_));
 
     gzFile file = gzopen(TEMP_PATH, "wb1");
     if (!file) {

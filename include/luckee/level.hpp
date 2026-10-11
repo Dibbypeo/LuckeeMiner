@@ -7,6 +7,7 @@
 
 #include "luckee/aabb.hpp"
 #include "luckee/level_listener.hpp"
+#include "luckee/classic_worldgen.hpp"
 
 namespace luckee {
 
@@ -20,7 +21,10 @@ public:
     Level(
         int width = WIDTH,
         int height = HEIGHT,
-        int depth = DEPTH);
+        int depth = DEPTH,
+        ClassicGenerationProgress progress = nullptr);
+
+    void generateNewWorld(ClassicGenerationProgress progress = nullptr);
 
     bool load();
     bool save() const;
@@ -55,7 +59,7 @@ public:
     int depth() const { return depth_; }
 
 private:
-    void generateMap();
+    void generateMap(ClassicGenerationProgress progress);
 
     std::size_t index(
         int x, int y, int z) const;
