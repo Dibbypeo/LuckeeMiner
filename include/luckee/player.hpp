@@ -14,6 +14,9 @@ public:
 
     void resetPosition();
     void tick(const InputState& input);
+
+private:
+    bool jumpWasHeld_ = false;
 };
 
 } // namespace luckee

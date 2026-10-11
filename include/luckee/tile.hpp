@@ -20,6 +20,11 @@ public:
     static Tile* stoneBrick;
     static Tile* wood;
     static Tile* bush;
+    static Tile* boundary;
+    static Tile* waterFlowing;
+    static Tile* waterStill;
+    static Tile* lavaFlowing;
+    static Tile* lavaStill;
 
     explicit Tile(int id, int textureId = 0);
     virtual ~Tile() = default;
@@ -36,6 +41,12 @@ public:
         Level& level,
         int x, int y, int z,
         JavaRandom& random);
+    virtual void neighborChanged(
+        Level& level,
+        int x, int y, int z,
+        int changedType) {}
+    virtual bool isLiquid() const { return false; }
+    virtual int liquidFamily() const { return 0; }
 
     virtual bool isCrossPlant() const { return false; }
 
@@ -80,6 +91,32 @@ public:
     bool isSolid() const override { return false; }
     AABB getAABB(int, int, int) const override;
     bool isCrossPlant() const override { return true; }
+};
+
+class BoundaryTile final : public Tile {
+public:
+    explicit BoundaryTile(int id, int textureId)
+        : Tile(id, textureId) {}
+};
+
+class FluidTile final : public Tile {
+public:
+    FluidTile(int id, int textureId, int flowingId, int stillId,
+              int family, bool stationary);
+    bool isSolid() const override { return false; }
+    bool isLiquid() const override { return true; }
+    int liquidFamily() const override { return family_; }
+    void tick(Level& level, int x, int y, int z, JavaRandom& random) override;
+    void neighborChanged(Level& level, int x, int y, int z, int changedType) override;
+
+private:
+    bool flowFrom(Level& level, int x, int y, int z, int depth);
+    bool flowSideways(Level& level, int x, int y, int z, int depth);
+    bool hasOpenFlowNeighbor(const Level& level, int x, int y, int z) const;
+    int flowingId_;
+    int stillId_;
+    int family_;
+    bool stationary_;
 };
 
 void initializeTiles();

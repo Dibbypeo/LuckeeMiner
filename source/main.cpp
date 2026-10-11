@@ -73,16 +73,8 @@ int main(int, char**) {
     std::vector<luckee::Zombie> zombies;
     zombies.reserve(MAX_ACTIVE_ZOMBIES);
 
-    for (int i = 0; i < 10; ++i) {
-        // The extracted rd-20090515 jar creates ten zombies at the
-        // center-ish position and then explicitly resets each one.
-        zombies.emplace_back(
-            level,
-            128.0f,
-            0.0f,
-            128.0f);
-        zombies.back().resetPosition();
-    }
+    // c0.0.13a_03 does not spawn zombies when a world starts.
+    // The Y key remains a native 3DS testing convenience.
 
     luckee::ParticleEngine particleEngine(level);
 
@@ -116,10 +108,10 @@ int main(int, char**) {
 
     luckee::Timer timer(20.0f);
 
-    std::puts("LuckeeMiner - rd-20090515 recreation\n");
+    std::puts("LuckeeMiner - Classic c0.0.13a_03\n");
     std::puts("World: 256 x 64 x 256");
     std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone brick, 5 wood, 6 bush");
-    std::puts("Zombies: 10 initial (32 active maximum)");
+    std::puts("Zombies: 0 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
     std::puts("Assets: terrain.png + char.png\n");

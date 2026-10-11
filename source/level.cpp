@@ -1,11 +1,13 @@
 #include "luckee/level.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
 #include <zlib.h>
 
+#include "luckee/classic_worldgen.hpp"
 #include "luckee/perlin_noise.hpp"
 #include "luckee/tile.hpp"
 
@@ -24,7 +26,8 @@ Level::Level(int width, int height, int depth)
           static_cast<std::size_t>(width) *
           static_cast<std::size_t>(height),
           0),
-      random_() {
+      random_(),
+      randomTickState_(static_cast<std::uint32_t>(random_.nextInt())) {
     initializeTiles();
 
     const bool mapLoaded = load();
@@ -49,71 +52,11 @@ std::size_t Level::index(
 }
 
 void Level::generateMap() {
-    const std::vector<int> heightmap1 =
-        PerlinNoiseFilter(0).read(
-            width_, height_);
-
-    const std::vector<int> heightmap2 =
-        PerlinNoiseFilter(0).read(
-            width_, height_);
-
-    const std::vector<int> cf =
-        PerlinNoiseFilter(1).read(
-            width_, height_);
-
-    const std::vector<int> rockMap =
-        PerlinNoiseFilter(1).read(
-            width_, height_);
-
-    for (int x = 0; x < width_; ++x) {
-        for (int y = 0; y < depth_; ++y) {
-            for (int z = 0; z < height_; ++z) {
-                const std::size_t column =
-                    static_cast<std::size_t>(x) +
-                    static_cast<std::size_t>(z) *
-                        static_cast<std::size_t>(width_);
-
-                int dh1 = heightmap1[column];
-                int dh2 = heightmap2[column];
-
-                if (cf[column] < 128)
-                    dh2 = dh1;
-
-                int dh = std::max(
-                    dh1,
-                    dh2);
-
-                if (dh == dh2)
-                    dh2 = dh1;
-
-                dh =
-                    dh / 8 +
-                    depth_ / 3;
-
-                int rh =
-                    rockMap[column] / 8 +
-                    depth_ / 3;
-
-                rh = std::min(
-                    rh,
-                    dh - 2);
-
-                int id = 0;
-
-                if (y == dh)
-                    id = Tile::grass->id();
-
-                if (y < dh)
-                    id = Tile::dirt->id();
-
-                if (y <= rh)
-                    id = Tile::rock->id();
-
-                blocks_[index(x, y, z)] =
-                    static_cast<std::uint8_t>(id);
-            }
-        }
-    }
+    // The Classic generator owns a separate stream for noise construction,
+    // cave carving and water/lava source placement.
+    JavaRandom generationRandom;
+    blocks_ = generateClassicWorld(
+        width_, height_, depth_, generationRandom);
 }
 
 bool Level::load() {
@@ -426,8 +369,9 @@ void Level::calcLightDepths(
                 --y;
             }
 
+            // Classic stores one above the highest light-blocking tile.
             lightDepths_[
-                x + z * width_] = y;
+                x + z * width_] = y + 1;
 
             if (oldDepth == y)
                 continue;
@@ -537,139 +481,153 @@ void Level::getCubes(
     std::vector<AABB>& result) const {
     result.clear();
 
-    int x0 =
-        static_cast<int>(box.x0);
-    int x1 =
-        static_cast<int>(
-            box.x1 + 1.0f);
-    int y0 =
-        static_cast<int>(box.y0);
-    int y1 =
-        static_cast<int>(
-            box.y1 + 1.0f);
-    int z0 =
-        static_cast<int>(box.z0);
-    int z1 =
-        static_cast<int>(
-            box.z1 + 1.0f);
-
-    x0 = std::max(x0, 0);
-    y0 = std::max(y0, 0);
-    z0 = std::max(z0, 0);
-    x1 = std::min(x1, width_);
-    y1 = std::min(y1, depth_);
-    z1 = std::min(z1, height_);
+    const int x0 = static_cast<int>(std::floor(box.x0));
+    const int x1 = static_cast<int>(std::floor(box.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(box.y0));
+    const int y1 = static_cast<int>(std::floor(box.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(box.z0));
+    const int z1 = static_cast<int>(std::floor(box.z1 + 1.0f));
 
     for (int x = x0; x < x1; ++x) {
         for (int y = y0; y < y1; ++y) {
             for (int z = z0; z < z1; ++z) {
-                const int id =
-                    static_cast<int>(
-                        blocks_[index(x, y, z)]);
+                const bool insideWorld =
+                    x >= 0 && x < width_ &&
+                    y >= 0 && y < depth_ &&
+                    z >= 0 && z < height_;
 
-                Tile* tile =
-                    id >= 0 &&
-                    id < Tile::MAX_TILES
-                        ? Tile::tiles[id]
-                        : nullptr;
-
-                if (!tile ||
-                    !tile->isSolid()) {
+                if (!insideWorld) {
+                    // Classic provides the special boundary tile around the
+                    // horizontal world edges and below the world, but not a
+                    // ceiling above the topmost build layer.
+                    const bool boundary =
+                        x < 0 || x >= width_ ||
+                        z < 0 || z >= height_ || y < 0;
+                    if (boundary && y < depth_ && Tile::boundary)
+                        result.push_back(
+                            Tile::boundary->getAABB(x, y, z));
                     continue;
                 }
 
-                result.push_back(
-                    tile->getAABB(
-                        x, y, z));
+                const int id = static_cast<int>(
+                    blocks_[index(x, y, z)]);
+                Tile* tile =
+                    id >= 0 && id < Tile::MAX_TILES
+                        ? Tile::tiles[id]
+                        : nullptr;
+                if (tile && tile->isSolid())
+                    result.push_back(tile->getAABB(x, y, z));
             }
         }
     }
 }
 
-bool Level::setTile(
+bool Level::setTileRaw(
     int x, int y, int z, int type) {
     if (x < 0 || y < 0 || z < 0 ||
-        x >= width_ ||
-        y >= depth_ ||
-        z >= height_) {
+        x >= width_ || y >= depth_ || z >= height_)
         return false;
-    }
 
-    const std::uint8_t newType =
-        static_cast<std::uint8_t>(
-            type);
-
-    const std::size_t tileIndex =
-        index(x, y, z);
-
-    if (blocks_[tileIndex] ==
-        newType) {
+    const std::uint8_t newType = static_cast<std::uint8_t>(type);
+    const std::size_t tileIndex = index(x, y, z);
+    if (blocks_[tileIndex] == newType)
         return false;
+
+    blocks_[tileIndex] = newType;
+    calcLightDepths(x, z, 1, 1);
+    for (LevelListener* listener : listeners_) {
+        if (listener)
+            listener->tileChanged(x, y, z);
     }
-
-    blocks_[tileIndex] =
-        newType;
-
-    calcLightDepths(
-        x, z, 1, 1);
-
-    for (LevelListener* listener :
-         listeners_) {
-        if (listener) {
-            listener->tileChanged(
-                x, y, z);
-        }
-    }
-
     return true;
 }
 
-void Level::tick() {
-    // Match the reference's accumulated random-tile budget instead of
-    // discarding fractional updates on each 20 TPS tick.
-    unprocessed_ +=
-        static_cast<std::uint64_t>(
-            width_) *
-        static_cast<std::uint64_t>(
-            height_) *
-        static_cast<std::uint64_t>(
-            depth_);
+bool Level::setTile(int x, int y, int z, int type) {
+    if (!setTileRaw(x, y, z, type))
+        return false;
 
-    const std::uint64_t ticks =
-        unprocessed_ /
-        TILE_UPDATE_INTERVAL;
+    static constexpr int DX[6] = {-1, 1, 0, 0, 0, 0};
+    static constexpr int DY[6] = {0, 0, -1, 1, 0, 0};
+    static constexpr int DZ[6] = {0, 0, 0, 0, -1, 1};
+    const int changedType = static_cast<std::uint8_t>(type);
 
-    unprocessed_ -=
-        ticks *
-        TILE_UPDATE_INTERVAL;
-
-    for (std::uint64_t i = 0;
-         i < ticks;
-         ++i) {
-        const int x =
-            random_.nextInt(width_);
-        const int y =
-            random_.nextInt(depth_);
-        const int z =
-            random_.nextInt(height_);
-
-        const int id =
-            static_cast<int>(
-                blocks_[index(x, y, z)]);
-
-        if (id < 0 ||
-            id >= Tile::MAX_TILES) {
+    for (int side = 0; side < 6; ++side) {
+        const int nx = x + DX[side];
+        const int ny = y + DY[side];
+        const int nz = z + DZ[side];
+        if (nx < 0 || ny < 0 || nz < 0 ||
+            nx >= width_ || ny >= depth_ || nz >= height_)
             continue;
+
+        const int neighborId = getTile(nx, ny, nz);
+        if (neighborId >= 0 && neighborId < Tile::MAX_TILES) {
+            Tile* neighbor = Tile::tiles[neighborId];
+            if (neighbor)
+                neighbor->neighborChanged(*this, nx, ny, nz, changedType);
         }
+    }
+    return true;
+}
 
-        Tile* tile =
-            Tile::tiles[id];
+bool Level::containsLiquid(const AABB& box, int family) const {
+    const int x0 = static_cast<int>(std::floor(box.x0));
+    const int x1 = static_cast<int>(std::floor(box.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(box.y0));
+    const int y1 = static_cast<int>(std::floor(box.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(box.z0));
+    const int z1 = static_cast<int>(std::floor(box.z1 + 1.0f));
 
-        if (tile) {
-            tile->tick(
-                *this,
-                x, y, z,
-                random_);
+    for (int x = std::max(0, x0); x < std::min(width_, x1); ++x) {
+        for (int y = std::max(0, y0); y < std::min(depth_, y1); ++y) {
+            for (int z = std::max(0, z0); z < std::min(height_, z1); ++z) {
+                const int id = getTile(x, y, z);
+                if (id >= 0 && id < Tile::MAX_TILES) {
+                    const Tile* tile = Tile::tiles[id];
+                    if (tile && tile->isLiquid() &&
+                        tile->liquidFamily() == family)
+                        return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void Level::tick() {
+    unprocessed_ +=
+        static_cast<std::uint64_t>(width_) *
+        static_cast<std::uint64_t>(height_) *
+        static_cast<std::uint64_t>(depth_);
+
+    const std::uint64_t ticks = unprocessed_ / TILE_UPDATE_INTERVAL;
+    unprocessed_ -= ticks * TILE_UPDATE_INTERVAL;
+
+    for (std::uint64_t i = 0; i < ticks; ++i) {
+        // Coordinates are selected with the original 32-bit LCG, separately
+        // from java.util.Random, which supplies the tile tick callbacks.
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int x = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(width_ - 1));
+
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int y = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(depth_ - 1));
+
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int z = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(height_ - 1));
+
+        const int id = getTile(x, y, z);
+        if (id >= 0 && id < Tile::MAX_TILES) {
+            Tile* tile = Tile::tiles[id];
+            if (tile)
+                tile->tick(*this, x, y, z, random_);
         }
     }
 }

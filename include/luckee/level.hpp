@@ -14,7 +14,7 @@ public:
     static constexpr int WIDTH = 256;
     static constexpr int DEPTH = 64;
     static constexpr int HEIGHT = 256;
-    static constexpr int TILE_UPDATE_INTERVAL = 400;
+    static constexpr int TILE_UPDATE_INTERVAL = 200;
 
     Level(
         int width = WIDTH,
@@ -41,8 +41,9 @@ public:
         const AABB& box,
         std::vector<AABB>& result) const;
 
-    bool setTile(
-        int x, int y, int z, int type);
+    bool setTile(int x, int y, int z, int type);
+    bool setTileRaw(int x, int y, int z, int type);
+    bool containsLiquid(const AABB& box, int family) const;
 
     void tick();
 
@@ -65,6 +66,7 @@ private:
     std::vector<LevelListener*> listeners_;
 
     JavaRandom random_;
+    std::uint32_t randomTickState_ = 0;
     std::uint64_t unprocessed_ = 0;
 };
 
