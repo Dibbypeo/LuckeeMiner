@@ -243,6 +243,7 @@ void Level::generateMap(ClassicGenerationProgress progress) {
 
 void Level::generateNewWorld(ClassicGenerationProgress progress) {
     unprocessed_ = 0;
+    random_ = JavaRandom();
     randomTickState_ = static_cast<std::uint32_t>(random_.nextInt());
     generateMap(progress);
     calcLightDepths(0, 0, width_, height_);
