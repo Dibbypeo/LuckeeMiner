@@ -7,7 +7,9 @@ namespace {
 
 constexpr const char* requiredAssets[] = {
     "assets/textures/terrain.png",
-    "assets/textures/char.png"
+    "assets/textures/char.png",
+    "assets/textures/rock.png",
+    "assets/textures/water.png"
 };
 
 bool fileExists(const char* path) {

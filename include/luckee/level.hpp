@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include "luckee/java_random.hpp"
 #include <vector>
 
 #include "luckee/aabb.hpp"
 #include "luckee/level_listener.hpp"
+#include "luckee/classic_worldgen.hpp"
 
 namespace luckee {
 
@@ -14,12 +16,15 @@ public:
     static constexpr int WIDTH = 256;
     static constexpr int DEPTH = 64;
     static constexpr int HEIGHT = 256;
-    static constexpr int TILE_UPDATE_INTERVAL = 400;
+    static constexpr int TILE_UPDATE_INTERVAL = 200;
 
     Level(
         int width = WIDTH,
         int height = HEIGHT,
-        int depth = DEPTH);
+        int depth = DEPTH,
+        ClassicGenerationProgress progress = nullptr);
+
+    void generateNewWorld(ClassicGenerationProgress progress = nullptr);
 
     bool load();
     bool save() const;
@@ -41,8 +46,11 @@ public:
         const AABB& box,
         std::vector<AABB>& result) const;
 
-    bool setTile(
-        int x, int y, int z, int type);
+    bool setTile(int x, int y, int z, int type);
+    bool setTileRaw(int x, int y, int z, int type);
+    bool containsLiquid(const AABB& box, int family) const;
+    bool canOccupyEntityBox(
+        const AABB& box, float dx, float dy, float dz) const;
 
     void tick();
 
@@ -51,7 +59,7 @@ public:
     int depth() const { return depth_; }
 
 private:
-    void generateMap();
+    void generateMap(ClassicGenerationProgress progress);
 
     std::size_t index(
         int x, int y, int z) const;
@@ -65,7 +73,12 @@ private:
     std::vector<LevelListener*> listeners_;
 
     JavaRandom random_;
+    std::uint32_t randomTickState_ = 0;
     std::uint64_t unprocessed_ = 0;
+
+    std::string worldName_ = "A Nice World";
+    std::string creator_ = "LuckeeMiner";
+    std::uint64_t creationTimeMs_ = 0;
 };
 
 } // namespace luckee

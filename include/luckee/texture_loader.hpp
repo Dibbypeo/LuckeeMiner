@@ -18,6 +18,16 @@ public:
         const char* path,
         C3D_Tex& texture,
         std::string& error);
+
+    static bool loadRock(
+        const char* path,
+        C3D_Tex& texture,
+        std::string& error);
+
+    static bool loadHorizonWater(
+        const char* path,
+        C3D_Tex& texture,
+        std::string& error);
 };
 
 } // namespace luckee

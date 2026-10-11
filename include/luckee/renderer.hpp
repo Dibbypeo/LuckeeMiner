@@ -65,6 +65,10 @@ private:
 
         void* vbo[2] = {nullptr, nullptr};
         int vertexCount[2] = {0, 0};
+        void* waterVbo[2] = {nullptr, nullptr};
+        int waterVertexCount[2] = {0, 0};
+        void* lavaVbo[2] = {nullptr, nullptr};
+        int lavaVertexCount[2] = {0, 0};
         bool dirty = true;
         std::uint64_t dirtiedTimeMs = 0;
     };
@@ -87,9 +91,25 @@ private:
         int x, int y, int z,
         float brightness) const;
 
+    void appendFluidFace(
+        std::vector<Vertex>& vertices,
+        int x, int y, int z,
+        int face, float brightness, int textureId) const;
+
     void drawChunk(
         const ChunkMesh& chunk,
         int layer);
+
+    void drawWaterChunk(
+        const ChunkMesh& chunk,
+        int layer);
+    void drawLavaChunk(
+        const ChunkMesh& chunk,
+        int layer);
+    void configureFog(
+        const Level& level,
+        const Player& player,
+        bool litLayer);
 
     void renderZombies(
         const std::vector<Zombie>& zombies,
@@ -105,6 +125,8 @@ private:
 
     void renderHud(
         int selectedTileId);
+
+    void renderHorizon(const Level& level);
 
     void appendCharacterCube(
         std::vector<Vertex>& vertices,
@@ -143,8 +165,18 @@ private:
     C3D_Mtx projection_{};
     C3D_Tex terrainTexture_{};
     C3D_Tex characterTexture_{};
+    C3D_Tex rockTexture_{};
+    C3D_Tex horizonWaterTexture_{};
+    void* horizonRockVbo_ = nullptr;
+    std::size_t horizonRockVertexCount_ = 0;
+    void* horizonWaterVbo_ = nullptr;
+    std::size_t horizonWaterVertexCount_ = 0;
+    int horizonWidth_ = 0;
+    int horizonLength_ = 0;
     C3D_FogLut dayFogLut_{};
     C3D_FogLut shadowFogLut_{};
+    C3D_FogLut waterFogLut_{};
+    C3D_FogLut lavaFogLut_{};
 
     void* characterVbo_ = nullptr;
     std::size_t characterVboCapacity_ = 0;
@@ -157,6 +189,8 @@ private:
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
     std::vector<Vertex> buildVertices_[2];
+    std::vector<Vertex> buildWaterVertices_[2];
+    std::vector<Vertex> buildLavaVertices_[2];
     std::vector<Vertex> characterVertices_;
     std::vector<Vertex> particleVertices_;
 
@@ -170,6 +204,8 @@ private:
 
     bool terrainTextureLoaded_ = false;
     bool characterTextureLoaded_ = false;
+    bool rockTextureLoaded_ = false;
+    bool horizonWaterTextureLoaded_ = false;
     bool initialized_ = false;
 
     std::string error_;

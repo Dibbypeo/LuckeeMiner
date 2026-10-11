@@ -14,6 +14,10 @@ public:
 
     void resetPosition();
     void tick(const InputState& input);
+
+private:
+    // Mirrors the original key flag being consumed by a dry-land jump.
+    bool jumpConsumed_ = false;
 };
 
 } // namespace luckee

@@ -1,17 +1,195 @@
 #include "luckee/level.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include <zlib.h>
 
+#include "luckee/classic_worldgen.hpp"
 #include "luckee/perlin_noise.hpp"
 #include "luckee/tile.hpp"
 
 namespace luckee {
 
-Level::Level(int width, int height, int depth)
+namespace {
+constexpr std::uint32_t CLASSIC_SAVE_MAGIC = 656127880u;
+constexpr std::uint8_t CLASSIC_SAVE_VERSION = 1;
+
+bool gzExact(gzFile file, void* data, std::size_t length) {
+    auto* bytes = static_cast<std::uint8_t*>(data);
+    std::size_t offset = 0;
+    while (offset < length) {
+        const unsigned int n = static_cast<unsigned int>(
+            std::min<std::size_t>(length - offset, 32768u));
+        const int read = gzread(file, bytes + offset, n);
+        if (read <= 0) return false;
+        offset += static_cast<std::size_t>(read);
+    }
+    return true;
+}
+
+bool gzWriteExact(gzFile file, const void* data, std::size_t length) {
+    const auto* bytes = static_cast<const std::uint8_t*>(data);
+    std::size_t offset = 0;
+    while (offset < length) {
+        const unsigned int n = static_cast<unsigned int>(
+            std::min<std::size_t>(length - offset, 32768u));
+        const int written = gzwrite(file, bytes + offset, n);
+        if (written <= 0) return false;
+        offset += static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
+void append16(std::vector<std::uint8_t>& out, std::uint16_t n) {
+    out.push_back(static_cast<std::uint8_t>(n >> 8));
+    out.push_back(static_cast<std::uint8_t>(n));
+}
+void append32(std::vector<std::uint8_t>& out, std::uint32_t n) {
+    out.push_back(static_cast<std::uint8_t>(n >> 24));
+    out.push_back(static_cast<std::uint8_t>(n >> 16));
+    out.push_back(static_cast<std::uint8_t>(n >> 8));
+    out.push_back(static_cast<std::uint8_t>(n));
+}
+void append64(std::vector<std::uint8_t>& out, std::uint64_t n) {
+    for (int shift = 56; shift >= 0; shift -= 8)
+        out.push_back(static_cast<std::uint8_t>(n >> shift));
+}
+void appendMutfUnit(std::vector<std::uint8_t>& out, std::uint16_t c) {
+    if (c >= 1 && c <= 0x7F) out.push_back(static_cast<std::uint8_t>(c));
+    else if (c <= 0x7FF) {
+        out.push_back(static_cast<std::uint8_t>(0xC0 | ((c >> 6) & 0x1F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | (c & 0x3F)));
+    } else {
+        out.push_back(static_cast<std::uint8_t>(0xE0 | ((c >> 12) & 0x0F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | ((c >> 6) & 0x3F)));
+        out.push_back(static_cast<std::uint8_t>(0x80 | (c & 0x3F)));
+    }
+}
+void appendUtf8(std::string& out, std::uint32_t cp) {
+    if (cp <= 0x7F) out.push_back(static_cast<char>(cp));
+    else if (cp <= 0x7FF) {
+        out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else if (cp <= 0xFFFF) {
+        out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else {
+        out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    }
+}
+bool appendJavaUtf(std::vector<std::uint8_t>& out, const std::string& text) {
+    std::vector<std::uint8_t> encoded;
+    encoded.reserve(text.size() + 8);
+    for (std::size_t i = 0; i < text.size();) {
+        const auto a = static_cast<std::uint8_t>(text[i]);
+        std::uint32_t cp = 0xFFFD;
+        std::size_t n = 1;
+        if (a < 0x80) cp = a;
+        else if ((a & 0xE0) == 0xC0 && i + 1 < text.size()) {
+            cp = ((a & 0x1F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 1]) & 0x3F);
+            n = 2;
+        } else if ((a & 0xF0) == 0xE0 && i + 2 < text.size()) {
+            cp = ((a & 0x0F) << 12) |
+                 ((static_cast<std::uint8_t>(text[i + 1]) & 0x3F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 2]) & 0x3F);
+            n = 3;
+        } else if ((a & 0xF8) == 0xF0 && i + 3 < text.size()) {
+            cp = ((a & 7) << 18) |
+                 ((static_cast<std::uint8_t>(text[i + 1]) & 0x3F) << 12) |
+                 ((static_cast<std::uint8_t>(text[i + 2]) & 0x3F) << 6) |
+                 (static_cast<std::uint8_t>(text[i + 3]) & 0x3F);
+            n = 4;
+        }
+        i += n;
+        if (cp <= 0xFFFF) appendMutfUnit(encoded, static_cast<std::uint16_t>(cp));
+        else if (cp <= 0x10FFFF) {
+            cp -= 0x10000;
+            appendMutfUnit(encoded, static_cast<std::uint16_t>(0xD800 + (cp >> 10)));
+            appendMutfUnit(encoded, static_cast<std::uint16_t>(0xDC00 + (cp & 0x3FF)));
+        } else appendMutfUnit(encoded, 0xFFFD);
+        if (encoded.size() > 65535u) return false;
+    }
+    append16(out, static_cast<std::uint16_t>(encoded.size()));
+    out.insert(out.end(), encoded.begin(), encoded.end());
+    return true;
+}
+bool read16(gzFile file, std::uint16_t& value) {
+    std::uint8_t b[2];
+    if (!gzExact(file, b, 2)) return false;
+    value = (static_cast<std::uint16_t>(b[0]) << 8) | b[1];
+    return true;
+}
+bool read32(gzFile file, std::uint32_t& value) {
+    std::uint8_t b[4];
+    if (!gzExact(file, b, 4)) return false;
+    value = (static_cast<std::uint32_t>(b[0]) << 24) |
+            (static_cast<std::uint32_t>(b[1]) << 16) |
+            (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
+    return true;
+}
+bool read64(gzFile file, std::uint64_t& value) {
+    std::uint8_t b[8];
+    if (!gzExact(file, b, 8)) return false;
+    value = 0;
+    for (std::uint8_t c : b) value = (value << 8) | c;
+    return true;
+}
+bool readJavaUtf(gzFile file, std::string& output) {
+    std::uint16_t length = 0;
+    if (!read16(file, length)) return false;
+    std::vector<std::uint8_t> bytes(length);
+    if (length && !gzExact(file, bytes.data(), length)) return false;
+    std::vector<std::uint16_t> units;
+    units.reserve(length);
+    for (std::size_t i = 0; i < bytes.size();) {
+        const std::uint8_t a = bytes[i++];
+        if ((a & 0x80) == 0) {
+            if (a == 0) return false;
+            units.push_back(a);
+        } else if ((a & 0xE0) == 0xC0) {
+            if (i >= bytes.size() || (bytes[i] & 0xC0) != 0x80) return false;
+            units.push_back(static_cast<std::uint16_t>(((a & 0x1F) << 6) | (bytes[i++] & 0x3F)));
+        } else if ((a & 0xF0) == 0xE0) {
+            if (i + 1 >= bytes.size() || (bytes[i] & 0xC0) != 0x80 ||
+                (bytes[i + 1] & 0xC0) != 0x80) return false;
+            units.push_back(static_cast<std::uint16_t>(
+                ((a & 0x0F) << 12) | ((bytes[i] & 0x3F) << 6) | (bytes[i + 1] & 0x3F)));
+            i += 2;
+        } else return false;
+    }
+    output.clear();
+    for (std::size_t i = 0; i < units.size(); ++i) {
+        std::uint32_t cp = units[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF) {
+            if (i + 1 >= units.size() || units[i + 1] < 0xDC00 || units[i + 1] > 0xDFFF)
+                return false;
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (units[++i] - 0xDC00);
+        } else if (cp >= 0xDC00 && cp <= 0xDFFF) return false;
+        appendUtf8(output, cp);
+    }
+    return true;
+}
+std::uint32_t be32(const std::uint8_t b[4]) {
+    return (static_cast<std::uint32_t>(b[0]) << 24) |
+           (static_cast<std::uint32_t>(b[1]) << 16) |
+           (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
+}
+} // namespace
+
+Level::Level(
+    int width, int height, int depth,
+    ClassicGenerationProgress progress)
     : width_(width),
       height_(height),
       depth_(depth),
@@ -24,13 +202,14 @@ Level::Level(int width, int height, int depth)
           static_cast<std::size_t>(width) *
           static_cast<std::size_t>(height),
           0),
-      random_() {
+      random_(),
+      randomTickState_(static_cast<std::uint32_t>(random_.nextInt())) {
     initializeTiles();
 
     const bool mapLoaded = load();
 
     if (!mapLoaded)
-        generateMap();
+        generateMap(progress);
 
     calcLightDepths(
         0, 0,
@@ -48,139 +227,96 @@ std::size_t Level::index(
         static_cast<std::size_t>(x);
 }
 
-void Level::generateMap() {
-    const std::vector<int> heightmap1 =
-        PerlinNoiseFilter(0).read(
-            width_, height_);
+void Level::generateMap(ClassicGenerationProgress progress) {
+    worldName_ = "A Nice World";
+    creator_ = "LuckeeMiner";
+    creationTimeMs_ = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
 
-    const std::vector<int> heightmap2 =
-        PerlinNoiseFilter(0).read(
-            width_, height_);
+    // The Classic generator owns a separate stream for noise construction,
+    // cave carving and water/lava source placement.
+    JavaRandom generationRandom;
+    blocks_ = generateClassicWorld(
+        width_, height_, depth_, generationRandom, progress);
+}
 
-    const std::vector<int> cf =
-        PerlinNoiseFilter(1).read(
-            width_, height_);
-
-    const std::vector<int> rockMap =
-        PerlinNoiseFilter(1).read(
-            width_, height_);
-
-    for (int x = 0; x < width_; ++x) {
-        for (int y = 0; y < depth_; ++y) {
-            for (int z = 0; z < height_; ++z) {
-                const std::size_t column =
-                    static_cast<std::size_t>(x) +
-                    static_cast<std::size_t>(z) *
-                        static_cast<std::size_t>(width_);
-
-                int dh1 = heightmap1[column];
-                int dh2 = heightmap2[column];
-
-                if (cf[column] < 128)
-                    dh2 = dh1;
-
-                int dh = std::max(
-                    dh1,
-                    dh2);
-
-                if (dh == dh2)
-                    dh2 = dh1;
-
-                dh =
-                    dh / 8 +
-                    depth_ / 3;
-
-                int rh =
-                    rockMap[column] / 8 +
-                    depth_ / 3;
-
-                rh = std::min(
-                    rh,
-                    dh - 2);
-
-                int id = 0;
-
-                if (y == dh)
-                    id = Tile::grass->id();
-
-                if (y < dh)
-                    id = Tile::dirt->id();
-
-                if (y <= rh)
-                    id = Tile::rock->id();
-
-                blocks_[index(x, y, z)] =
-                    static_cast<std::uint8_t>(id);
-            }
-        }
+void Level::generateNewWorld(ClassicGenerationProgress progress) {
+    unprocessed_ = 0;
+    random_ = JavaRandom();
+    randomTickState_ = static_cast<std::uint32_t>(random_.nextInt());
+    generateMap(progress);
+    calcLightDepths(0, 0, width_, height_);
+    for (LevelListener* listener : listeners_) {
+        if (listener)
+            listener->allChanged();
     }
 }
 
 bool Level::load() {
-    // The backup is only considered if the primary save cannot be opened or
-    // fails validation. This recovers from interruption during save replacement.
-    const char* const paths[] = {
-        "level.dat",
-        "level.dat.bak"
-    };
-
+    const char* const paths[] = {"level.dat", "level.dat.bak"};
     for (const char* path : paths) {
         gzFile file = gzopen(path, "rb");
-        if (!file)
-            continue;
+        if (!file) continue;
 
-        std::vector<std::uint8_t> loaded(blocks_.size());
-        std::size_t offset = 0;
+        bool valid = true;
+        std::uint8_t first[4]{};
+        valid = gzExact(file, first, sizeof(first));
+        std::vector<std::uint8_t> loaded(blocks_.size(), 0);
+        std::string loadedName = "--";
+        std::string loadedCreator = "unknown";
+        std::uint64_t loadedTime = 0;
+        bool hasMetadata = false;
 
-        while (offset < loaded.size()) {
-            const unsigned int remaining =
-                static_cast<unsigned int>(
-                    std::min<std::size_t>(
-                        loaded.size() - offset,
-                        0x7FFFFFFFu));
-
-            const int read =
-                gzread(
-                    file,
-                    loaded.data() + offset,
-                    remaining);
-
-            if (read <= 0)
-                break;
-
-            offset += static_cast<std::size_t>(read);
+        if (valid && be32(first) == CLASSIC_SAVE_MAGIC) {
+            hasMetadata = true;
+            std::uint8_t version = 0;
+            std::uint32_t width = 0, height = 0, depth = 0;
+            valid = gzExact(file, &version, 1) &&
+                    version <= CLASSIC_SAVE_VERSION &&
+                    readJavaUtf(file, loadedName) &&
+                    readJavaUtf(file, loadedCreator) &&
+                    read64(file, loadedTime) &&
+                    read32(file, width) &&
+                    read32(file, height) &&
+                    read32(file, depth);
+            if (valid &&
+                (width != width_ || height != height_ || depth != depth_))
+                valid = false;
+        } else if (valid) {
+            // Legacy format contains the raw block bytes directly.
+            if (loaded.size() < sizeof(first)) valid = false;
+            else {
+                std::copy(first, first + sizeof(first), loaded.begin());
+                valid = gzExact(
+                    file, loaded.data() + sizeof(first),
+                    loaded.size() - sizeof(first));
+            }
         }
 
-        // Read once beyond the expected payload to force zlib to validate the
-        // GZIP trailer (CRC and uncompressed size) and reject extra data.
-        unsigned char extra = 0;
-        const int extraRead =
-            offset == loaded.size()
-                ? gzread(file, &extra, 1)
-                : -1;
+        if (valid && hasMetadata)
+            valid = gzExact(file, loaded.data(), loaded.size());
 
+        std::uint8_t extra = 0;
+        const int extraRead = valid ? gzread(file, &extra, 1) : -1;
         const int closeResult = gzclose(file);
-
-        if (offset != loaded.size() ||
-            extraRead != 0 ||
-            closeResult != Z_OK) {
-            continue;
-        }
+        if (!valid || extraRead != 0 || closeResult != Z_OK) continue;
 
         blocks_.swap(loaded);
-        calcLightDepths(
-            0, 0,
-            width_,
-            height_);
-
-        for (LevelListener* listener : listeners_) {
-            if (listener)
-                listener->allChanged();
+        if (hasMetadata) {
+            worldName_ = loadedName;
+            creator_ = loadedCreator;
+            creationTimeMs_ = loadedTime;
+        } else {
+            worldName_ = "--";
+            creator_ = "unknown";
+            creationTimeMs_ = 0;
         }
-
+        calcLightDepths(0, 0, width_, height_);
+        for (LevelListener* listener : listeners_)
+            if (listener) listener->allChanged();
         return true;
     }
-
     return false;
 }
 
@@ -189,217 +325,59 @@ bool Level::save() const {
     constexpr const char* TEMP_PATH = "level.dat.tmp";
     constexpr const char* BACKUP_PATH = "level.dat.bak";
 
-    if (blocks_.size() > 0xFFFFFFFFu) {
-        std::fputs(
-            "level.dat: world is too large for the historical GZIP format.\n",
-            stderr);
+    std::vector<std::uint8_t> header;
+    header.reserve(64 + worldName_.size() + creator_.size());
+    append32(header, CLASSIC_SAVE_MAGIC);
+    header.push_back(CLASSIC_SAVE_VERSION);
+    if (!appendJavaUtf(header, worldName_) ||
+        !appendJavaUtf(header, creator_)) {
+        std::fputs("level.dat: world metadata exceeds Java's UTF limit.\n", stderr);
         return false;
     }
+    append64(header, creationTimeMs_);
+    append32(header, static_cast<std::uint32_t>(width_));
+    append32(header, static_cast<std::uint32_t>(height_));
+    append32(header, static_cast<std::uint32_t>(depth_));
 
-    // Do not truncate the last good save before the new file is complete.
-    // The temporary file lives beside level.dat so replacement stays on the
-    // same filesystem.
-    std::FILE* file = std::fopen(TEMP_PATH, "wb");
-
+    gzFile file = gzopen(TEMP_PATH, "wb1");
     if (!file) {
         std::perror(TEMP_PATH);
         return false;
     }
-
-    // java.util.zip.GZIPOutputStream's historical fixed header. Favor fast
-    // compression on the 3DS; the DEFLATE stream may vary by zlib version.
-    // The exact uncompressed payload and standard GZIP framing provide
-    // save-file compatibility.
-    const unsigned char header[10] = {
-        0x1F, 0x8B, 0x08, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00
-    };
-
-    if (std::fwrite(header, 1, sizeof(header), file) != sizeof(header)) {
-        std::perror(TEMP_PATH);
-        std::fclose(file);
-        std::remove(TEMP_PATH);
-        return false;
-    }
-
-    z_stream stream{};
-    if (deflateInit2(
-            &stream,
-            Z_BEST_SPEED,
-            Z_DEFLATED,
-            -MAX_WBITS,
-            8,
-            Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::fputs(
-            "level.dat: could not initialize compression.\n",
-            stderr);
-        std::fclose(file);
-        std::remove(TEMP_PATH);
-        return false;
-    }
-
-    constexpr std::size_t INPUT_CHUNK = 32768;
-    constexpr std::size_t OUTPUT_CHUNK = 32768;
-    // Keep the 32 KiB scratch buffer out of the small 3DS main stack.
-    // Saving is synchronous, so this reusable static buffer is not shared by
-    // concurrent save calls.
-    static unsigned char output[OUTPUT_CHUNK];
-
-    uLong crc = crc32(0L, Z_NULL, 0);
+    bool ok = gzWriteExact(file, header.data(), header.size());
     std::size_t offset = 0;
-    bool ok = true;
-
-    while (offset < blocks_.size()) {
-        const std::size_t remaining = blocks_.size() - offset;
-        const std::size_t inputSize =
-            std::min(remaining, INPUT_CHUNK);
-
-        crc = crc32(
-            crc,
-            blocks_.data() + offset,
-            static_cast<uInt>(inputSize));
-
-        stream.next_in =
-            const_cast<Bytef*>(
-                reinterpret_cast<const Bytef*>(
-                    blocks_.data() + offset));
-        stream.avail_in = static_cast<uInt>(inputSize);
-        offset += inputSize;
-
-        while (stream.avail_in > 0) {
-            const uInt inputBefore = stream.avail_in;
-
-            stream.next_out = output;
-            stream.avail_out = OUTPUT_CHUNK;
-
-            const int result = deflate(&stream, Z_NO_FLUSH);
-
-            const std::size_t produced =
-                OUTPUT_CHUNK - stream.avail_out;
-
-            if (result != Z_OK ||
-                (stream.avail_in == inputBefore && produced == 0)) {
-                // Avoid an endless loop if the compression library reports
-                // success but neither consumes input nor produces output.
-                ok = false;
-                break;
-            }
-
-            if (produced != 0 &&
-                std::fwrite(output, 1, produced, file) != produced) {
-                ok = false;
-                break;
-            }
-        }
-
-        if (!ok)
-            break;
+    while (ok && offset < blocks_.size()) {
+        const std::size_t count =
+            std::min<std::size_t>(blocks_.size() - offset, 32768u);
+        ok = gzWriteExact(file, blocks_.data() + offset, count);
+        offset += count;
     }
-
-    if (ok) {
-        int result = Z_OK;
-
-        do {
-            stream.next_in = Z_NULL;
-            stream.avail_in = 0;
-            stream.next_out = output;
-            stream.avail_out = OUTPUT_CHUNK;
-
-            result = deflate(&stream, Z_FINISH);
-
-            if (result != Z_OK && result != Z_STREAM_END) {
-                ok = false;
-                break;
-            }
-
-            const std::size_t produced =
-                OUTPUT_CHUNK - stream.avail_out;
-
-            if (produced != 0 &&
-                std::fwrite(output, 1, produced, file) != produced) {
-                ok = false;
-                break;
-            }
-
-            if (result == Z_OK && produced == 0) {
-                // Z_FINISH must either emit bytes or finish the stream.
-                ok = false;
-                break;
-            }
-        } while (result != Z_STREAM_END);
-    }
-
-    if (deflateEnd(&stream) != Z_OK)
-        ok = false;
-
-    if (ok) {
-        const unsigned char trailer[8] = {
-            static_cast<unsigned char>(crc & 0xFFu),
-            static_cast<unsigned char>((crc >> 8) & 0xFFu),
-            static_cast<unsigned char>((crc >> 16) & 0xFFu),
-            static_cast<unsigned char>((crc >> 24) & 0xFFu),
-            static_cast<unsigned char>(
-                static_cast<std::uint32_t>(blocks_.size()) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 8) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 16) & 0xFFu),
-            static_cast<unsigned char>(
-                (static_cast<std::uint32_t>(blocks_.size()) >> 24) & 0xFFu)
-        };
-
-        if (std::fwrite(trailer, 1, sizeof(trailer), file) != sizeof(trailer))
-            ok = false;
-    }
-
-    if (std::fclose(file) != 0)
-        ok = false;
-
-    if (!ok) {
-        std::fputs(
-            "level.dat: failed while writing the temporary world save; "
-            "the previous save was left untouched.\n",
-            stderr);
+    const int closeResult = gzclose(file);
+    if (!ok || closeResult != Z_OK) {
+        std::fputs("level.dat: could not complete compressed Classic save.\n", stderr);
         std::remove(TEMP_PATH);
         return false;
     }
 
-    bool hadPreviousSave = false;
+    bool hadPrevious = false;
     std::FILE* previous = std::fopen(SAVE_PATH, "rb");
-
     if (previous) {
-        hadPreviousSave = true;
+        hadPrevious = true;
         std::fclose(previous);
-
-        // On filesystems that cannot rename over an existing file, move the
-        // current save aside only after the replacement has been written.
-        // If the final rename fails, restore this backup.
         std::remove(BACKUP_PATH);
-
         if (std::rename(SAVE_PATH, BACKUP_PATH) != 0) {
             std::perror("level.dat: could not preserve previous save");
             std::remove(TEMP_PATH);
             return false;
         }
     }
-
     if (std::rename(TEMP_PATH, SAVE_PATH) != 0) {
         std::perror("level.dat: could not finalize save");
-
-        if (hadPreviousSave &&
-            std::rename(BACKUP_PATH, SAVE_PATH) != 0) {
-            std::fputs(
-                "level.dat: the previous save remains in level.dat.bak.\n",
-                stderr);
-        }
-
+        if (hadPrevious && std::rename(BACKUP_PATH, SAVE_PATH) != 0)
+            std::fputs("level.dat: previous save remains in level.dat.bak.\n", stderr);
         std::remove(TEMP_PATH);
         return false;
     }
-
-    // The primary path now contains a complete validated-format save.
-    // Keep a backup only if it was needed for a failed replacement.
     std::remove(BACKUP_PATH);
     return true;
 }
@@ -426,8 +404,9 @@ void Level::calcLightDepths(
                 --y;
             }
 
+            // Classic stores one above the highest light-blocking tile.
             lightDepths_[
-                x + z * width_] = y;
+                x + z * width_] = y + 1;
 
             if (oldDepth == y)
                 continue;
@@ -537,139 +516,187 @@ void Level::getCubes(
     std::vector<AABB>& result) const {
     result.clear();
 
-    int x0 =
-        static_cast<int>(box.x0);
-    int x1 =
-        static_cast<int>(
-            box.x1 + 1.0f);
-    int y0 =
-        static_cast<int>(box.y0);
-    int y1 =
-        static_cast<int>(
-            box.y1 + 1.0f);
-    int z0 =
-        static_cast<int>(box.z0);
-    int z1 =
-        static_cast<int>(
-            box.z1 + 1.0f);
-
-    x0 = std::max(x0, 0);
-    y0 = std::max(y0, 0);
-    z0 = std::max(z0, 0);
-    x1 = std::min(x1, width_);
-    y1 = std::min(y1, depth_);
-    z1 = std::min(z1, height_);
+    const int x0 = static_cast<int>(std::floor(box.x0));
+    const int x1 = static_cast<int>(std::floor(box.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(box.y0));
+    const int y1 = static_cast<int>(std::floor(box.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(box.z0));
+    const int z1 = static_cast<int>(std::floor(box.z1 + 1.0f));
 
     for (int x = x0; x < x1; ++x) {
         for (int y = y0; y < y1; ++y) {
             for (int z = z0; z < z1; ++z) {
-                const int id =
-                    static_cast<int>(
-                        blocks_[index(x, y, z)]);
+                const bool insideWorld =
+                    x >= 0 && x < width_ &&
+                    y >= 0 && y < depth_ &&
+                    z >= 0 && z < height_;
 
-                Tile* tile =
-                    id >= 0 &&
-                    id < Tile::MAX_TILES
-                        ? Tile::tiles[id]
-                        : nullptr;
-
-                if (!tile ||
-                    !tile->isSolid()) {
+                if (!insideWorld) {
+                    // Classic provides the special boundary tile around the
+                    // horizontal world edges and below the world, but not a
+                    // ceiling above the topmost build layer.
+                    const bool boundary =
+                        x < 0 || x >= width_ ||
+                        z < 0 || z >= height_ || y < 0;
+                    if (boundary && Tile::boundary)
+                        result.push_back(
+                            Tile::boundary->getAABB(x, y, z));
                     continue;
                 }
 
-                result.push_back(
-                    tile->getAABB(
-                        x, y, z));
+                const int id = static_cast<int>(
+                    blocks_[index(x, y, z)]);
+                Tile* tile =
+                    id >= 0 && id < Tile::MAX_TILES
+                        ? Tile::tiles[id]
+                        : nullptr;
+                if (tile && tile->isSolid())
+                    result.push_back(tile->getAABB(x, y, z));
             }
         }
     }
 }
 
-bool Level::setTile(
+bool Level::setTileRaw(
     int x, int y, int z, int type) {
     if (x < 0 || y < 0 || z < 0 ||
-        x >= width_ ||
-        y >= depth_ ||
-        z >= height_) {
+        x >= width_ || y >= depth_ || z >= height_)
         return false;
-    }
 
-    const std::uint8_t newType =
-        static_cast<std::uint8_t>(
-            type);
-
-    const std::size_t tileIndex =
-        index(x, y, z);
-
-    if (blocks_[tileIndex] ==
-        newType) {
+    const std::uint8_t newType = static_cast<std::uint8_t>(type);
+    const std::size_t tileIndex = index(x, y, z);
+    if (blocks_[tileIndex] == newType)
         return false;
+
+    blocks_[tileIndex] = newType;
+    calcLightDepths(x, z, 1, 1);
+    for (LevelListener* listener : listeners_) {
+        if (listener)
+            listener->tileChanged(x, y, z);
     }
-
-    blocks_[tileIndex] =
-        newType;
-
-    calcLightDepths(
-        x, z, 1, 1);
-
-    for (LevelListener* listener :
-         listeners_) {
-        if (listener) {
-            listener->tileChanged(
-                x, y, z);
-        }
-    }
-
     return true;
 }
 
-void Level::tick() {
-    // Match the reference's accumulated random-tile budget instead of
-    // discarding fractional updates on each 20 TPS tick.
-    unprocessed_ +=
-        static_cast<std::uint64_t>(
-            width_) *
-        static_cast<std::uint64_t>(
-            height_) *
-        static_cast<std::uint64_t>(
-            depth_);
+bool Level::setTile(int x, int y, int z, int type) {
+    if (!setTileRaw(x, y, z, type))
+        return false;
 
-    const std::uint64_t ticks =
-        unprocessed_ /
-        TILE_UPDATE_INTERVAL;
+    static constexpr int DX[6] = {-1, 1, 0, 0, 0, 0};
+    static constexpr int DY[6] = {0, 0, -1, 1, 0, 0};
+    static constexpr int DZ[6] = {0, 0, 0, 0, -1, 1};
+    const int changedType = static_cast<std::uint8_t>(type);
 
-    unprocessed_ -=
-        ticks *
-        TILE_UPDATE_INTERVAL;
-
-    for (std::uint64_t i = 0;
-         i < ticks;
-         ++i) {
-        const int x =
-            random_.nextInt(width_);
-        const int y =
-            random_.nextInt(depth_);
-        const int z =
-            random_.nextInt(height_);
-
-        const int id =
-            static_cast<int>(
-                blocks_[index(x, y, z)]);
-
-        if (id < 0 ||
-            id >= Tile::MAX_TILES) {
+    for (int side = 0; side < 6; ++side) {
+        const int nx = x + DX[side];
+        const int ny = y + DY[side];
+        const int nz = z + DZ[side];
+        if (nx < 0 || ny < 0 || nz < 0 ||
+            nx >= width_ || ny >= depth_ || nz >= height_)
             continue;
+
+        const int neighborId = getTile(nx, ny, nz);
+        if (neighborId >= 0 && neighborId < Tile::MAX_TILES) {
+            Tile* neighbor = Tile::tiles[neighborId];
+            if (neighbor)
+                neighbor->neighborChanged(*this, nx, ny, nz, changedType);
         }
+    }
+    return true;
+}
 
-        Tile* tile =
-            Tile::tiles[id];
+bool Level::canOccupyEntityBox(
+    const AABB& box, float dx, float dy, float dz) const {
+    AABB candidate = box;
+    candidate.move(dx, dy, dz);
 
-        if (tile) {
-            tile->tick(
-                *this,
-                x, y, z,
-                random_);
+    std::vector<AABB> collisions;
+    getCubes(candidate, collisions);
+    for (const AABB& collision : collisions) {
+        if (candidate.intersects(collision))
+            return false;
+    }
+
+    const int x0 = static_cast<int>(std::floor(candidate.x0));
+    const int x1 = static_cast<int>(std::floor(candidate.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(candidate.y0));
+    const int y1 = static_cast<int>(std::floor(candidate.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(candidate.z0));
+    const int z1 = static_cast<int>(std::floor(candidate.z1 + 1.0f));
+
+    for (int x = std::max(0, x0); x < std::min(width_, x1); ++x) {
+        for (int y = std::max(0, y0); y < std::min(depth_, y1); ++y) {
+            for (int z = std::max(0, z0); z < std::min(height_, z1); ++z) {
+                const int id = getTile(x, y, z);
+                if (id > 0 && id < Tile::MAX_TILES) {
+                    const Tile* tile = Tile::tiles[id];
+                    if (tile && tile->isLiquid())
+                        return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool Level::containsLiquid(const AABB& box, int family) const {
+    const int x0 = static_cast<int>(std::floor(box.x0));
+    const int x1 = static_cast<int>(std::floor(box.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(box.y0));
+    const int y1 = static_cast<int>(std::floor(box.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(box.z0));
+    const int z1 = static_cast<int>(std::floor(box.z1 + 1.0f));
+
+    for (int x = std::max(0, x0); x < std::min(width_, x1); ++x) {
+        for (int y = std::max(0, y0); y < std::min(depth_, y1); ++y) {
+            for (int z = std::max(0, z0); z < std::min(height_, z1); ++z) {
+                const int id = getTile(x, y, z);
+                if (id >= 0 && id < Tile::MAX_TILES) {
+                    const Tile* tile = Tile::tiles[id];
+                    if (tile && tile->isLiquid() &&
+                        tile->liquidFamily() == family)
+                        return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void Level::tick() {
+    unprocessed_ +=
+        static_cast<std::uint64_t>(width_) *
+        static_cast<std::uint64_t>(height_) *
+        static_cast<std::uint64_t>(depth_);
+
+    const std::uint64_t ticks = unprocessed_ / TILE_UPDATE_INTERVAL;
+    unprocessed_ -= ticks * TILE_UPDATE_INTERVAL;
+
+    for (std::uint64_t i = 0; i < ticks; ++i) {
+        // Coordinates are selected with the original 32-bit LCG, separately
+        // from java.util.Random, which supplies the tile tick callbacks.
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int x = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(width_ - 1));
+
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int y = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(depth_ - 1));
+
+        randomTickState_ =
+            randomTickState_ * 1664525u + 1013904223u;
+        const int z = static_cast<int>(
+            (randomTickState_ >> 16) &
+            static_cast<std::uint32_t>(height_ - 1));
+
+        const int id = getTile(x, y, z);
+        if (id >= 0 && id < Tile::MAX_TILES) {
+            Tile* tile = Tile::tiles[id];
+            if (tile)
+                tile->tick(*this, x, y, z, random_);
         }
     }
 }

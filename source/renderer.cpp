@@ -36,6 +36,10 @@ constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
 constexpr const char* CHARACTER_TEXTURE_PATH =
     "assets/textures/char.png";
+constexpr const char* ROCK_TEXTURE_PATH =
+    "assets/textures/rock.png";
+constexpr const char* HORIZON_WATER_TEXTURE_PATH =
+    "assets/textures/water.png";
 constexpr int ZOMBIE_VERTEX_COUNT = 216;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
@@ -348,7 +352,22 @@ bool Renderer::initialize() {
 
     characterTextureLoaded_ = true;
 
-    // rd-20090515 starts with ten zombies; grow only if the player spawns
+    if (!TextureLoader::loadRock(
+            ROCK_TEXTURE_PATH, rockTexture_, error_)) {
+        shutdown();
+        return false;
+    }
+    rockTextureLoaded_ = true;
+
+    if (!TextureLoader::loadHorizonWater(
+            HORIZON_WATER_TEXTURE_PATH, horizonWaterTexture_, error_)) {
+        shutdown();
+        return false;
+    }
+    horizonWaterTextureLoaded_ = true;
+
+    // The native Classic branch starts with no automatically-spawned zombies.
+    // Grow the character buffers only if the player later spawns them.
     // additional zombies so the original 3DS does not reserve unused memory.
     characterVertices_.reserve(
         10u * ZOMBIE_VERTEX_COUNT);
@@ -415,7 +434,21 @@ bool Renderer::initialize() {
 
     FogLut_Exp(
         &shadowFogLut_,
-        0.06f,
+        0.01f,
+        1.0f,
+        0.05f,
+        1000.0f);
+
+    FogLut_Exp(
+        &waterFogLut_,
+        0.1f,
+        1.0f,
+        0.05f,
+        1000.0f);
+
+    FogLut_Exp(
+        &lavaFogLut_,
+        2.0f,
         1.0f,
         0.05f,
         1000.0f);
@@ -470,12 +503,35 @@ void Renderer::shutdown() {
         particleVbo_ = nullptr;
     }
 
+    if (horizonRockVbo_) {
+        linearFree(horizonRockVbo_);
+        horizonRockVbo_ = nullptr;
+    }
+    if (horizonWaterVbo_) {
+        linearFree(horizonWaterVbo_);
+        horizonWaterVbo_ = nullptr;
+    }
+    horizonRockVertexCount_ = 0;
+    horizonWaterVertexCount_ = 0;
+    horizonWidth_ = 0;
+    horizonLength_ = 0;
+
     particleVboCapacity_ = 0;
     particleVertices_.clear();
 
     if (characterTextureLoaded_) {
         C3D_TexDelete(&characterTexture_);
         characterTextureLoaded_ = false;
+    }
+
+    if (rockTextureLoaded_) {
+        C3D_TexDelete(&rockTexture_);
+        rockTextureLoaded_ = false;
+    }
+
+    if (horizonWaterTextureLoaded_) {
+        C3D_TexDelete(&horizonWaterTexture_);
+        horizonWaterTextureLoaded_ = false;
     }
 
     chunkAmountX_ = 0;
@@ -874,6 +930,39 @@ void Renderer::appendBush(
     }
 }
 
+void Renderer::appendFluidFace(
+    std::vector<Vertex>& vertices,
+    int x, int y, int z,
+    int face,
+    float brightness,
+    int textureId) const {
+
+    const Face& f = faces[face];
+    const int indices[6] = {0, 1, 2, 0, 2, 3};
+    const float minU = static_cast<float>(textureId % 16) / 16.0f;
+    const float maxU = minU + 0.0624375f;
+    const float minV = static_cast<float>(textureId / 16) / 16.0f;
+    const float maxV = minV + 0.0624375f;
+    float u[4]{};
+    float v[4]{};
+    faceUvs(face, minU, maxU, minV, maxV, u, v);
+
+    for (int index : indices) {
+        Vertex vertex{};
+        vertex.x = x + f.p[index][0];
+        // Classic liquid bounds extend from y - 0.1 to y + 0.9.
+        vertex.y = y + (f.p[index][1] > 0.5f ? 0.9f : -0.1f);
+        vertex.z = z + f.p[index][2];
+        vertex.r = brightness;
+        vertex.g = brightness;
+        vertex.b = brightness;
+        vertex.a = 1.0f;
+        vertex.u = u[index];
+        vertex.v = v[index];
+        vertices.push_back(vertex);
+    }
+}
+
 bool Renderer::rebuildChunk(
     const Level& level,
     ChunkMesh& chunk) {
@@ -882,6 +971,8 @@ bool Renderer::rebuildChunk(
          layer < LAYERS;
          ++layer) {
         buildVertices_[layer].clear();
+        buildWaterVertices_[layer].clear();
+        buildLavaVertices_[layer].clear();
     }
 
     for (int x = chunk.minX;
@@ -909,6 +1000,42 @@ bool Renderer::rebuildChunk(
 
                 if (!tile)
                     continue;
+
+                if (tile->isLiquid()) {
+                    for (int face = 0; face < 6; ++face) {
+                        const Face& f = faces[face];
+                        const int nx = x + f.nx;
+                        const int ny = y + f.ny;
+                        const int nz = z + f.nz;
+
+                        if (nx < 0 || nx >= level.width() ||
+                            nz < 0 || nz >= level.height() || ny < 0)
+                            continue;
+                        if (level.isSolidTile(nx, ny, nz))
+                            continue;
+
+                        const int neighborId = level.getTile(nx, ny, nz);
+                        if (neighborId > 0 && neighborId < Tile::MAX_TILES) {
+                            const Tile* neighbor = Tile::tiles[neighborId];
+                            if (neighbor && neighbor->isLiquid() &&
+                                neighbor->liquidFamily() == tile->liquidFamily())
+                                continue;
+                        }
+
+                        const bool lit = level.isLit(nx, ny, nz);
+                        const int renderLayer = lit ? 0 : 1;
+                        std::vector<Vertex>& liquidVertices =
+                            tile->liquidFamily() == 1
+                                ? buildWaterVertices_[renderLayer]
+                                : buildLavaVertices_[renderLayer];
+                        appendFluidFace(
+                            liquidVertices,
+                            x, y, z, face,
+                            lit ? f.shade : f.shade * 0.6f,
+                            tile->getTexture(face));
+                    }
+                    continue;
+                }
 
                 if (tile->isCrossPlant()) {
                     const int renderLayer =
@@ -965,65 +1092,96 @@ bool Renderer::rebuildChunk(
         }
     }
 
-    void* newVbo[LAYERS] =
-        {nullptr, nullptr};
+    void* newVbo[LAYERS] = {nullptr, nullptr};
+    void* newWaterVbo[LAYERS] = {nullptr, nullptr};
+    void* newLavaVbo[LAYERS] = {nullptr, nullptr};
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        const std::size_t solidBytes =
+            buildVertices_[layer].size() * sizeof(Vertex);
+        const std::size_t waterBytes =
+            buildWaterVertices_[layer].size() * sizeof(Vertex);
+        const std::size_t lavaBytes =
+            buildLavaVertices_[layer].size() * sizeof(Vertex);
 
-        const std::size_t bytes =
-            buildVertices_[layer].size() *
-            sizeof(Vertex);
-
-        if (bytes == 0)
-            continue;
-
-        newVbo[layer] =
-            linearAlloc(bytes);
-
-        if (!newVbo[layer]) {
-            for (int cleanupLayer = 0;
-                 cleanupLayer < LAYERS;
-                 ++cleanupLayer) {
-
-                if (newVbo[cleanupLayer])
-                    linearFree(
-                        newVbo[cleanupLayer]);
-            }
-
-            // Do not leave stale geometry behind when the linear heap is
-            // temporarily too full for a replacement mesh. Releasing the
-            // old mesh lets the next frame retry with the memory reclaimed.
-            releaseChunkMesh(chunk);
-            chunk.dirty = true;
-            return false;
+        if (solidBytes) {
+            newVbo[layer] = linearAlloc(solidBytes);
+            if (!newVbo[layer])
+                goto allocation_failed;
+            std::memcpy(newVbo[layer], buildVertices_[layer].data(), solidBytes);
         }
-
-        std::memcpy(
-            newVbo[layer],
-            buildVertices_[layer].data(),
-            bytes);
+        if (waterBytes) {
+            newWaterVbo[layer] = linearAlloc(waterBytes);
+            if (!newWaterVbo[layer])
+                goto allocation_failed;
+            std::memcpy(
+                newWaterVbo[layer], buildWaterVertices_[layer].data(), waterBytes);
+        }
+        if (lavaBytes) {
+            newLavaVbo[layer] = linearAlloc(lavaBytes);
+            if (!newLavaVbo[layer])
+                goto allocation_failed;
+            std::memcpy(
+                newLavaVbo[layer], buildLavaVertices_[layer].data(), lavaBytes);
+        }
     }
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        if (chunk.vbo[layer]) linearFree(chunk.vbo[layer]);
+        if (chunk.waterVbo[layer]) linearFree(chunk.waterVbo[layer]);
+        if (chunk.lavaVbo[layer]) linearFree(chunk.lavaVbo[layer]);
 
-        if (chunk.vbo[layer])
-            linearFree(
-                chunk.vbo[layer]);
-
-        chunk.vbo[layer] =
-            newVbo[layer];
-
+        chunk.vbo[layer] = newVbo[layer];
         chunk.vertexCount[layer] =
-            static_cast<int>(
-                buildVertices_[layer].size());
+            static_cast<int>(buildVertices_[layer].size());
+        chunk.waterVbo[layer] = newWaterVbo[layer];
+        chunk.waterVertexCount[layer] =
+            static_cast<int>(buildWaterVertices_[layer].size());
+        chunk.lavaVbo[layer] = newLavaVbo[layer];
+        chunk.lavaVertexCount[layer] =
+            static_cast<int>(buildLavaVertices_[layer].size());
     }
 
     chunk.dirty = false;
     return true;
+
+allocation_failed:
+    for (int layer = 0; layer < LAYERS; ++layer) {
+        if (newVbo[layer]) linearFree(newVbo[layer]);
+        if (newWaterVbo[layer]) linearFree(newWaterVbo[layer]);
+        if (newLavaVbo[layer]) linearFree(newLavaVbo[layer]);
+    }
+    releaseChunkMesh(chunk);
+    chunk.dirty = true;
+    return false;
+}
+
+void Renderer::drawWaterChunk(
+    const ChunkMesh& chunk,
+    int layer) {
+    if (!chunk.waterVbo[layer] || chunk.waterVertexCount[layer] <= 0)
+        return;
+
+    C3D_BufInfo* info = C3D_GetBufInfo();
+    BufInfo_Init(info);
+    BufInfo_Add(info, chunk.waterVbo[layer], sizeof(Vertex), 3, 0x210);
+    C3D_SetBufInfo(info);
+    C3D_DrawArrays(
+        GPU_TRIANGLES, 0, static_cast<u32>(chunk.waterVertexCount[layer]));
+}
+
+void Renderer::drawLavaChunk(
+    const ChunkMesh& chunk,
+    int layer) {
+    if (!chunk.lavaVbo[layer] || chunk.lavaVertexCount[layer] <= 0)
+        return;
+
+    C3D_BufInfo* info = C3D_GetBufInfo();
+    BufInfo_Init(info);
+    BufInfo_Add(info, chunk.lavaVbo[layer], sizeof(Vertex), 3, 0x210);
+    C3D_SetBufInfo(info);
+    C3D_DrawArrays(
+        GPU_TRIANGLES, 0, static_cast<u32>(chunk.lavaVertexCount[layer]));
 }
 
 void Renderer::drawChunk(
@@ -1115,17 +1273,22 @@ bool Renderer::ensureParticleVboCapacity(
 void Renderer::releaseChunkMesh(
     ChunkMesh& chunk) {
 
-    for (int layer = 0;
-         layer < LAYERS;
-         ++layer) {
-
+    for (int layer = 0; layer < LAYERS; ++layer) {
         if (chunk.vbo[layer]) {
-            linearFree(
-                chunk.vbo[layer]);
+            linearFree(chunk.vbo[layer]);
             chunk.vbo[layer] = nullptr;
         }
-
+        if (chunk.waterVbo[layer]) {
+            linearFree(chunk.waterVbo[layer]);
+            chunk.waterVbo[layer] = nullptr;
+        }
+        if (chunk.lavaVbo[layer]) {
+            linearFree(chunk.lavaVbo[layer]);
+            chunk.lavaVbo[layer] = nullptr;
+        }
         chunk.vertexCount[layer] = 0;
+        chunk.waterVertexCount[layer] = 0;
+        chunk.lavaVertexCount[layer] = 0;
     }
 }
 
@@ -2115,6 +2278,215 @@ void Renderer::renderHit() {
         0x80);
 }
 
+void Renderer::configureFog(
+    const Level& level,
+    const Player& player,
+    bool litLayer) {
+    const int x = static_cast<int>(player.x());
+    const int y = static_cast<int>(player.y() + 0.12f);
+    const int z = static_cast<int>(player.z());
+    const int tileId = level.getTile(x, y, z);
+
+    const Tile* tile =
+        tileId > 0 && tileId < Tile::MAX_TILES
+            ? Tile::tiles[tileId]
+            : nullptr;
+    const int family = tile && tile->isLiquid()
+        ? tile->liquidFamily()
+        : 0;
+
+    if (family == 1) {
+        C3D_FogColor(0x050533);
+        C3D_FogLutBind(&waterFogLut_);
+    } else if (family == 2) {
+        C3D_FogColor(0x991A00);
+        C3D_FogLutBind(&lavaFogLut_);
+    } else if (litLayer) {
+        C3D_FogColor(0xFEFBFA);
+        C3D_FogLutBind(&dayFogLut_);
+    } else {
+        C3D_FogColor(0x0E0B0A);
+        C3D_FogLutBind(&shadowFogLut_);
+    }
+
+    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+}
+
+void Renderer::renderHorizon(const Level& level) {
+    if (!rockTextureLoaded_ || !horizonWaterTextureLoaded_)
+        return;
+
+    constexpr int SPAN = 128;
+    constexpr int EXTENT = 2048;
+    const int worldWidth = level.width();
+    const int worldLength = level.height();
+
+    // Build immutable horizon meshes once. Generating thousands of immediate
+    // vertices every frame would waste command-buffer bandwidth on the O3DS.
+    if (!horizonRockVbo_ || !horizonWaterVbo_ ||
+        horizonWidth_ != worldWidth || horizonLength_ != worldLength) {
+        std::vector<Vertex> rockVertices;
+        std::vector<Vertex> waterVertices;
+        const float rockTop = 30.0f;
+        const float waterY = 31.9f;
+
+        const auto appendQuad = [](std::vector<Vertex>& output,
+                                   const float p[4][3],
+                                   float uSpan, float vSpan, float shade) {
+            const int indices[6] = {0, 1, 2, 0, 2, 3};
+            const float uv[4][2] = {
+                {0.0f, 0.0f}, {uSpan, 0.0f},
+                {uSpan, vSpan}, {0.0f, vSpan}
+            };
+            for (int index : indices) {
+                Vertex vertex{};
+                vertex.x = p[index][0];
+                vertex.y = p[index][1];
+                vertex.z = p[index][2];
+                vertex.r = shade;
+                vertex.g = shade;
+                vertex.b = shade;
+                vertex.a = 1.0f;
+                vertex.u = uv[index][0];
+                vertex.v = uv[index][1];
+                output.push_back(vertex);
+            }
+        };
+
+        // Rock ground: inner world floor at y=0; outside skirt at y=30.
+        for (int x = -EXTENT; x < worldWidth + EXTENT; x += SPAN) {
+            for (int z = -EXTENT; z < worldLength + EXTENT; z += SPAN) {
+                const bool inside =
+                    x >= 0 && z >= 0 &&
+                    x < worldWidth && z < worldLength;
+                const float y = inside ? 0.0f : rockTop;
+                const float p[4][3] = {
+                    {static_cast<float>(x), y, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), y, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), y, static_cast<float>(z)},
+                    {static_cast<float>(x), y, static_cast<float>(z)}
+                };
+                appendQuad(rockVertices, p, SPAN, SPAN, 1.0f);
+            }
+        }
+
+        // Front and back walls are shaded to 80% in the source renderer.
+        for (int x = 0; x < worldWidth; x += SPAN) {
+            const int nextX = std::min(x + SPAN, worldWidth);
+            const float front[4][3] = {
+                {static_cast<float>(x), 0.0f, 0.0f},
+                {static_cast<float>(nextX), 0.0f, 0.0f},
+                {static_cast<float>(nextX), rockTop, 0.0f},
+                {static_cast<float>(x), rockTop, 0.0f}
+            };
+            const float back[4][3] = {
+                {static_cast<float>(x), rockTop, static_cast<float>(worldLength)},
+                {static_cast<float>(nextX), rockTop, static_cast<float>(worldLength)},
+                {static_cast<float>(nextX), 0.0f, static_cast<float>(worldLength)},
+                {static_cast<float>(x), 0.0f, static_cast<float>(worldLength)}
+            };
+            appendQuad(rockVertices, front, nextX - x, rockTop, 0.8f);
+            appendQuad(rockVertices, back, nextX - x, rockTop, 0.8f);
+        }
+
+        // Left and right walls are shaded to 60%.
+        for (int z = 0; z < worldLength; z += SPAN) {
+            const int nextZ = std::min(z + SPAN, worldLength);
+            const float left[4][3] = {
+                {0.0f, rockTop, static_cast<float>(z)},
+                {0.0f, rockTop, static_cast<float>(nextZ)},
+                {0.0f, 0.0f, static_cast<float>(nextZ)},
+                {0.0f, 0.0f, static_cast<float>(z)}
+            };
+            const float right[4][3] = {
+                {static_cast<float>(worldWidth), 0.0f, static_cast<float>(z)},
+                {static_cast<float>(worldWidth), 0.0f, static_cast<float>(nextZ)},
+                {static_cast<float>(worldWidth), rockTop, static_cast<float>(nextZ)},
+                {static_cast<float>(worldWidth), rockTop, static_cast<float>(z)}
+            };
+            appendQuad(rockVertices, left, rockTop, nextZ - z, 0.6f);
+            appendQuad(rockVertices, right, rockTop, nextZ - z, 0.6f);
+        }
+
+        // Transparent water tiles over the outer region, 0.1 below y=32.
+        for (int x = -EXTENT; x < worldWidth + EXTENT; x += SPAN) {
+            for (int z = -EXTENT; z < worldLength + EXTENT; z += SPAN) {
+                const bool inside =
+                    x >= 0 && z >= 0 &&
+                    x < worldWidth && z < worldLength;
+                if (inside)
+                    continue;
+                const float p[4][3] = {
+                    {static_cast<float>(x), waterY, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), waterY, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), waterY, static_cast<float>(z)},
+                    {static_cast<float>(x), waterY, static_cast<float>(z)}
+                };
+                appendQuad(waterVertices, p, SPAN, SPAN, 1.0f);
+            }
+        }
+
+        const std::size_t rockBytes = rockVertices.size() * sizeof(Vertex);
+        const std::size_t waterBytes = waterVertices.size() * sizeof(Vertex);
+        void* newRock = linearAlloc(rockBytes);
+        void* newWater = linearAlloc(waterBytes);
+        if (!newRock || !newWater) {
+            if (newRock) linearFree(newRock);
+            if (newWater) linearFree(newWater);
+            error_ = "Could not allocate Classic horizon geometry in linear memory.";
+            return;
+        }
+        std::memcpy(newRock, rockVertices.data(), rockBytes);
+        std::memcpy(newWater, waterVertices.data(), waterBytes);
+
+        if (horizonRockVbo_) linearFree(horizonRockVbo_);
+        if (horizonWaterVbo_) linearFree(horizonWaterVbo_);
+        horizonRockVbo_ = newRock;
+        horizonRockVertexCount_ = rockVertices.size();
+        horizonWaterVbo_ = newWater;
+        horizonWaterVertexCount_ = waterVertices.size();
+        horizonWidth_ = worldWidth;
+        horizonLength_ = worldLength;
+    }
+
+    const auto drawHorizonBuffer = [](void* buffer, std::size_t count) {
+        if (!buffer || count == 0)
+            return;
+        C3D_BufInfo* info = C3D_GetBufInfo();
+        BufInfo_Init(info);
+        BufInfo_Add(info, buffer, sizeof(Vertex), 3, 0x210);
+        C3D_SetBufInfo(info);
+        C3D_DrawArrays(GPU_TRIANGLES, 0, static_cast<u32>(count));
+    };
+
+    // Static VBOs keep the original 3DS from rebuilding the full horizon each frame.
+    C3D_CullFace(GPU_CULL_NONE);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_TexBind(0, &rockTexture_);
+    drawHorizonBuffer(horizonRockVbo_, horizonRockVertexCount_);
+
+    C3D_TexBind(0, &horizonWaterTexture_);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+    drawHorizonBuffer(horizonWaterVbo_, horizonWaterVertexCount_);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_TexBind(0, &terrainTexture_);
+}
+
 void Renderer::render(
     const Level& level,
     const Player& player,
@@ -2387,14 +2759,20 @@ void Renderer::render(
         GPU_PLAIN_DENSITY,
         false);
 
+    renderHorizon(level);
+
+    // renderHorizon restores the terrain texture but disables fog; reinstate
+    // daylight fog for ordinary terrain immediately afterward.
+    configureFog(level, player, true);
+
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
 
-        if (visible_[index])
-            drawChunk(
-                chunks_[index],
-                0);
+        if (visible_[index]) {
+            drawChunk(chunks_[index], 0);
+            drawLavaChunk(chunks_[index], 0);
+        }
     }
 
     renderZombies(
@@ -2410,21 +2788,16 @@ void Renderer::render(
         true);
 
     // Switch to the shadow fog LUT and color for the second pass.
-    C3D_FogColor(0x0E0B0A);
-    C3D_FogLutBind(&shadowFogLut_);
-    C3D_FogGasMode(
-        GPU_FOG,
-        GPU_PLAIN_DENSITY,
-        false);
+    configureFog(level, player, false);
 
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
 
-        if (visible_[index])
-            drawChunk(
-                chunks_[index],
-                1);
+        if (visible_[index]) {
+            drawChunk(chunks_[index], 1);
+            drawLavaChunk(chunks_[index], 1);
+        }
     }
 
     // The reference draws entities and particles in both world-lighting
@@ -2441,6 +2814,55 @@ void Renderer::render(
         player,
         alpha,
         false);
+
+    C3D_AlphaTest(true, GPU_GREATER, 0x00);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+
+    const auto renderWaterLayer = [&](int layer, bool litLayer) {
+        configureFog(level, player, litLayer);
+        std::vector<std::size_t> order;
+        order.reserve(chunks_.size());
+        for (std::size_t index = 0; index < chunks_.size(); ++index) {
+            if (visible_[index] &&
+                chunks_[index].waterVertexCount[layer] > 0) {
+                order.push_back(index);
+            }
+        }
+
+        // Transparent water must be drawn back-to-front. Chunk sorting is an
+        // approximation of the desktop display-list sorter; it avoids drawing
+        // the nearest water surfaces over the distant ones.
+        const auto distanceSquared = [&](std::size_t index) {
+            const ChunkMesh& chunk = chunks_[index];
+            const float dx = (chunk.minX + chunk.maxX) * 0.5f - renderX;
+            const float dy = (chunk.minY + chunk.maxY) * 0.5f - renderY;
+            const float dz = (chunk.minZ + chunk.maxZ) * 0.5f - renderZ;
+            return dx * dx + dy * dy + dz * dz;
+        };
+        std::sort(order.begin(), order.end(),
+            [&](std::size_t lhs, std::size_t rhs) {
+                return distanceSquared(lhs) > distanceSquared(rhs);
+            });
+
+        for (const std::size_t index : order)
+            drawWaterChunk(chunks_[index], layer);
+    };
+
+    renderWaterLayer(0, true);
+    renderWaterLayer(1, false);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
+
+
 
     C3D_FogLutBind(nullptr);
     C3D_FogGasMode(
