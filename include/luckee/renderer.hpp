@@ -65,8 +65,10 @@ private:
 
         void* vbo[2] = {nullptr, nullptr};
         int vertexCount[2] = {0, 0};
-        void* fluidVbo[2] = {nullptr, nullptr};
-        int fluidVertexCount[2] = {0, 0};
+        void* waterVbo[2] = {nullptr, nullptr};
+        int waterVertexCount[2] = {0, 0};
+        void* lavaVbo[2] = {nullptr, nullptr};
+        int lavaVertexCount[2] = {0, 0};
         bool dirty = true;
         std::uint64_t dirtiedTimeMs = 0;
     };
@@ -98,9 +100,16 @@ private:
         const ChunkMesh& chunk,
         int layer);
 
-    void drawFluidChunk(
+    void drawWaterChunk(
         const ChunkMesh& chunk,
         int layer);
+    void drawLavaChunk(
+        const ChunkMesh& chunk,
+        int layer);
+    void configureFog(
+        const Level& level,
+        const Player& player,
+        bool litLayer);
 
     void renderZombies(
         const std::vector<Zombie>& zombies,
@@ -166,6 +175,8 @@ private:
     int horizonLength_ = 0;
     C3D_FogLut dayFogLut_{};
     C3D_FogLut shadowFogLut_{};
+    C3D_FogLut waterFogLut_{};
+    C3D_FogLut lavaFogLut_{};
 
     void* characterVbo_ = nullptr;
     std::size_t characterVboCapacity_ = 0;
@@ -178,7 +189,8 @@ private:
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
     std::vector<Vertex> buildVertices_[2];
-    std::vector<Vertex> buildFluidVertices_[2];
+    std::vector<Vertex> buildWaterVertices_[2];
+    std::vector<Vertex> buildLavaVertices_[2];
     std::vector<Vertex> characterVertices_;
     std::vector<Vertex> particleVertices_;
 

@@ -434,7 +434,21 @@ bool Renderer::initialize() {
 
     FogLut_Exp(
         &shadowFogLut_,
-        0.06f,
+        0.01f,
+        1.0f,
+        0.05f,
+        1000.0f);
+
+    FogLut_Exp(
+        &waterFogLut_,
+        0.1f,
+        1.0f,
+        0.05f,
+        1000.0f);
+
+    FogLut_Exp(
+        &lavaFogLut_,
+        2.0f,
         1.0f,
         0.05f,
         1000.0f);
@@ -957,7 +971,8 @@ bool Renderer::rebuildChunk(
          layer < LAYERS;
          ++layer) {
         buildVertices_[layer].clear();
-        buildFluidVertices_[layer].clear();
+        buildWaterVertices_[layer].clear();
+        buildLavaVertices_[layer].clear();
     }
 
     for (int x = chunk.minX;
@@ -1009,8 +1024,12 @@ bool Renderer::rebuildChunk(
 
                         const bool lit = level.isLit(nx, ny, nz);
                         const int renderLayer = lit ? 0 : 1;
+                        std::vector<Vertex>& liquidVertices =
+                            tile->liquidFamily() == 1
+                                ? buildWaterVertices_[renderLayer]
+                                : buildLavaVertices_[renderLayer];
                         appendFluidFace(
-                            buildFluidVertices_[renderLayer],
+                            liquidVertices,
                             x, y, z, face,
                             lit ? f.shade : f.shade * 0.6f,
                             tile->getTexture(face));
@@ -1074,38 +1093,53 @@ bool Renderer::rebuildChunk(
     }
 
     void* newVbo[LAYERS] = {nullptr, nullptr};
-    void* newFluidVbo[LAYERS] = {nullptr, nullptr};
+    void* newWaterVbo[LAYERS] = {nullptr, nullptr};
+    void* newLavaVbo[LAYERS] = {nullptr, nullptr};
 
     for (int layer = 0; layer < LAYERS; ++layer) {
         const std::size_t solidBytes =
             buildVertices_[layer].size() * sizeof(Vertex);
-        const std::size_t fluidBytes =
-            buildFluidVertices_[layer].size() * sizeof(Vertex);
+        const std::size_t waterBytes =
+            buildWaterVertices_[layer].size() * sizeof(Vertex);
+        const std::size_t lavaBytes =
+            buildLavaVertices_[layer].size() * sizeof(Vertex);
 
-        if (solidBytes != 0) {
+        if (solidBytes) {
             newVbo[layer] = linearAlloc(solidBytes);
             if (!newVbo[layer])
                 goto allocation_failed;
             std::memcpy(newVbo[layer], buildVertices_[layer].data(), solidBytes);
         }
-        if (fluidBytes != 0) {
-            newFluidVbo[layer] = linearAlloc(fluidBytes);
-            if (!newFluidVbo[layer])
+        if (waterBytes) {
+            newWaterVbo[layer] = linearAlloc(waterBytes);
+            if (!newWaterVbo[layer])
                 goto allocation_failed;
             std::memcpy(
-                newFluidVbo[layer], buildFluidVertices_[layer].data(), fluidBytes);
+                newWaterVbo[layer], buildWaterVertices_[layer].data(), waterBytes);
+        }
+        if (lavaBytes) {
+            newLavaVbo[layer] = linearAlloc(lavaBytes);
+            if (!newLavaVbo[layer])
+                goto allocation_failed;
+            std::memcpy(
+                newLavaVbo[layer], buildLavaVertices_[layer].data(), lavaBytes);
         }
     }
 
     for (int layer = 0; layer < LAYERS; ++layer) {
         if (chunk.vbo[layer]) linearFree(chunk.vbo[layer]);
-        if (chunk.fluidVbo[layer]) linearFree(chunk.fluidVbo[layer]);
+        if (chunk.waterVbo[layer]) linearFree(chunk.waterVbo[layer]);
+        if (chunk.lavaVbo[layer]) linearFree(chunk.lavaVbo[layer]);
+
         chunk.vbo[layer] = newVbo[layer];
         chunk.vertexCount[layer] =
             static_cast<int>(buildVertices_[layer].size());
-        chunk.fluidVbo[layer] = newFluidVbo[layer];
-        chunk.fluidVertexCount[layer] =
-            static_cast<int>(buildFluidVertices_[layer].size());
+        chunk.waterVbo[layer] = newWaterVbo[layer];
+        chunk.waterVertexCount[layer] =
+            static_cast<int>(buildWaterVertices_[layer].size());
+        chunk.lavaVbo[layer] = newLavaVbo[layer];
+        chunk.lavaVertexCount[layer] =
+            static_cast<int>(buildLavaVertices_[layer].size());
     }
 
     chunk.dirty = false;
@@ -1114,28 +1148,40 @@ bool Renderer::rebuildChunk(
 allocation_failed:
     for (int layer = 0; layer < LAYERS; ++layer) {
         if (newVbo[layer]) linearFree(newVbo[layer]);
-        if (newFluidVbo[layer]) linearFree(newFluidVbo[layer]);
+        if (newWaterVbo[layer]) linearFree(newWaterVbo[layer]);
+        if (newLavaVbo[layer]) linearFree(newLavaVbo[layer]);
     }
     releaseChunkMesh(chunk);
     chunk.dirty = true;
     return false;
-
-    chunk.dirty = false;
-    return true;
 }
 
-void Renderer::drawFluidChunk(
+void Renderer::drawWaterChunk(
     const ChunkMesh& chunk,
     int layer) {
-    if (!chunk.fluidVbo[layer] || chunk.fluidVertexCount[layer] <= 0)
+    if (!chunk.waterVbo[layer] || chunk.waterVertexCount[layer] <= 0)
         return;
 
-    C3D_BufInfo* bufInfo = C3D_GetBufInfo();
-    BufInfo_Init(bufInfo);
-    BufInfo_Add(bufInfo, chunk.fluidVbo[layer], sizeof(Vertex), 3, 0x210);
-    C3D_SetBufInfo(bufInfo);
-    C3D_DrawArrays(GPU_TRIANGLES, 0,
-        static_cast<u32>(chunk.fluidVertexCount[layer]));
+    C3D_BufInfo* info = C3D_GetBufInfo();
+    BufInfo_Init(info);
+    BufInfo_Add(info, chunk.waterVbo[layer], sizeof(Vertex), 3, 0x210);
+    C3D_SetBufInfo(info);
+    C3D_DrawArrays(
+        GPU_TRIANGLES, 0, static_cast<u32>(chunk.waterVertexCount[layer]));
+}
+
+void Renderer::drawLavaChunk(
+    const ChunkMesh& chunk,
+    int layer) {
+    if (!chunk.lavaVbo[layer] || chunk.lavaVertexCount[layer] <= 0)
+        return;
+
+    C3D_BufInfo* info = C3D_GetBufInfo();
+    BufInfo_Init(info);
+    BufInfo_Add(info, chunk.lavaVbo[layer], sizeof(Vertex), 3, 0x210);
+    C3D_SetBufInfo(info);
+    C3D_DrawArrays(
+        GPU_TRIANGLES, 0, static_cast<u32>(chunk.lavaVertexCount[layer]));
 }
 
 void Renderer::drawChunk(
@@ -1232,12 +1278,17 @@ void Renderer::releaseChunkMesh(
             linearFree(chunk.vbo[layer]);
             chunk.vbo[layer] = nullptr;
         }
-        if (chunk.fluidVbo[layer]) {
-            linearFree(chunk.fluidVbo[layer]);
-            chunk.fluidVbo[layer] = nullptr;
+        if (chunk.waterVbo[layer]) {
+            linearFree(chunk.waterVbo[layer]);
+            chunk.waterVbo[layer] = nullptr;
+        }
+        if (chunk.lavaVbo[layer]) {
+            linearFree(chunk.lavaVbo[layer]);
+            chunk.lavaVbo[layer] = nullptr;
         }
         chunk.vertexCount[layer] = 0;
-        chunk.fluidVertexCount[layer] = 0;
+        chunk.waterVertexCount[layer] = 0;
+        chunk.lavaVertexCount[layer] = 0;
     }
 }
 
@@ -2227,6 +2278,40 @@ void Renderer::renderHit() {
         0x80);
 }
 
+void Renderer::configureFog(
+    const Level& level,
+    const Player& player,
+    bool litLayer) {
+    const int x = static_cast<int>(player.x());
+    const int y = static_cast<int>(player.y() + 0.12f);
+    const int z = static_cast<int>(player.z());
+    const int tileId = level.getTile(x, y, z);
+
+    const Tile* tile =
+        tileId > 0 && tileId < Tile::MAX_TILES
+            ? Tile::tiles[tileId]
+            : nullptr;
+    const int family = tile && tile->isLiquid()
+        ? tile->liquidFamily()
+        : 0;
+
+    if (family == 1) {
+        C3D_FogColor(0x050533);
+        C3D_FogLutBind(&waterFogLut_);
+    } else if (family == 2) {
+        C3D_FogColor(0x991A00);
+        C3D_FogLutBind(&lavaFogLut_);
+    } else if (litLayer) {
+        C3D_FogColor(0xFEFBFA);
+        C3D_FogLutBind(&dayFogLut_);
+    } else {
+        C3D_FogColor(0x0E0B0A);
+        C3D_FogLutBind(&shadowFogLut_);
+    }
+
+    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+}
+
 void Renderer::renderHorizon(const Level& level) {
     if (!rockTextureLoaded_ || !horizonWaterTextureLoaded_)
         return;
@@ -2678,18 +2763,16 @@ void Renderer::render(
 
     // renderHorizon restores the terrain texture but disables fog; reinstate
     // daylight fog for ordinary terrain immediately afterward.
-    C3D_FogColor(0xFEFBFA);
-    C3D_FogLutBind(&dayFogLut_);
-    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
+    configureFog(level, player, true);
 
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
 
-        if (visible_[index])
-            drawChunk(
-                chunks_[index],
-                0);
+        if (visible_[index]) {
+            drawChunk(chunks_[index], 0);
+            drawLavaChunk(chunks_[index], 0);
+        }
     }
 
     renderZombies(
@@ -2705,52 +2788,17 @@ void Renderer::render(
         true);
 
     // Switch to the shadow fog LUT and color for the second pass.
-    C3D_FogColor(0x0E0B0A);
-    C3D_FogLutBind(&shadowFogLut_);
-    C3D_FogGasMode(
-        GPU_FOG,
-        GPU_PLAIN_DENSITY,
-        false);
+    configureFog(level, player, false);
 
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
 
-        if (visible_[index])
-            drawChunk(
-                chunks_[index],
-                1);
+        if (visible_[index]) {
+            drawChunk(chunks_[index], 1);
+            drawLavaChunk(chunks_[index], 1);
+        }
     }
-
-    // Render liquids after opaque geometry. Water alpha is present in the
-    // original texture atlas; use alpha blending but leave the opaque depth
-    // buffer unchanged so back faces and terrain remain visible through it.
-    C3D_FogColor(0xFEFBFA);
-    C3D_FogLutBind(&dayFogLut_);
-    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
-    C3D_AlphaBlend(
-        GPU_BLEND_ADD, GPU_BLEND_ADD,
-        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
-        GPU_ONE, GPU_ZERO);
-    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
-
-    for (std::size_t index = 0; index < chunks_.size(); ++index)
-        if (visible_[index])
-            drawFluidChunk(chunks_[index], 0);
-
-    C3D_FogColor(0x0E0B0A);
-    C3D_FogLutBind(&shadowFogLut_);
-    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
-
-    for (std::size_t index = 0; index < chunks_.size(); ++index)
-        if (visible_[index])
-            drawFluidChunk(chunks_[index], 1);
-
-    C3D_AlphaBlend(
-        GPU_BLEND_ADD, GPU_BLEND_ADD,
-        GPU_ONE, GPU_ZERO,
-        GPU_ONE, GPU_ZERO);
-    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
 
     // The reference draws entities and particles in both world-lighting
     // passes. Without these shadow-layer calls, anything classified as
@@ -2766,6 +2814,55 @@ void Renderer::render(
         player,
         alpha,
         false);
+
+    C3D_AlphaTest(true, GPU_GREATER, 0x00);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+
+    const auto renderWaterLayer = [&](int layer, bool litLayer) {
+        configureFog(level, player, litLayer);
+        std::vector<std::size_t> order;
+        order.reserve(chunks_.size());
+        for (std::size_t index = 0; index < chunks_.size(); ++index) {
+            if (visible_[index] &&
+                chunks_[index].waterVertexCount[layer] > 0) {
+                order.push_back(index);
+            }
+        }
+
+        // Transparent water must be drawn back-to-front. Chunk sorting is an
+        // approximation of the desktop display-list sorter; it avoids drawing
+        // the nearest water surfaces over the distant ones.
+        const auto distanceSquared = [&](std::size_t index) {
+            const ChunkMesh& chunk = chunks_[index];
+            const float dx = (chunk.minX + chunk.maxX) * 0.5f - renderX;
+            const float dy = (chunk.minY + chunk.maxY) * 0.5f - renderY;
+            const float dz = (chunk.minZ + chunk.maxZ) * 0.5f - renderZ;
+            return dx * dx + dy * dy + dz * dz;
+        };
+        std::sort(order.begin(), order.end(),
+            [&](std::size_t lhs, std::size_t rhs) {
+                return distanceSquared(lhs) > distanceSquared(rhs);
+            });
+
+        for (const std::size_t index : order)
+            drawWaterChunk(chunks_[index], layer);
+    };
+
+    renderWaterLayer(0, true);
+    renderWaterLayer(1, false);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
+
+
 
     C3D_FogLutBind(nullptr);
     C3D_FogGasMode(

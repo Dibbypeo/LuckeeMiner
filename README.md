@@ -15,7 +15,7 @@ copied into the project.
 Implemented in this branch:
 - Classic-style improved Perlin / octave / distorted noise.
 - Six terrain generation passes: raising, eroding, soiling, carving, watering, melting.
-- Tile registry IDs 1–3 and 7–11, including water and lava.
+- Tile IDs 1–11, including the anonymous stone, wood and bush entries (4–6), the boundary tile (7), water (8–9) and lava (10–11).
 - Basic fluid ticks, neighbor notifications, and water/lava reactions.
 - Classic random tile-update schedule and coordinate RNG.
 - Core land/water/lava movement constants.
@@ -37,8 +37,8 @@ devkitPro build or a 3DS emulator/hardware test**.
 | A | Jump |
 | L | Place selected block |
 | R | Break targeted block |
-| D-Pad Up | Previous selectable tile |
-| D-Pad Down | Next selectable tile |
+| D-Pad Up | Previous selectable block (1–6) |
+| D-Pad Down | Next selectable block (1–6) |
 | Y | Spawn a zombie (testing convenience) |
 | SELECT | Save world |
 | X | Reset player position |

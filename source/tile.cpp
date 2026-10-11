@@ -256,7 +256,11 @@ void initializeTiles() {
     static Tile rockTile(1, 1);
     static GrassTile grassTile(2);
     static DirtTile dirtTile(3, 2);
-    // Classic c0.0.13a_03 does not register IDs 4–6.
+    // The original static initializer constructs IDs 4–6 anonymously,
+    // then stores them only in the global tile array.
+    static Tile stoneBrickTile(4, 16);
+    static Tile woodTile(5, 4);
+    static BushTile bushTile(6);
     static BoundaryTile boundaryTile(7, 17);
     static FluidTile waterFlowingTile(8, 14, 8, 9, 1, false);
     static FluidTile waterStillTile(9, 14, 8, 9, 1, true);
@@ -266,9 +270,9 @@ void initializeTiles() {
     Tile::rock = &rockTile;
     Tile::grass = &grassTile;
     Tile::dirt = &dirtTile;
-    Tile::stoneBrick = nullptr;
-    Tile::wood = nullptr;
-    Tile::bush = nullptr;
+    Tile::stoneBrick = &stoneBrickTile;
+    Tile::wood = &woodTile;
+    Tile::bush = &bushTile;
     Tile::boundary = &boundaryTile;
     Tile::waterFlowing = &waterFlowingTile;
     Tile::waterStill = &waterStillTile;

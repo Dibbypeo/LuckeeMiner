@@ -48,10 +48,12 @@ void Player::tick(const InputState& input) {
         const float oldX = x_;
         const float oldY = y_;
         const float oldZ = z_;
+        const float requestedX = xd_;
+        const float requestedZ = zd_;
         move(xd_, yd_, zd_);
         const bool hitWall =
-            std::fabs((x_ - oldX) - xd_) > 0.0001f ||
-            std::fabs((z_ - oldZ) - zd_) > 0.0001f;
+            std::fabs((x_ - oldX) - requestedX) > 0.0001f ||
+            std::fabs((z_ - oldZ) - requestedZ) > 0.0001f;
         if (hitWall &&
             level_.canOccupyEntityBox(
                 bb_, xd_, yd_ + 0.6f - y_ + oldY, zd_)) {
@@ -66,10 +68,12 @@ void Player::tick(const InputState& input) {
         const float oldX = x_;
         const float oldY = y_;
         const float oldZ = z_;
+        const float requestedX = xd_;
+        const float requestedZ = zd_;
         move(xd_, yd_, zd_);
         const bool hitWall =
-            std::fabs((x_ - oldX) - xd_) > 0.0001f ||
-            std::fabs((z_ - oldZ) - zd_) > 0.0001f;
+            std::fabs((x_ - oldX) - requestedX) > 0.0001f ||
+            std::fabs((z_ - oldZ) - requestedZ) > 0.0001f;
         if (hitWall &&
             level_.canOccupyEntityBox(
                 bb_, xd_, yd_ + 0.6f - y_ + oldY, zd_)) {

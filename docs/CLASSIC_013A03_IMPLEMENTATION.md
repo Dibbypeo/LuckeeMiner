@@ -11,7 +11,8 @@ release tags remain unchanged.
 - Tile IDs 1–6, special boundary tile 7, flowing/still water 8–9, and
   flowing/still lava 10–11.
 - Fluid random-tick flow, stationary-to-flowing transitions, neighbor changes,
-  lava/water reactions and Classic random update scheduling.
+  lava/water reactions and Classic random update scheduling. The six original
+  selectable block types (IDs 1–6) are available through the 3DS selector.
 - Classic lighting-height convention, world-boundary collision and the major
   dry/water/lava movement constants.
 - Classic save metadata header, compressed block payload, raw GZIP legacy-load
@@ -25,9 +26,10 @@ release tags remain unchanged.
 
 - **Exactness validation:** the native terrain has not yet been compared
   block-for-block against output produced by the original Java class files.
-- **Fluid rendering fidelity:** water chunks are not yet sorted exactly as
-  the reference's transparent display lists; fluid immersion fog and some
-  face-visibility/tint details still need matching.
+- **Fluid rendering fidelity:** lava now has its own opaque mesh pass and water
+  uses alpha blending with approximate far-to-near chunk sorting. Immersion fog
+  follows the original water/lava density and color values; face visibility,
+  tint and exact transparent display-list ordering still need in-game matching.
 - **Physics:** the original player wall-step response while swimming or in lava
   is still missing.
 - **Interface:** generation-stage progress and the Classic pause, save/load

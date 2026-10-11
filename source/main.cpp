@@ -110,8 +110,8 @@ int main(int, char**) {
 
     std::puts("LuckeeMiner - Classic c0.0.13a_03\n");
     std::puts("World: 256 x 64 x 256");
-    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 7 boundary");
-    std::puts("Fluids: 8-9 water, 10-11 lava");
+    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone, 5 wood, 6 bush");
+    std::puts("Boundary: 7; water: 8-9; lava: 10-11");
     std::puts("Zombies: 0 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
@@ -161,12 +161,12 @@ int main(int, char**) {
             gspWaitForVBlank();
         }
 
-        const int selectableBlocks[] = {1, 2, 3, 8, 10};
+        const int selectableBlocks[] = {1, 2, 3, 4, 5, 6};
 
         if (input.previousBlockPressed ||
             input.nextBlockPressed) {
             int selectedIndex = 0;
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < 6; ++i) {
                 if (selectableBlocks[i] == selectedTileId) {
                     selectedIndex = i;
                     break;
@@ -175,10 +175,10 @@ int main(int, char**) {
 
             if (input.previousBlockPressed)
                 selectedIndex =
-                    (selectedIndex + 4) % 5;
+                    (selectedIndex + 5) % 6;
             else
                 selectedIndex =
-                    (selectedIndex + 1) % 5;
+                    (selectedIndex + 1) % 6;
 
             selectedTileId =
                 selectableBlocks[selectedIndex];
