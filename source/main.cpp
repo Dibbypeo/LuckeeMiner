@@ -452,7 +452,8 @@ int main(int, char**) {
             zombies,
             particleEngine,
             selectedTileId,
-            timer.alpha());
+            timer.alpha(),
+            placingMode);
 
         gspWaitForVBlank();
     }
