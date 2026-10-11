@@ -180,6 +180,9 @@ bool readJavaUtf(gzFile file, std::string& output) {
     }
     return true;
 }
+std::uint16_t be16(const std::uint8_t b[2]) {
+    return (static_cast<std::uint16_t>(b[0]) << 8) | b[1];
+}
 std::uint32_t be32(const std::uint8_t b[4]) {
     return (static_cast<std::uint32_t>(b[0]) << 24) |
            (static_cast<std::uint32_t>(b[1]) << 16) |
@@ -276,10 +279,34 @@ bool Level::load() {
                     version <= CLASSIC_SAVE_VERSION &&
                     readJavaUtf(file, loadedName) &&
                     readJavaUtf(file, loadedCreator) &&
-                    read64(file, loadedTime) &&
-                    read32(file, width) &&
-                    read32(file, height) &&
-                    read32(file, depth);
+                    read64(file, loadedTime);
+
+            if (valid) {
+                std::uint8_t dimensionPrefix[2]{};
+                valid = gzExact(file, dimensionPrefix, sizeof(dimensionPrefix));
+                if (valid &&
+                    be16(dimensionPrefix) == static_cast<std::uint16_t>(width_)) {
+                    // Original on-disk order matches native X, Z, Y dimensions.
+                    std::uint16_t savedZ = 0;
+                    std::uint16_t savedY = 0;
+                    width = be16(dimensionPrefix);
+                    valid = read16(file, savedZ) && read16(file, savedY);
+                    height = savedZ;
+                    depth = savedY;
+                } else if (valid) {
+                    // Support earlier development saves with three 32-bit dimensions.
+                    std::uint8_t dimensionBytes[12]{};
+                    dimensionBytes[0] = dimensionPrefix[0];
+                    dimensionBytes[1] = dimensionPrefix[1];
+                    valid = gzExact(file, dimensionBytes + 2, 10);
+                    if (valid) {
+                        width = be32(dimensionBytes);
+                        height = be32(dimensionBytes + 4);
+                        depth = be32(dimensionBytes + 8);
+                    }
+                }
+            }
+
             if (valid &&
                 (width != static_cast<std::uint32_t>(width_) ||
                  height != static_cast<std::uint32_t>(height_) ||
@@ -327,6 +354,13 @@ bool Level::save() const {
     constexpr const char* TEMP_PATH = "level.dat.tmp";
     constexpr const char* BACKUP_PATH = "level.dat.bak";
 
+    if (width_ <= 0 || width_ > 32767 ||
+        height_ <= 0 || height_ > 32767 ||
+        depth_ <= 0 || depth_ > 32767) {
+        std::fputs("level.dat: dimensions do not fit Classic's signed 16-bit fields.\n", stderr);
+        return false;
+    }
+
     std::vector<std::uint8_t> header;
     header.reserve(64 + worldName_.size() + creator_.size());
     append32(header, CLASSIC_SAVE_MAGIC);
@@ -337,9 +371,10 @@ bool Level::save() const {
         return false;
     }
     append64(header, creationTimeMs_);
-    append32(header, static_cast<std::uint32_t>(width_));
-    append32(header, static_cast<std::uint32_t>(height_));
-    append32(header, static_cast<std::uint32_t>(depth_));
+    // Original field order is width (X), Z dimension, Y dimension.
+    append16(header, static_cast<std::uint16_t>(width_));
+    append16(header, static_cast<std::uint16_t>(height_));
+    append16(header, static_cast<std::uint16_t>(depth_));
 
     gzFile file = gzopen(TEMP_PATH, "wb1");
     if (!file) {
@@ -697,7 +732,7 @@ void Level::tick() {
         const int id = getTile(x, y, z);
         if (id >= 0 && id < Tile::MAX_TILES) {
             Tile* tile = Tile::tiles[id];
-            if (tile)
+            if (tile && tile->isTickable())
                 tile->tick(*this, x, y, z, random_);
         }
     }

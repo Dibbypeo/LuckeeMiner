@@ -1918,7 +1918,7 @@ void Renderer::renderHud(
 
     Mtx_RotateX(
         &modelView,
-        30.0f * PI / 180.0f,
+        -30.0f * PI / 180.0f,
         true);
 
     Mtx_RotateY(
@@ -1930,14 +1930,14 @@ void Renderer::renderHud(
         &modelView,
         -1.5f,
         0.5f,
-        -0.5f,
+        0.5f,
         true);
 
     Mtx_Scale(
         &modelView,
         -1.0f,
         -1.0f,
-        1.0f);
+        -1.0f);
 
     C3D_FVUnifMtx4x4(
         GPU_VERTEX_SHADER,
@@ -2249,109 +2249,109 @@ void Renderer::renderHud(
         &modelView);
 }
 
-void Renderer::renderHit(int selectedTileId, bool placingMode) {
-    if (!hasHit_ || !level_) return;
-    const auto now = std::chrono::system_clock::now();
-    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()).count();
-    const float pulse = std::sin(static_cast<double>(milliseconds)/100.0)*0.2f+0.4f;
+void Renderer::renderHit(bool placingMode) {
+    if (!hasHit_)
+        return;
 
-    int boxX=hitResult_.x, boxY=hitResult_.y, boxZ=hitResult_.z;
+    int boxX = hitResult_.x;
+    int boxY = hitResult_.y;
+    int boxZ = hitResult_.z;
+
     if (placingMode) {
         switch (hitResult_.face) {
-            case 0: --boxY; break; case 1: ++boxY; break;
-            case 2: --boxZ; break; case 3: ++boxZ; break;
-            case 4: --boxX; break; case 5: ++boxX; break;
+            case 0: --boxY; break;
+            case 1: ++boxY; break;
+            case 2: --boxZ; break;
+            case 3: ++boxZ; break;
+            case 4: --boxX; break;
+            case 5: ++boxX; break;
             default: break;
         }
     }
 
-    C3D_AlphaTest(false,GPU_GREATER,0x80);
-    C3D_FogGasMode(GPU_NO_FOG,GPU_PLAIN_DENSITY,false);
-    C3D_TexEnv* env=C3D_GetTexEnv(0);
-    const C3D_TexEnv savedEnv=*env;
-    const int indices[6]={0,1,2,0,2,3};
+    // Classic draws a black 40%-alpha outline, not a filled flash or preview.
+    // Citro3D has no line primitive, so each edge is a thin triangle prism.
+    constexpr float OUTLINE_RADIUS = 0.008f;
+    constexpr int EDGE_COUNT = 12;
+    constexpr int edgeIndices[EDGE_COUNT][2] = {
+        {0,1}, {1,2}, {2,3}, {3,0},
+        {4,5}, {5,6}, {6,7}, {7,4},
+        {0,4}, {1,5}, {2,6}, {3,7}
+    };
+    constexpr int prismFaces[6][4] = {
+        {0,1,2,3}, {4,5,6,7},
+        {0,1,5,4}, {3,2,6,7},
+        {0,3,7,4}, {1,2,6,5}
+    };
+    constexpr int triangleIndices[6] = {0,1,2,0,2,3};
 
-    if (!placingMode) {
-        // Classic break mode pulses every visible face of the target block.
-        C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,GPU_ONE,GPU_SRC_ALPHA,GPU_ONE);
-        C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
-        C3D_TexEnvSrc(env,C3D_Both,GPU_PRIMARY_COLOR,GPU_PRIMARY_COLOR);
-        C3D_TexEnvFunc(env,C3D_Both,GPU_REPLACE);
-        C3D_ImmDrawBegin(GPU_TRIANGLES);
-        for (int faceIndex=0; faceIndex<6; ++faceIndex) {
-            const Face& face=faces[faceIndex];
-            for (int index:indices) {
-                C3D_ImmSendAttrib(
-                    boxX+face.p[index][0]+face.nx*HIGHLIGHT_OFFSET,
-                    boxY+face.p[index][1]+face.ny*HIGHLIGHT_OFFSET,
-                    boxZ+face.p[index][2]+face.nz*HIGHLIGHT_OFFSET,1.0f);
-                C3D_ImmSendAttrib(1.0f,1.0f,1.0f,pulse*0.5f);
-                C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
-            }
-        }
-        C3D_ImmDrawEnd();
-    } else {
-        // Classic place mode renders a translucent selected-block preview.
-        Tile* tile=selectedTileId>0 && selectedTileId<Tile::MAX_TILES
-            ? Tile::tiles[selectedTileId] : nullptr;
-        if (tile) {
-            C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,
-                GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ZERO);
-            C3D_DepthTest(true,GPU_GREATER,GPU_WRITE_ALL);
-            C3D_TexBind(0,&terrainTexture_);
-            C3D_TexEnvSrc(env,C3D_Both,GPU_TEXTURE0,GPU_PRIMARY_COLOR);
-            C3D_TexEnvFunc(env,C3D_Both,GPU_MODULATE);
-            std::vector<Vertex> previewVertices;
-            previewVertices.reserve(tile->isCrossPlant()?24u:36u);
-            if (tile->isCrossPlant()) appendBush(previewVertices,boxX,boxY,boxZ,1.0f);
-            else for(int face=0;face<6;++face)
-                appendFace(previewVertices,boxX,boxY,boxZ,face,faces[face].shade,tile->getTexture(face));
-            const float tint=static_cast<float>(std::sin(
-                static_cast<double>(milliseconds)/100.0))*0.2f+0.8f;
-            const float previewAlpha=static_cast<float>(std::sin(
-                static_cast<double>(milliseconds)/200.0))*0.2f+0.5f;
-            C3D_ImmDrawBegin(GPU_TRIANGLES);
-            for(const Vertex& vertex:previewVertices) {
-                C3D_ImmSendAttrib(vertex.x,vertex.y,vertex.z,1.0f);
-                C3D_ImmSendAttrib(vertex.r*tint,vertex.g*tint,vertex.b*tint,previewAlpha);
-                C3D_ImmSendAttrib(vertex.u,vertex.v,0.0f,0.0f);
-            }
-            C3D_ImmDrawEnd();
-        }
-    }
+    const float x0 = static_cast<float>(boxX);
+    const float y0 = static_cast<float>(boxY);
+    const float z0 = static_cast<float>(boxZ);
+    const float x1 = x0 + 1.0f;
+    const float y1 = y0 + 1.0f;
+    const float z1 = z0 + 1.0f;
+    const float corners[8][3] = {
+        {x0,y0,z0}, {x1,y0,z0}, {x1,y0,z1}, {x0,y0,z1},
+        {x0,y1,z0}, {x1,y1,z0}, {x1,y1,z1}, {x0,y1,z1}
+    };
 
-    // Outline all 12 edges; slight expansion prevents z-fighting at block edges.
-    const float x0=static_cast<float>(boxX)-HIGHLIGHT_OFFSET;
-    const float y0=static_cast<float>(boxY)-HIGHLIGHT_OFFSET;
-    const float z0=static_cast<float>(boxZ)-HIGHLIGHT_OFFSET;
-    const float x1=static_cast<float>(boxX+1)+HIGHLIGHT_OFFSET;
-    const float y1=static_cast<float>(boxY+1)+HIGHLIGHT_OFFSET;
-    const float z1=static_cast<float>(boxZ+1)+HIGHLIGHT_OFFSET;
-    const float corners[8][3]={{x0,y0,z0},{x1,y0,z0},{x1,y0,z1},{x0,y0,z1},
-        {x0,y1,z0},{x1,y1,z0},{x1,y1,z1},{x0,y1,z1}};
-    const int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},
-        {0,4},{1,5},{2,6},{3,7}};
-    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,
-        GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ZERO);
-    C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
-    C3D_TexEnvSrc(env,C3D_Both,GPU_PRIMARY_COLOR,GPU_PRIMARY_COLOR);
-    C3D_TexEnvFunc(env,C3D_Both,GPU_REPLACE);
+    C3D_AlphaTest(false, GPU_GREATER, 0x80);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_COLOR);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
     C3D_CullFace(GPU_CULL_NONE);
-    C3D_ImmDrawBegin(GPU_LINES);
-    for(const auto& edge:edges) for(int end:edge) {
-        const float* p=corners[end];
-        C3D_ImmSendAttrib(p[0],p[1],p[2],1.0f);
-        C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.4f);
-        C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
+
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+    for (int edge = 0; edge < EDGE_COUNT; ++edge) {
+        const float* a = corners[edgeIndices[edge][0]];
+        const float* b = corners[edgeIndices[edge][1]];
+        float lo[3]{};
+        float hi[3]{};
+
+        for (int axis = 0; axis < 3; ++axis) {
+            lo[axis] = std::min(a[axis], b[axis]);
+            hi[axis] = std::max(a[axis], b[axis]);
+            if (hi[axis] - lo[axis] < 0.0001f) {
+                lo[axis] -= OUTLINE_RADIUS;
+                hi[axis] += OUTLINE_RADIUS;
+            }
+        }
+
+        const float p[8][3] = {
+            {lo[0],lo[1],lo[2]}, {hi[0],lo[1],lo[2]},
+            {hi[0],lo[1],hi[2]}, {lo[0],lo[1],hi[2]},
+            {lo[0],hi[1],lo[2]}, {hi[0],hi[1],lo[2]},
+            {hi[0],hi[1],hi[2]}, {lo[0],hi[1],hi[2]}
+        };
+
+        for (const auto& face : prismFaces) {
+            for (int index : triangleIndices) {
+                const float* vertex = p[face[index]];
+                C3D_ImmSendAttrib(vertex[0], vertex[1], vertex[2], 1.0f);
+                C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.4f);
+                C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
+            }
+        }
     }
     C3D_ImmDrawEnd();
 
-    C3D_SetTexEnv(0,const_cast<C3D_TexEnv*>(&savedEnv));
-    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_ONE,GPU_ZERO,GPU_ONE,GPU_ZERO);
-    C3D_DepthTest(true,GPU_GREATER,GPU_WRITE_ALL);
+    C3D_SetTexEnv(0, const_cast<C3D_TexEnv*>(&savedEnv));
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
     C3D_CullFace(GPU_CULL_BACK_CCW);
-    C3D_AlphaTest(true,GPU_GREATER,0x80);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
 }
 
 void Renderer::configureFog(
@@ -2964,7 +2964,7 @@ void Renderer::render(
         GPU_PLAIN_DENSITY,
         false);
 
-    renderHit(selectedTileId, placingMode);
+    renderHit(placingMode);
 
     renderHud(
         selectedTileId);

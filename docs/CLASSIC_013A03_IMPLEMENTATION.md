@@ -11,20 +11,22 @@ Pre-Classic release tags remain available as historical snapshots.
 - Tile IDs 1–6, special boundary tile 7, flowing/still water 8–9, and
   flowing/still lava 10–11.
 - Fluid random-tick flow, stationary-to-flowing transitions, neighbor changes,
-  lava/water reactions and Classic random update scheduling. The six original
+  lava/water reactions, and the original tickable-tile filter and random update
+  scheduling. The six original
   selectable block types (IDs 1–6) are available through the 3DS selector.
 - Classic lighting-height convention, world-boundary collision and the major
   dry/water/lava movement constants.
-- Classic save metadata header (32-bit dimensions), compressed block payload,
-  raw GZIP legacy-load fallback, and safer temporary-file/backup replacement.
+- Original Classic save metadata header (16-bit dimensions in X/Z/Y field order),
+  compressed block payload, backward loading of early 32-bit-dimension native
+  drafts and raw GZIP legacy saves, and safer temporary-file/backup replacement.
 - Separate opaque-lava and transparent-water mesh paths, approximate
   far-to-near water chunk sorting, water/lava immersion fog, and the outer rock
   floor/skirt, edge walls, and surrounding water plane using `rock.png` and
   `water.png`. Horizon UV orientation and side-wall texture scaling now follow
   the original renderer.
-- Source-style BREAK/PLACE mode toggle, a pulsing whole-block selection fill
-  with an edge outline, a translucent placement preview, and player/zombie
-  collision checks before placement.
+- Source-style BREAK/PLACE mode toggle and a whole-block wireframe selection
+  outline (the original has no filled selection flash or placement preview),
+  with player/zombie collision checks before placement.
 - Top-left version and live FPS/chunk-update text using a built-in bitmap font.
 - Zero zombies spawned when a Classic world starts.
 - Generation-stage progress on the bottom screen.
@@ -46,7 +48,7 @@ Pre-Classic release tags remain available as historical snapshots.
   screens are not yet reproduced; current save/load uses level.dat.
 - **Build/test:** the editing environment does not have devkitPro installed,
   so a 3DS build could not be run here. The branch needs a local devkitPro
-  build and Citra/original-hardware test before release.
+  build and Azahar/original-hardware test before release.
 
 Required external textures for this branch are `terrain.png`, `char.png`,
 `rock.png`, and `water.png` in `3ds/assets/textures/`.

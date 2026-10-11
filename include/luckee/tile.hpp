@@ -35,6 +35,7 @@ public:
     virtual int getTexture(int face) const;
     virtual bool blocksLight() const { return true; }
     virtual bool isSolid() const { return true; }
+    virtual bool isTickable() const { return false; }
     virtual AABB getAABB(int x, int y, int z) const;
 
     virtual void tick(
@@ -65,6 +66,7 @@ public:
     explicit GrassTile(int id);
 
     int getTexture(int face) const override;
+    bool isTickable() const override { return true; }
 
     void tick(
         Level& level,
@@ -89,6 +91,7 @@ public:
 
     bool blocksLight() const override { return false; }
     bool isSolid() const override { return false; }
+    bool isTickable() const override { return true; }
     AABB getAABB(int, int, int) const override;
     bool isCrossPlant() const override { return true; }
 };
@@ -105,6 +108,7 @@ public:
               int family, bool stationary);
     bool isSolid() const override { return false; }
     bool isLiquid() const override { return true; }
+    bool isTickable() const override { return !stationary_; }
     int liquidFamily() const override { return family_; }
     AABB getAABB(int x, int y, int z) const override;
     void tick(Level& level, int x, int y, int z, JavaRandom& random) override;

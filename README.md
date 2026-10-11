@@ -71,10 +71,11 @@ The source archive supplied for this version contains these files; this project
 does not bundle them. See [assets/README.md](assets/README.md).
 
 World saves are written to `level.dat` in the application working directory.
-The writer uses the Classic metadata header and a GZIP-compressed block array;
-the loader also accepts the older raw-GZIP block-array payload when the
-dimensions match. End-to-end exchange with the original Java client remains
-to be tested.
+The writer uses the original Classic metadata layout, including the
+16-bit dimensions in the original field order, and a GZIP-compressed block
+array. The loader also accepts earlier 32-bit-dimension native draft saves and
+raw GZIP block-array saves. End-to-end exchange with the original Java client
+remains to be tested.
 
 ## Build
 
