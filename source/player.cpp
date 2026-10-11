@@ -39,7 +39,7 @@ void Player::tick(const InputState& input) {
     if (input.jumpHeld) {
         if (inWater || inLava)
             yd_ += 0.04f;
-        else if (onGround_ && !jumpWasHeld_)
+        else if (onGround_)
             yd_ = 0.42f;
     }
 
@@ -97,7 +97,6 @@ void Player::tick(const InputState& input) {
         }
     }
 
-    jumpWasHeld_ = input.jumpHeld;
 }
 
 } // namespace luckee

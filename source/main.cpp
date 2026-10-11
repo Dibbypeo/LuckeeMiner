@@ -293,7 +293,7 @@ int main(int, char**) {
             consoleClear();
 
             std::printf(
-                "LuckeeMiner - rd-20090515 recreation\n\n");
+                "LuckeeMiner - Classic c0.0.13a_03\n\n");
 
             std::printf(
                 "World: %d x %d x %d\n",

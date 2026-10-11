@@ -31,7 +31,7 @@ release tags remain unchanged.
   follows the original water/lava density and color values; face visibility,
   tint and exact transparent display-list ordering still need in-game matching.
 - **Physics:** the original player wall-step response while swimming or in lava
-  is still missing.
+  is present, but its collision edge cases still need in-game testing.
 - **Interface:** generation-stage progress and the Classic pause, save/load
   and world-selection menus are not implemented. Existing 3DS-native controls
   are retained as the temporary interface.
