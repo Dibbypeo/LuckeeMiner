@@ -230,8 +230,10 @@ std::vector<std::uint8_t> generateClassicWorld(
         float x = random.nextFloat() * width;
         float y = random.nextFloat() * depth;
         float z = random.nextFloat() * height;
+        const float lengthFraction = random.nextFloat();
+        const float lengthScale = random.nextFloat();
         const int length = static_cast<int>(
-            random.nextFloat() + random.nextFloat() * 150.0f);
+            lengthFraction + lengthScale * 150.0f);
         float yaw = random.nextFloat() *
             6.28318530717958647692f;
         float pitch = random.nextFloat() *
@@ -244,11 +246,13 @@ std::vector<std::uint8_t> generateClassicWorld(
             z += std::cos(yaw) * std::cos(pitch);
             y += std::sin(pitch);
             yaw += yawDrift * 0.2f;
-            yawDrift = yawDrift * 0.9f +
-                (random.nextFloat() - random.nextFloat());
+            const float yawRandomA = random.nextFloat();
+            const float yawRandomB = random.nextFloat();
+            yawDrift = yawDrift * 0.9f + (yawRandomA - yawRandomB);
             pitch = (pitch + pitchDrift * 0.5f) * 0.5f;
-            pitchDrift = pitchDrift * 0.9f +
-                (random.nextFloat() - random.nextFloat());
+            const float pitchRandomA = random.nextFloat();
+            const float pitchRandomB = random.nextFloat();
+            pitchDrift = pitchDrift * 0.9f + (pitchRandomA - pitchRandomB);
 
             const float radius =
                 static_cast<float>(
