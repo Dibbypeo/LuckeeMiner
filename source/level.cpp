@@ -590,6 +590,40 @@ bool Level::setTile(int x, int y, int z, int type) {
     return true;
 }
 
+bool Level::canOccupyEntityBox(
+    const AABB& box, float dx, float dy, float dz) const {
+    AABB candidate = box;
+    candidate.move(dx, dy, dz);
+
+    std::vector<AABB> collisions;
+    getCubes(candidate, collisions);
+    for (const AABB& collision : collisions) {
+        if (candidate.intersects(collision))
+            return false;
+    }
+
+    const int x0 = static_cast<int>(std::floor(candidate.x0));
+    const int x1 = static_cast<int>(std::floor(candidate.x1 + 1.0f));
+    const int y0 = static_cast<int>(std::floor(candidate.y0));
+    const int y1 = static_cast<int>(std::floor(candidate.y1 + 1.0f));
+    const int z0 = static_cast<int>(std::floor(candidate.z0));
+    const int z1 = static_cast<int>(std::floor(candidate.z1 + 1.0f));
+
+    for (int x = std::max(0, x0); x < std::min(width_, x1); ++x) {
+        for (int y = std::max(0, y0); y < std::min(depth_, y1); ++y) {
+            for (int z = std::max(0, z0); z < std::min(height_, z1); ++z) {
+                const int id = getTile(x, y, z);
+                if (id > 0 && id < Tile::MAX_TILES) {
+                    const Tile* tile = Tile::tiles[id];
+                    if (tile && tile->isLiquid())
+                        return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
 bool Level::containsLiquid(const AABB& box, int family) const {
     const int x0 = static_cast<int>(std::floor(box.x0));
     const int x1 = static_cast<int>(std::floor(box.x1 + 1.0f));

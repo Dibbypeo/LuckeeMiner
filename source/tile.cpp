@@ -113,7 +113,7 @@ void GrassTile::tick(
     // Classic only updates a selected grass block on one quarter of attempts.
     if (random.nextInt(4) != 0)
         return;
-    if (!level.isLit(x, y, z)) {
+    if (!level.isLit(x, y + 1, z)) {
         level.setTile(
             x, y, z,
             dirt->id());
@@ -167,6 +167,16 @@ FluidTile::FluidTile(
     : Tile(id, textureId),
       flowingId_(flowingId), stillId_(stillId),
       family_(family), stationary_(stationary) {
+}
+
+AABB FluidTile::getAABB(int x, int y, int z) const {
+    return AABB(
+        static_cast<float>(x),
+        static_cast<float>(y) - 0.1f,
+        static_cast<float>(z),
+        static_cast<float>(x + 1),
+        static_cast<float>(y) + 0.9f,
+        static_cast<float>(z + 1));
 }
 
 bool FluidTile::hasOpenFlowNeighbor(

@@ -106,6 +106,7 @@ public:
     bool isSolid() const override { return false; }
     bool isLiquid() const override { return true; }
     int liquidFamily() const override { return family_; }
+    AABB getAABB(int x, int y, int z) const override;
     void tick(Level& level, int x, int y, int z, JavaRandom& random) override;
     void neighborChanged(Level& level, int x, int y, int z, int changedType) override;
 

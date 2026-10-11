@@ -45,6 +45,8 @@ public:
     bool setTile(int x, int y, int z, int type);
     bool setTileRaw(int x, int y, int z, int type);
     bool containsLiquid(const AABB& box, int family) const;
+    bool canOccupyEntityBox(
+        const AABB& box, float dx, float dy, float dz) const;
 
     void tick();
 

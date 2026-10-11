@@ -1,5 +1,7 @@
 #include "luckee/player.hpp"
 
+#include <cmath>
+
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
 
@@ -43,14 +45,36 @@ void Player::tick(const InputState& input) {
 
     if (inWater) {
         moveRelative(xa, za, 0.02f);
+        const float oldX = x_;
+        const float oldY = y_;
+        const float oldZ = z_;
         move(xd_, yd_, zd_);
+        const bool hitWall =
+            std::fabs((x_ - oldX) - xd_) > 0.0001f ||
+            std::fabs((z_ - oldZ) - zd_) > 0.0001f;
+        if (hitWall &&
+            level_.canOccupyEntityBox(
+                bb_, xd_, yd_ + 0.6f - y_ + oldY, zd_)) {
+            yd_ = 0.3f;
+        }
         xd_ *= 0.8f;
         yd_ *= 0.8f;
         zd_ *= 0.8f;
         yd_ = static_cast<float>(static_cast<double>(yd_) - 0.02);
     } else if (inLava) {
         moveRelative(xa, za, 0.02f);
+        const float oldX = x_;
+        const float oldY = y_;
+        const float oldZ = z_;
         move(xd_, yd_, zd_);
+        const bool hitWall =
+            std::fabs((x_ - oldX) - xd_) > 0.0001f ||
+            std::fabs((z_ - oldZ) - zd_) > 0.0001f;
+        if (hitWall &&
+            level_.canOccupyEntityBox(
+                bb_, xd_, yd_ + 0.6f - y_ + oldY, zd_)) {
+            yd_ = 0.3f;
+        }
         xd_ *= 0.5f;
         yd_ *= 0.5f;
         zd_ *= 0.5f;
