@@ -37,10 +37,11 @@ InputState readInput() {
     state.jumpHeld =
         (held & KEY_A) != 0;
 
-    state.placePressed =
+    // Classic: L runs the current action; R toggles break/place mode.
+    state.actionPressed =
         (down & KEY_L) != 0;
 
-    state.breakPressed =
+    state.togglePlacementModePressed =
         (down & KEY_R) != 0;
 
     state.savePressed =

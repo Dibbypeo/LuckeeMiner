@@ -35,8 +35,8 @@ devkitPro build or a 3DS emulator/hardware test**.
 | Circle Pad | Move |
 | Touchscreen drag | Look / camera movement |
 | A | Jump |
-| L | Place selected block |
-| R | Break targeted block |
+| L | Perform the current action |
+| R | Toggle between BREAK and PLACE modes |
 | D-Pad Up | Previous selectable block (1–6) |
 | D-Pad Down | Next selectable block (1–6) |
 | Y | Spawn a zombie (testing convenience) |
@@ -44,8 +44,10 @@ devkitPro build or a 3DS emulator/hardware test**.
 | X | Reset player position |
 | START | Open pause menu (resume/save/load/regenerate/exit) |
 
-The original Classic menus and controls will replace or subsume these temporary
-debug-oriented controls as that system is implemented.
+Classic uses L for the current action and R to toggle BREAK/PLACE mode. Block
+placement checks player and zombie collisions. The top-left HUD shows the version
+and live FPS/chunk-update counters; bottom-screen diagnostics remain available.
+Original named-world selection screens are still not implemented.
 
 ## Installation and required textures
 

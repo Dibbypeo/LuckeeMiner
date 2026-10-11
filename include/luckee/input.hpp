@@ -13,8 +13,8 @@ struct InputState {
     // Jump and player reset are held controls. Block editing, saving, block
     // selection, and zombie spawning are edge-triggered on the 3DS mapping.
     bool jumpHeld = false;
-    bool breakPressed = false;
-    bool placePressed = false;
+    bool actionPressed = false;
+    bool togglePlacementModePressed = false;
     bool savePressed = false;
     bool resetPressed = false;
     bool nextBlockPressed = false;

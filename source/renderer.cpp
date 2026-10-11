@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -42,6 +43,31 @@ constexpr const char* HORIZON_WATER_TEXTURE_PATH =
     "assets/textures/water.png";
 constexpr int ZOMBIE_VERTEX_COUNT = 216;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
+
+struct HudGlyph { char character; std::uint8_t rows[7]; };
+constexpr HudGlyph HUD_FONT[] = {
+ {' ',{0,0,0,0,0,0,0}}, {'0',{14,17,19,21,25,17,14}}, {'1',{4,12,4,4,4,4,14}},
+ {'2',{14,17,1,2,4,8,31}}, {'3',{30,1,1,14,1,1,30}}, {'4',{2,6,10,18,31,2,2}},
+ {'5',{31,16,16,30,1,1,30}}, {'6',{6,8,16,30,17,17,14}}, {'7',{31,1,2,4,8,8,8}},
+ {'8',{14,17,17,14,17,17,14}}, {'9',{14,17,17,15,1,2,12}}, {'A',{14,17,17,31,17,17,17}},
+ {'B',{30,17,17,30,17,17,30}}, {'C',{14,17,16,16,16,17,14}}, {'D',{28,18,17,17,17,18,28}},
+ {'E',{31,16,16,30,16,16,31}}, {'F',{31,16,16,30,16,16,16}}, {'G',{14,17,16,23,17,17,15}},
+ {'H',{17,17,17,31,17,17,17}}, {'I',{14,4,4,4,4,4,14}}, {'J',{7,2,2,2,2,18,12}},
+ {'K',{17,18,20,24,20,18,17}}, {'L',{16,16,16,16,16,16,31}}, {'M',{17,27,21,21,17,17,17}},
+ {'N',{17,25,25,21,19,19,17}}, {'O',{14,17,17,17,17,17,14}}, {'P',{30,17,17,30,16,16,16}},
+ {'Q',{14,17,17,17,21,18,13}}, {'R',{30,17,17,30,20,18,17}}, {'S',{15,16,16,14,1,1,30}},
+ {'T',{31,4,4,4,4,4,4}}, {'U',{17,17,17,17,17,17,14}}, {'V',{17,17,17,17,17,10,4}},
+ {'W',{17,17,17,21,21,21,10}}, {'X',{17,17,10,4,10,17,17}}, {'Y',{17,17,10,4,4,4,4}},
+ {'Z',{31,1,2,4,8,16,31}}, {'a',{0,0,14,1,15,17,15}}, {'_',{0,0,0,0,0,0,31}},
+ {'.',{0,0,0,0,0,6,6}}, {',',{0,0,0,0,6,6,4}}, {'-',{0,0,0,31,0,0,0}},
+ {'?',{14,17,1,2,4,0,4}}
+};
+const HudGlyph* findHudGlyph(char character) {
+ if (character >= 'a' && character <= 'z' && character != 'a')
+  character = static_cast<char>(character - 'a' + 'A');
+ for (const HudGlyph& glyph : HUD_FONT) if (glyph.character == character) return &glyph;
+ return &HUD_FONT[sizeof(HUD_FONT)/sizeof(HUD_FONT[0])-1];
+}
 
 // Bound cached chunk geometry so explored areas cannot exhaust the original
 // 3DS linear heap. Four 16-block chunks is a conservative render distance.
@@ -2166,6 +2192,41 @@ void Renderer::renderHud(
 
     C3D_ImmDrawEnd();
 
+    // Version and live chunk/FPS line shown in Classic's top-left corner.
+    char stats[64];
+    std::snprintf(stats,sizeof(stats),"%d FPS, %d CHUNK UPDATES",hudFps_,hudChunkUpdates_);
+    Mtx_Identity(&modelView);
+    Mtx_Translate(&modelView,0.0f,0.0f,-200.0f,true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,modelViewLocation_,&modelView);
+    const auto drawTextPixels=[&](const char* text,float startX,float startY,
+                                  float red,float green,float blue) {
+        C3D_ImmDrawBegin(GPU_TRIANGLES);
+        float cursorX=startX;
+        for(const char* character=text;*character;++character) {
+            const HudGlyph* glyph=findHudGlyph(*character);
+            if(*character==' ') { cursorX+=4.0f; continue; }
+            for(int row=0;row<7;++row) for(int column=0;column<5;++column) {
+                if((glyph->rows[row]&(1u<<(4-column)))==0) continue;
+                const float x=cursorX+column,y=startY+row;
+                const float points[4][2]={{x,y},{x+1.0f,y},{x+1.0f,y+1.0f},{x,y+1.0f}};
+                const int pixelIndices[6]={0,1,2,0,2,3};
+                for(int point:pixelIndices) {
+                    C3D_ImmSendAttrib(points[point][0],points[point][1],0.0f,1.0f);
+                    C3D_ImmSendAttrib(red,green,blue,1.0f);
+                    C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
+                }
+            }
+            cursorX+=6.0f;
+        }
+        C3D_ImmDrawEnd();
+    };
+    const auto drawHudText=[&](const char* text,float x,float y) {
+        drawTextPixels(text,x+1.0f,y+1.0f,0.0f,0.0f,0.0f);
+        drawTextPixels(text,x,y,1.0f,1.0f,1.0f);
+    };
+    drawHudText("0.0.13a_03",2.0f,2.0f);
+    drawHudText(stats,2.0f,12.0f);
+
     C3D_SetTexEnv(
         0,
         const_cast<C3D_TexEnv*>(&savedEnv));
@@ -2188,94 +2249,109 @@ void Renderer::renderHud(
         &modelView);
 }
 
-void Renderer::renderHit() {
-    if (!hasHit_)
-        return;
-
-    const Face& face = faces[hitResult_.face];
-
-    // The reference temporarily disables alpha testing for the pulsing
-    // selection face because its alpha varies below the normal 0.5 cutoff.
-    C3D_AlphaTest(
-        false,
-        GPU_GREATER,
-        0x80);
-
+void Renderer::renderHit(int selectedTileId, bool placingMode) {
+    if (!hasHit_ || !level_) return;
     const auto now = std::chrono::system_clock::now();
-    const auto milliseconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch()).count();
+    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()).count();
+    const float pulse = std::sin(static_cast<double>(milliseconds)/100.0)*0.2f+0.4f;
 
-    const float pulse =
-        std::sin(static_cast<double>(milliseconds) / 100.0) * 0.2f +
-        0.4f;
-
-    C3D_AlphaBlend(
-        GPU_BLEND_ADD, GPU_BLEND_ADD,
-        GPU_SRC_ALPHA, GPU_ONE,
-        GPU_SRC_ALPHA, GPU_ONE);
-
-    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
-
-    C3D_FogGasMode(
-        GPU_NO_FOG,
-        GPU_PLAIN_DENSITY,
-        false);
-
-    C3D_TexEnv* env = C3D_GetTexEnv(0);
-    const C3D_TexEnv savedEnv = *env;
-
-    // RubyDung disables texturing while drawing the hit face. On Citro3D,
-    // use the TEV stage as the equivalent of an untextured primary-color pass.
-    C3D_TexEnvSrc(
-        env,
-        C3D_Both,
-        GPU_PRIMARY_COLOR,
-        GPU_PRIMARY_COLOR);
-    C3D_TexEnvFunc(
-        env,
-        C3D_Both,
-        GPU_REPLACE);
-
-    C3D_ImmDrawBegin(GPU_TRIANGLES);
-
-    const int indices[6] = {0, 1, 2, 0, 2, 3};
-
-    for (int index : indices) {
-        const float x =
-            hitResult_.x + face.p[index][0] +
-            face.nx * HIGHLIGHT_OFFSET;
-        const float y =
-            hitResult_.y + face.p[index][1] +
-            face.ny * HIGHLIGHT_OFFSET;
-        const float z =
-            hitResult_.z + face.p[index][2] +
-            face.nz * HIGHLIGHT_OFFSET;
-
-        C3D_ImmSendAttrib(x, y, z, 1.0f);
-        C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse * 0.5f);
-        C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
+    int boxX=hitResult_.x, boxY=hitResult_.y, boxZ=hitResult_.z;
+    if (placingMode) {
+        switch (hitResult_.face) {
+            case 0: --boxY; break; case 1: ++boxY; break;
+            case 2: --boxZ; break; case 3: ++boxZ; break;
+            case 4: --boxX; break; case 5: ++boxX; break;
+            default: break;
+        }
     }
 
+    C3D_AlphaTest(false,GPU_GREATER,0x80);
+    C3D_FogGasMode(GPU_NO_FOG,GPU_PLAIN_DENSITY,false);
+    C3D_TexEnv* env=C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv=*env;
+    const int indices[6]={0,1,2,0,2,3};
+
+    if (!placingMode) {
+        // Classic break mode pulses every visible face of the target block.
+        C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,GPU_ONE,GPU_SRC_ALPHA,GPU_ONE);
+        C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
+        C3D_TexEnvSrc(env,C3D_Both,GPU_PRIMARY_COLOR,GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(env,C3D_Both,GPU_REPLACE);
+        C3D_ImmDrawBegin(GPU_TRIANGLES);
+        for (int faceIndex=0; faceIndex<6; ++faceIndex) {
+            const Face& face=faces[faceIndex];
+            for (int index:indices) {
+                C3D_ImmSendAttrib(
+                    boxX+face.p[index][0]+face.nx*HIGHLIGHT_OFFSET,
+                    boxY+face.p[index][1]+face.ny*HIGHLIGHT_OFFSET,
+                    boxZ+face.p[index][2]+face.nz*HIGHLIGHT_OFFSET,1.0f);
+                C3D_ImmSendAttrib(1.0f,1.0f,1.0f,pulse*0.5f);
+                C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
+            }
+        }
+        C3D_ImmDrawEnd();
+    } else {
+        // Classic place mode renders a translucent selected-block preview.
+        Tile* tile=selectedTileId>0 && selectedTileId<Tile::MAX_TILES
+            ? Tile::tiles[selectedTileId] : nullptr;
+        if (tile) {
+            C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,
+                GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ZERO);
+            C3D_DepthTest(true,GPU_GREATER,GPU_WRITE_ALL);
+            C3D_TexBind(0,&terrainTexture_);
+            C3D_TexEnvSrc(env,C3D_Both,GPU_TEXTURE0,GPU_PRIMARY_COLOR);
+            C3D_TexEnvFunc(env,C3D_Both,GPU_MODULATE);
+            std::vector<Vertex> previewVertices;
+            previewVertices.reserve(tile->isCrossPlant()?24u:36u);
+            if (tile->isCrossPlant()) appendBush(previewVertices,boxX,boxY,boxZ,1.0f);
+            else for(int face=0;face<6;++face)
+                appendFace(previewVertices,boxX,boxY,boxZ,face,1.0f,tile->getTexture(face));
+            const float tint=static_cast<float>(std::sin(
+                static_cast<double>(milliseconds)/100.0))*0.2f+0.8f;
+            const float previewAlpha=static_cast<float>(std::sin(
+                static_cast<double>(milliseconds)/200.0))*0.2f+0.5f;
+            C3D_ImmDrawBegin(GPU_TRIANGLES);
+            for(const Vertex& vertex:previewVertices) {
+                C3D_ImmSendAttrib(vertex.x,vertex.y,vertex.z,1.0f);
+                C3D_ImmSendAttrib(tint,tint,tint,previewAlpha);
+                C3D_ImmSendAttrib(vertex.u,vertex.v,0.0f,0.0f);
+            }
+            C3D_ImmDrawEnd();
+        }
+    }
+
+    // Outline all 12 edges; slight expansion prevents z-fighting at block edges.
+    const float x0=static_cast<float>(boxX)-HIGHLIGHT_OFFSET;
+    const float y0=static_cast<float>(boxY)-HIGHLIGHT_OFFSET;
+    const float z0=static_cast<float>(boxZ)-HIGHLIGHT_OFFSET;
+    const float x1=static_cast<float>(boxX+1)+HIGHLIGHT_OFFSET;
+    const float y1=static_cast<float>(boxY+1)+HIGHLIGHT_OFFSET;
+    const float z1=static_cast<float>(boxZ+1)+HIGHLIGHT_OFFSET;
+    const float corners[8][3]={{x0,y0,z0},{x1,y0,z0},{x1,y0,z1},{x0,y0,z1},
+        {x0,y1,z0},{x1,y1,z0},{x1,y1,z1},{x0,y1,z1}};
+    const int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},
+        {0,4},{1,5},{2,6},{3,7}};
+    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,
+        GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ZERO);
+    C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
+    C3D_TexEnvSrc(env,C3D_Both,GPU_PRIMARY_COLOR,GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env,C3D_Both,GPU_REPLACE);
+    C3D_CullFace(GPU_CULL_NONE);
+    C3D_ImmDrawBegin(GPU_LINES);
+    for(const auto& edge:edges) for(int end:edge) {
+        const float* p=corners[end];
+        C3D_ImmSendAttrib(p[0],p[1],p[2],1.0f);
+        C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.4f);
+        C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
+    }
     C3D_ImmDrawEnd();
 
-    // Restore the exact terrain TEV state. C3D_SetTexEnv() marks the
-    // stage dirty, ensuring the restored state is emitted to the GPU.
-    C3D_SetTexEnv(
-        0,
-        const_cast<C3D_TexEnv*>(&savedEnv));
-
-    C3D_AlphaBlend(
-        GPU_BLEND_ADD, GPU_BLEND_ADD,
-        GPU_ONE, GPU_ZERO,
-        GPU_ONE, GPU_ZERO);
-
-    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
-
-    C3D_AlphaTest(
-        true,
-        GPU_GREATER,
-        0x80);
+    C3D_SetTexEnv(0,const_cast<C3D_TexEnv*>(&savedEnv));
+    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_ONE,GPU_ZERO,GPU_ONE,GPU_ZERO);
+    C3D_DepthTest(true,GPU_GREATER,GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_AlphaTest(true,GPU_GREATER,0x80);
 }
 
 void Renderer::configureFog(
@@ -2332,12 +2408,17 @@ void Renderer::renderHorizon(const Level& level) {
 
         const auto appendQuad = [](std::vector<Vertex>& output,
                                    const float p[4][3],
-                                   float uSpan, float vSpan, float shade) {
+                                   float uSpan, float vSpan,
+                                   float shade, bool flipV) {
             const int indices[6] = {0, 1, 2, 0, 2, 3};
-            const float uv[4][2] = {
+            float uv[4][2] = {
                 {0.0f, 0.0f}, {uSpan, 0.0f},
                 {uSpan, vSpan}, {0.0f, vSpan}
             };
+            if (flipV) {
+                for (auto& coordinate : uv)
+                    coordinate[1] = vSpan - coordinate[1];
+            }
             for (int index : indices) {
                 Vertex vertex{};
                 vertex.x = p[index][0];
@@ -2366,7 +2447,7 @@ void Renderer::renderHorizon(const Level& level) {
                     {static_cast<float>(x + SPAN), y, static_cast<float>(z)},
                     {static_cast<float>(x), y, static_cast<float>(z)}
                 };
-                appendQuad(rockVertices, p, SPAN, SPAN, 1.0f);
+                appendQuad(rockVertices, p, SPAN, SPAN, 1.0f, true);
             }
         }
 
@@ -2385,8 +2466,8 @@ void Renderer::renderHorizon(const Level& level) {
                 {static_cast<float>(nextX), 0.0f, static_cast<float>(worldLength)},
                 {static_cast<float>(x), 0.0f, static_cast<float>(worldLength)}
             };
-            appendQuad(rockVertices, front, nextX - x, rockTop, 0.8f);
-            appendQuad(rockVertices, back, nextX - x, rockTop, 0.8f);
+            appendQuad(rockVertices, front, nextX - x, rockTop, 0.8f, false);
+            appendQuad(rockVertices, back, nextX - x, rockTop, 0.8f, true);
         }
 
         // Left and right walls are shaded to 60%.
@@ -2404,8 +2485,8 @@ void Renderer::renderHorizon(const Level& level) {
                 {static_cast<float>(worldWidth), rockTop, static_cast<float>(nextZ)},
                 {static_cast<float>(worldWidth), rockTop, static_cast<float>(z)}
             };
-            appendQuad(rockVertices, left, rockTop, nextZ - z, 0.6f);
-            appendQuad(rockVertices, right, rockTop, nextZ - z, 0.6f);
+            appendQuad(rockVertices, left, nextZ - z, rockTop, 0.6f, false);
+            appendQuad(rockVertices, right, nextZ - z, rockTop, 0.6f, true);
         }
 
         // Transparent water tiles over the outer region, 0.1 below y=32.
@@ -2422,7 +2503,7 @@ void Renderer::renderHorizon(const Level& level) {
                     {static_cast<float>(x + SPAN), waterY, static_cast<float>(z)},
                     {static_cast<float>(x), waterY, static_cast<float>(z)}
                 };
-                appendQuad(waterVertices, p, SPAN, SPAN, 1.0f);
+                appendQuad(waterVertices, p, SPAN, SPAN, 1.0f, true);
             }
         }
 
@@ -2493,7 +2574,8 @@ void Renderer::render(
     const std::vector<Zombie>& zombies,
     const ParticleEngine& particleEngine,
     int selectedTileId,
-    float alpha) {
+    float alpha,
+    bool placingMode) {
 
     if (!initialized_ ||
         !terrainTextureLoaded_) {
@@ -2515,6 +2597,17 @@ void Renderer::render(
         player.renderY(alpha);
     const float renderZ =
         player.renderZ(alpha);
+
+    const std::uint64_t hudNowMs = currentTimeMs();
+    if (hudWindowStartMs_ == 0) hudWindowStartMs_ = hudNowMs;
+    ++hudFrameCount_;
+    if (hudNowMs - hudWindowStartMs_ >= 1000u) {
+        hudFps_ = static_cast<int>(hudFrameCount_);
+        hudFrameCount_ = 0;
+        hudChunkUpdates_ = hudChunkUpdatesWindow_;
+        hudChunkUpdatesWindow_ = 0;
+        hudWindowStartMs_ = hudNowMs;
+    }
 
     const float meshCacheDistanceSquared =
         MESH_CACHE_DISTANCE * MESH_CACHE_DISTANCE;
@@ -2706,6 +2799,7 @@ void Renderer::render(
                 chunks_[rebuildIndex])) {
             break;
         }
+        ++hudChunkUpdatesWindow_;
     }
 
     C3D_RenderTargetClear(
@@ -2870,7 +2964,7 @@ void Renderer::render(
         GPU_PLAIN_DENSITY,
         false);
 
-    renderHit();
+    renderHit(selectedTileId, placingMode);
 
     renderHud(
         selectedTileId);

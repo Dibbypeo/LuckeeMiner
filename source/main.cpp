@@ -64,6 +64,7 @@ void runPauseMenu(
     luckee::Renderer& renderer,
     luckee::Timer& timer,
     int& selectedTileId,
+    bool& placingMode,
     bool& shouldExit) {
     static const char* const entries[] = {
         "Resume game",
@@ -138,7 +139,7 @@ void runPauseMenu(
 
             renderer.render(
                 level, player, zombies, particles,
-                selectedTileId, timer.alpha());
+                selectedTileId, timer.alpha(), placingMode);
             gspWaitForVBlank();
         }
     }
@@ -188,6 +189,7 @@ int main(int, char**) {
 
     int selectedTileId =
         luckee::Tile::rock->id();
+    bool placingMode = false;
 
     presentStartupStage("Particle engine created");
 
@@ -223,12 +225,13 @@ int main(int, char**) {
     std::puts("Zombies: 0 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
-    std::puts("Assets: terrain.png + char.png\n");
+    std::puts("Assets: terrain.png, char.png, rock.png, water.png\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
     std::puts("A           : jump");
-    std::puts("L           : place selected block");
-    std::puts("R           : break");
+    std::puts("L           : action (break/place)");
+    std::puts("R           : toggle break/place mode");
+    std::puts("Mode        : BREAK");
     std::puts("D-Pad Up   : previous block");
     std::puts("D-Pad Down : next block");
     std::puts("Y           : spawn zombie (max 32 active)");
@@ -251,7 +254,7 @@ int main(int, char**) {
         if (down & KEY_START) {
             runPauseMenu(
                 level, player, zombies, particleEngine,
-                renderer, timer, selectedTileId, shouldExit);
+                renderer, timer, selectedTileId, placingMode, shouldExit);
             if (shouldExit)
                 break;
             continue;
@@ -341,66 +344,43 @@ int main(int, char**) {
             input.lookDeltaX,
             input.lookDeltaY);
 
-        // Pick before applying block input, matching the reference's order.
-        renderer.pick(
-            level,
-            player,
-            timer.alpha());
+        // Classic maps the primary action to L and mode switching to R.
+        if (input.togglePlacementModePressed)
+            placingMode = !placingMode;
 
-        if (const luckee::HitResult* hit =
-                renderer.hitResult()) {
-
-            if (input.breakPressed) {
-                const int oldId =
-                    level.getTile(
-                        hit->x,
-                        hit->y,
-                        hit->z);
-
-                const bool changed =
-                    level.setTile(
-                        hit->x,
-                        hit->y,
-                        hit->z,
-                        0);
-
-                if (changed &&
-                    oldId >= 0 &&
-                    oldId < luckee::Tile::MAX_TILES) {
-                    luckee::Tile* tile =
-                        luckee::Tile::tiles[oldId];
-
-                    if (tile) {
-                        tile->destroy(
-                            level,
-                            hit->x,
-                            hit->y,
-                            hit->z,
-                            particleEngine);
+        renderer.pick(level, player, timer.alpha());
+        if (const luckee::HitResult* hit = renderer.hitResult()) {
+            if (input.actionPressed) {
+                if (!placingMode) {
+                    const int oldId = level.getTile(hit->x,hit->y,hit->z);
+                    const bool changed = level.setTile(hit->x,hit->y,hit->z,0);
+                    if (changed && oldId >= 0 && oldId < luckee::Tile::MAX_TILES) {
+                        luckee::Tile* tile = luckee::Tile::tiles[oldId];
+                        if (tile) tile->destroy(level,hit->x,hit->y,hit->z,particleEngine);
+                    }
+                } else {
+                    int x=hit->x,y=hit->y,z=hit->z;
+                    switch(hit->face) {
+                        case 0: --y; break; case 1: ++y; break;
+                        case 2: --z; break; case 3: ++z; break;
+                        case 4: --x; break; case 5: ++x; break;
+                        default: break;
+                    }
+                    if(selectedTileId>0 && selectedTileId<luckee::Tile::MAX_TILES) {
+                        luckee::Tile* selectedTile=luckee::Tile::tiles[selectedTileId];
+                        if(selectedTile) {
+                            const luckee::AABB placementBox=selectedTile->getAABB(x,y,z);
+                            bool blocked=placementBox.intersects(player.boundingBox());
+                            for(const luckee::Zombie& zombie:zombies) {
+                                if(placementBox.intersects(zombie.boundingBox())) {
+                                    blocked=true;
+                                    break;
+                                }
+                            }
+                            if(!blocked) level.setTile(x,y,z,selectedTileId);
+                        }
                     }
                 }
-            }
-
-            if (input.placePressed) {
-                int x = hit->x;
-                int y = hit->y;
-                int z = hit->z;
-
-                switch (hit->face) {
-                    case 0: --y; break;
-                    case 1: ++y; break;
-                    case 2: --z; break;
-                    case 3: ++z; break;
-                    case 4: --x; break;
-                    case 5: ++x; break;
-                    default: break;
-                }
-
-                level.setTile(
-                    x,
-                    y,
-                    z,
-                    selectedTileId);
             }
         }
 
@@ -455,8 +435,9 @@ int main(int, char**) {
             std::puts("Circle Pad : move");
             std::puts("Touch drag : look");
             std::puts("A           : jump");
-            std::puts("L           : place selected");
-            std::puts("R           : break");
+            std::puts("L           : action (break/place)");
+            std::puts("R           : toggle break/place mode");
+            std::printf("Mode        : %s\n", placingMode ? "PLACE" : "BREAK");
             std::puts("D-Pad Up    : previous block");
             std::puts("D-Pad Down  : next block");
             std::puts("Y           : spawn zombie (max 32 active)");

@@ -1,7 +1,7 @@
 # Classic c0.0.13a_03 implementation status
 
-Branch: `classic-c0.0.13a_03`. The released `main` branch and all Pre-Classic
-release tags remain unchanged.
+Active development target: Minecraft Classic `c0.0.13a_03` on `main`. Published
+Pre-Classic release tags remain available as historical snapshots.
 
 ## Implemented in the current branch
 
@@ -18,9 +18,14 @@ release tags remain unchanged.
 - Classic save metadata header (32-bit dimensions), compressed block payload,
   raw GZIP legacy-load fallback, and safer temporary-file/backup replacement.
 - Separate opaque-lava and transparent-water mesh paths, approximate
-  far-to-near water chunk sorting, immersion fog, and the outer rock
+  far-to-near water chunk sorting, water/lava immersion fog, and the outer rock
   floor/skirt, edge walls, and surrounding water plane using `rock.png` and
-  `water.png`.
+  `water.png`. Horizon UV orientation and side-wall texture scaling now follow
+  the original renderer.
+- Source-style BREAK/PLACE mode toggle, a pulsing whole-block selection fill
+  with an edge outline, a translucent placement preview, and player/zombie
+  collision checks before placement.
+- Top-left version and live FPS/chunk-update text using a built-in bitmap font.
 - Zero zombies spawned when a Classic world starts.
 - Generation-stage progress on the bottom screen.
 - A temporary pause menu with resume, save, load, regenerate and exit options.
@@ -30,9 +35,10 @@ release tags remain unchanged.
 - **Exactness validation:** the native terrain has not yet been compared
   block-for-block against output produced by the original Java class files.
 - **Fluid rendering fidelity:** lava has an opaque mesh pass and water uses
-  alpha blending with approximate far-to-near chunk sorting. Immersion fog
-  follows the source's water/lava color and density choices; face visibility,
-  tint and exact transparent display-list ordering still need in-game matching.
+  alpha blending with approximate far-to-near chunk sorting. Fog color/density
+  follows the extracted source (blue water, red-orange lava). The original
+  ambient-light tint during immersion and exact transparent display-list order
+  still need visual validation.
 - **Physics:** the original player wall-step response while swimming or in lava
   is present, but its collision edge cases still need in-game testing.
 - **Interface:** generation progress and a basic 3DS pause/save/load/regenerate

@@ -31,7 +31,8 @@ public:
         const std::vector<Zombie>& zombies,
         const ParticleEngine& particleEngine,
         int selectedTileId,
-        float alpha);
+        float alpha,
+        bool placingMode = false);
 
     const std::string& error() const { return error_; }
 
@@ -197,7 +198,13 @@ private:
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
 
-    void renderHit();
+    void renderHit(int selectedTileId, bool placingMode);
+
+    std::uint64_t hudWindowStartMs_ = 0;
+    std::uint32_t hudFrameCount_ = 0;
+    int hudFps_ = 0;
+    int hudChunkUpdates_ = 0;
+    int hudChunkUpdatesWindow_ = 0;
 
     bool hasHit_ = false;
     HitResult hitResult_{};
