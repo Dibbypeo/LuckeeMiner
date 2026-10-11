@@ -24,7 +24,7 @@ public:
 
     void add(std::unique_ptr<Particle> particle);
     void tick();
-    void clear() { particles_.clear(); }
+    void clear();
 
     const std::vector<std::unique_ptr<Particle>>& particles() const {
         return particles_;

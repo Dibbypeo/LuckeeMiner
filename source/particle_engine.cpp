@@ -14,6 +14,10 @@ ParticleEngine::ParticleEngine(Level& level)
 
 ParticleEngine::~ParticleEngine() = default;
 
+void ParticleEngine::clear() {
+    particles_.clear();
+}
+
 void ParticleEngine::add(std::unique_ptr<Particle> particle) {
     if (particle && hasCapacityFor(1))
         particles_.push_back(std::move(particle));

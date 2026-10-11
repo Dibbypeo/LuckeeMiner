@@ -281,7 +281,9 @@ bool Level::load() {
                     read32(file, height) &&
                     read32(file, depth);
             if (valid &&
-                (width != width_ || height != height_ || depth != depth_))
+                (width != static_cast<std::uint32_t>(width_) ||
+                 height != static_cast<std::uint32_t>(height_) ||
+                 depth != static_cast<std::uint32_t>(depth_)))
                 valid = false;
         } else if (valid) {
             // Legacy format contains the raw block bytes directly.
