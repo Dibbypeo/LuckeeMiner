@@ -37,10 +37,14 @@ void Player::tick(const InputState& input) {
     const bool inLava = level_.containsLiquid(bb_, 2);
 
     if (input.jumpHeld) {
-        if (inWater || inLava)
+        if (inWater || inLava) {
             yd_ += 0.04f;
-        else if (onGround_)
+        } else if (onGround_ && !jumpConsumed_) {
             yd_ = 0.42f;
+            jumpConsumed_ = true;
+        }
+    } else {
+        jumpConsumed_ = false;
     }
 
     if (inWater) {
