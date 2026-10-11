@@ -36,6 +36,10 @@ constexpr const char* TERRAIN_TEXTURE_PATH =
     "assets/textures/terrain.png";
 constexpr const char* CHARACTER_TEXTURE_PATH =
     "assets/textures/char.png";
+constexpr const char* ROCK_TEXTURE_PATH =
+    "assets/textures/rock.png";
+constexpr const char* HORIZON_WATER_TEXTURE_PATH =
+    "assets/textures/water.png";
 constexpr int ZOMBIE_VERTEX_COUNT = 216;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
 
@@ -348,7 +352,22 @@ bool Renderer::initialize() {
 
     characterTextureLoaded_ = true;
 
-    // rd-20090515 starts with ten zombies; grow only if the player spawns
+    if (!TextureLoader::loadRock(
+            ROCK_TEXTURE_PATH, rockTexture_, error_)) {
+        shutdown();
+        return false;
+    }
+    rockTextureLoaded_ = true;
+
+    if (!TextureLoader::loadHorizonWater(
+            HORIZON_WATER_TEXTURE_PATH, horizonWaterTexture_, error_)) {
+        shutdown();
+        return false;
+    }
+    horizonWaterTextureLoaded_ = true;
+
+    // The native Classic branch starts with no automatically-spawned zombies.
+    // Grow the character buffers only if the player later spawns them.
     // additional zombies so the original 3DS does not reserve unused memory.
     characterVertices_.reserve(
         10u * ZOMBIE_VERTEX_COUNT);
@@ -470,12 +489,35 @@ void Renderer::shutdown() {
         particleVbo_ = nullptr;
     }
 
+    if (horizonRockVbo_) {
+        linearFree(horizonRockVbo_);
+        horizonRockVbo_ = nullptr;
+    }
+    if (horizonWaterVbo_) {
+        linearFree(horizonWaterVbo_);
+        horizonWaterVbo_ = nullptr;
+    }
+    horizonRockVertexCount_ = 0;
+    horizonWaterVertexCount_ = 0;
+    horizonWidth_ = 0;
+    horizonLength_ = 0;
+
     particleVboCapacity_ = 0;
     particleVertices_.clear();
 
     if (characterTextureLoaded_) {
         C3D_TexDelete(&characterTexture_);
         characterTextureLoaded_ = false;
+    }
+
+    if (rockTextureLoaded_) {
+        C3D_TexDelete(&rockTexture_);
+        rockTextureLoaded_ = false;
+    }
+
+    if (horizonWaterTextureLoaded_) {
+        C3D_TexDelete(&horizonWaterTexture_);
+        horizonWaterTextureLoaded_ = false;
     }
 
     chunkAmountX_ = 0;
@@ -2185,6 +2227,181 @@ void Renderer::renderHit() {
         0x80);
 }
 
+void Renderer::renderHorizon(const Level& level) {
+    if (!rockTextureLoaded_ || !horizonWaterTextureLoaded_)
+        return;
+
+    constexpr int SPAN = 128;
+    constexpr int EXTENT = 2048;
+    const int worldWidth = level.width();
+    const int worldLength = level.height();
+
+    // Build immutable horizon meshes once. Generating thousands of immediate
+    // vertices every frame would waste command-buffer bandwidth on the O3DS.
+    if (!horizonRockVbo_ || !horizonWaterVbo_ ||
+        horizonWidth_ != worldWidth || horizonLength_ != worldLength) {
+        std::vector<Vertex> rockVertices;
+        std::vector<Vertex> waterVertices;
+        const float rockTop = 30.0f;
+        const float waterY = 31.9f;
+
+        const auto appendQuad = [](std::vector<Vertex>& output,
+                                   const float p[4][3],
+                                   float uSpan, float vSpan, float shade) {
+            const int indices[6] = {0, 1, 2, 0, 2, 3};
+            const float uv[4][2] = {
+                {0.0f, 0.0f}, {uSpan, 0.0f},
+                {uSpan, vSpan}, {0.0f, vSpan}
+            };
+            for (int index : indices) {
+                Vertex vertex{};
+                vertex.x = p[index][0];
+                vertex.y = p[index][1];
+                vertex.z = p[index][2];
+                vertex.r = shade;
+                vertex.g = shade;
+                vertex.b = shade;
+                vertex.a = 1.0f;
+                vertex.u = uv[index][0];
+                vertex.v = uv[index][1];
+                output.push_back(vertex);
+            }
+        };
+
+        // Rock ground: inner world floor at y=0; outside skirt at y=30.
+        for (int x = -EXTENT; x < worldWidth + EXTENT; x += SPAN) {
+            for (int z = -EXTENT; z < worldLength + EXTENT; z += SPAN) {
+                const bool inside =
+                    x >= 0 && z >= 0 &&
+                    x < worldWidth && z < worldLength;
+                const float y = inside ? 0.0f : rockTop;
+                const float p[4][3] = {
+                    {static_cast<float>(x), y, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), y, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), y, static_cast<float>(z)},
+                    {static_cast<float>(x), y, static_cast<float>(z)}
+                };
+                appendQuad(rockVertices, p, SPAN, SPAN, 1.0f);
+            }
+        }
+
+        // Front and back walls are shaded to 80% in the source renderer.
+        for (int x = 0; x < worldWidth; x += SPAN) {
+            const int nextX = std::min(x + SPAN, worldWidth);
+            const float front[4][3] = {
+                {static_cast<float>(x), 0.0f, 0.0f},
+                {static_cast<float>(nextX), 0.0f, 0.0f},
+                {static_cast<float>(nextX), rockTop, 0.0f},
+                {static_cast<float>(x), rockTop, 0.0f}
+            };
+            const float back[4][3] = {
+                {static_cast<float>(x), rockTop, static_cast<float>(worldLength)},
+                {static_cast<float>(nextX), rockTop, static_cast<float>(worldLength)},
+                {static_cast<float>(nextX), 0.0f, static_cast<float>(worldLength)},
+                {static_cast<float>(x), 0.0f, static_cast<float>(worldLength)}
+            };
+            appendQuad(rockVertices, front, nextX - x, rockTop, 0.8f);
+            appendQuad(rockVertices, back, nextX - x, rockTop, 0.8f);
+        }
+
+        // Left and right walls are shaded to 60%.
+        for (int z = 0; z < worldLength; z += SPAN) {
+            const int nextZ = std::min(z + SPAN, worldLength);
+            const float left[4][3] = {
+                {0.0f, rockTop, static_cast<float>(z)},
+                {0.0f, rockTop, static_cast<float>(nextZ)},
+                {0.0f, 0.0f, static_cast<float>(nextZ)},
+                {0.0f, 0.0f, static_cast<float>(z)}
+            };
+            const float right[4][3] = {
+                {static_cast<float>(worldWidth), 0.0f, static_cast<float>(z)},
+                {static_cast<float>(worldWidth), 0.0f, static_cast<float>(nextZ)},
+                {static_cast<float>(worldWidth), rockTop, static_cast<float>(nextZ)},
+                {static_cast<float>(worldWidth), rockTop, static_cast<float>(z)}
+            };
+            appendQuad(rockVertices, left, rockTop, nextZ - z, 0.6f);
+            appendQuad(rockVertices, right, rockTop, nextZ - z, 0.6f);
+        }
+
+        // Transparent water tiles over the outer region, 0.1 below y=32.
+        for (int x = -EXTENT; x < worldWidth + EXTENT; x += SPAN) {
+            for (int z = -EXTENT; z < worldLength + EXTENT; z += SPAN) {
+                const bool inside =
+                    x >= 0 && z >= 0 &&
+                    x < worldWidth && z < worldLength;
+                if (inside)
+                    continue;
+                const float p[4][3] = {
+                    {static_cast<float>(x), waterY, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), waterY, static_cast<float>(z + SPAN)},
+                    {static_cast<float>(x + SPAN), waterY, static_cast<float>(z)},
+                    {static_cast<float>(x), waterY, static_cast<float>(z)}
+                };
+                appendQuad(waterVertices, p, SPAN, SPAN, 1.0f);
+            }
+        }
+
+        const std::size_t rockBytes = rockVertices.size() * sizeof(Vertex);
+        const std::size_t waterBytes = waterVertices.size() * sizeof(Vertex);
+        void* newRock = linearAlloc(rockBytes);
+        void* newWater = linearAlloc(waterBytes);
+        if (!newRock || !newWater) {
+            if (newRock) linearFree(newRock);
+            if (newWater) linearFree(newWater);
+            error_ = "Could not allocate Classic horizon geometry in linear memory.";
+            return;
+        }
+        std::memcpy(newRock, rockVertices.data(), rockBytes);
+        std::memcpy(newWater, waterVertices.data(), waterBytes);
+
+        if (horizonRockVbo_) linearFree(horizonRockVbo_);
+        if (horizonWaterVbo_) linearFree(horizonWaterVbo_);
+        horizonRockVbo_ = newRock;
+        horizonRockVertexCount_ = rockVertices.size();
+        horizonWaterVbo_ = newWater;
+        horizonWaterVertexCount_ = waterVertices.size();
+        horizonWidth_ = worldWidth;
+        horizonLength_ = worldLength;
+    }
+
+    const auto drawHorizonBuffer = [](void* buffer, std::size_t count) {
+        if (!buffer || count == 0)
+            return;
+        C3D_BufInfo* info = C3D_GetBufInfo();
+        BufInfo_Init(info);
+        BufInfo_Add(info, buffer, sizeof(Vertex), 3, 0x210);
+        C3D_SetBufInfo(info);
+        C3D_DrawArrays(GPU_TRIANGLES, 0, static_cast<u32>(count));
+    };
+
+    // Static VBOs keep the original 3DS from rebuilding the full horizon each frame.
+    C3D_CullFace(GPU_CULL_NONE);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_TexBind(0, &rockTexture_);
+    drawHorizonBuffer(horizonRockVbo_, horizonRockVertexCount_);
+
+    C3D_TexBind(0, &horizonWaterTexture_);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+    drawHorizonBuffer(horizonWaterVbo_, horizonWaterVertexCount_);
+
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_TexBind(0, &terrainTexture_);
+}
+
 void Renderer::render(
     const Level& level,
     const Player& player,
@@ -2456,6 +2673,14 @@ void Renderer::render(
         GPU_FOG,
         GPU_PLAIN_DENSITY,
         false);
+
+    renderHorizon(level);
+
+    // renderHorizon restores the terrain texture but disables fog; reinstate
+    // daylight fog for ordinary terrain immediately afterward.
+    C3D_FogColor(0xFEFBFA);
+    C3D_FogLutBind(&dayFogLut_);
+    C3D_FogGasMode(GPU_FOG, GPU_PLAIN_DENSITY, false);
 
     for (std::size_t index = 0;
          index < chunks_.size();

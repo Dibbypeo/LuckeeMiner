@@ -1,22 +1,29 @@
 # External assets
 
-LuckeeMiner intentionally does not bundle the historical Minecraft prototype assets.
+LuckeeMiner intentionally does not bundle the historical client textures.
 
-Place the required user-provided files at:
+For the experimental Classic `c0.0.13a_03` branch, place these files at:
 
     assets/textures/terrain.png
     assets/textures/char.png
+    assets/textures/rock.png
+    assets/textures/water.png
 
-Required asset sizes:
+Required sizes:
 
-- terrain.png: 256 × 256
-- char.png: 64 × 32
+- `terrain.png`: 256 × 256
+- `char.png`: 64 × 32
+- `rock.png`: 16 × 16
+- `water.png`: 16 × 16 (RGBA; transparency is used by the horizon and fluid renderer)
 
-The game checks for both files before starting. If an asset is missing, the missing path is shown on the bottom screen and the application waits for START to exit.
-
-The release build expects the same paths on the 3DS SD card:
+On the SD card, the paths are:
 
     SD:/3ds/assets/textures/terrain.png
     SD:/3ds/assets/textures/char.png
+    SD:/3ds/assets/textures/rock.png
+    SD:/3ds/assets/textures/water.png
 
-Asset licensing is separate from the LuckeeMiner source license. Only distribute assets that you have permission to distribute.
+The application checks for missing required files before starting and reports
+the exact paths on the bottom screen. Asset licensing is separate from the
+LuckeeMiner source license; only distribute texture files you have permission
+to redistribute.

@@ -160,4 +160,24 @@ bool TextureLoader::loadCharacter(
         error);
 }
 
+bool TextureLoader::loadRock(
+    const char* path,
+    C3D_Tex& texture,
+    std::string& error) {
+    if (!loadPng(path, 16, 16, "rock.png", texture, error))
+        return false;
+    C3D_TexSetWrap(&texture, GPU_REPEAT, GPU_REPEAT);
+    return true;
+}
+
+bool TextureLoader::loadHorizonWater(
+    const char* path,
+    C3D_Tex& texture,
+    std::string& error) {
+    if (!loadPng(path, 16, 16, "water.png", texture, error))
+        return false;
+    C3D_TexSetWrap(&texture, GPU_REPEAT, GPU_REPEAT);
+    return true;
+}
+
 } // namespace luckee

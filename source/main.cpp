@@ -110,7 +110,8 @@ int main(int, char**) {
 
     std::puts("LuckeeMiner - Classic c0.0.13a_03\n");
     std::puts("World: 256 x 64 x 256");
-    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone brick, 5 wood, 6 bush");
+    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 7 boundary");
+    std::puts("Fluids: 8-9 water, 10-11 lava");
     std::puts("Zombies: 0 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
@@ -160,7 +161,7 @@ int main(int, char**) {
             gspWaitForVBlank();
         }
 
-        const int selectableBlocks[] = {1, 3, 4, 5, 6};
+        const int selectableBlocks[] = {1, 2, 3, 8, 10};
 
         if (input.previousBlockPressed ||
             input.nextBlockPressed) {

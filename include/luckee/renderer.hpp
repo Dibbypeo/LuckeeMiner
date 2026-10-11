@@ -117,6 +117,8 @@ private:
     void renderHud(
         int selectedTileId);
 
+    void renderHorizon(const Level& level);
+
     void appendCharacterCube(
         std::vector<Vertex>& vertices,
         const Zombie& zombie,
@@ -154,6 +156,14 @@ private:
     C3D_Mtx projection_{};
     C3D_Tex terrainTexture_{};
     C3D_Tex characterTexture_{};
+    C3D_Tex rockTexture_{};
+    C3D_Tex horizonWaterTexture_{};
+    void* horizonRockVbo_ = nullptr;
+    std::size_t horizonRockVertexCount_ = 0;
+    void* horizonWaterVbo_ = nullptr;
+    std::size_t horizonWaterVertexCount_ = 0;
+    int horizonWidth_ = 0;
+    int horizonLength_ = 0;
     C3D_FogLut dayFogLut_{};
     C3D_FogLut shadowFogLut_{};
 
@@ -182,6 +192,8 @@ private:
 
     bool terrainTextureLoaded_ = false;
     bool characterTextureLoaded_ = false;
+    bool rockTextureLoaded_ = false;
+    bool horizonWaterTextureLoaded_ = false;
     bool initialized_ = false;
 
     std::string error_;
