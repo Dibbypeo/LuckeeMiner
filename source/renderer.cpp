@@ -2306,7 +2306,7 @@ void Renderer::renderHit(int selectedTileId, bool placingMode) {
             previewVertices.reserve(tile->isCrossPlant()?24u:36u);
             if (tile->isCrossPlant()) appendBush(previewVertices,boxX,boxY,boxZ,1.0f);
             else for(int face=0;face<6;++face)
-                appendFace(previewVertices,boxX,boxY,boxZ,face,1.0f,tile->getTexture(face));
+                appendFace(previewVertices,boxX,boxY,boxZ,face,faces[face].shade,tile->getTexture(face));
             const float tint=static_cast<float>(std::sin(
                 static_cast<double>(milliseconds)/100.0))*0.2f+0.8f;
             const float previewAlpha=static_cast<float>(std::sin(
@@ -2314,7 +2314,7 @@ void Renderer::renderHit(int selectedTileId, bool placingMode) {
             C3D_ImmDrawBegin(GPU_TRIANGLES);
             for(const Vertex& vertex:previewVertices) {
                 C3D_ImmSendAttrib(vertex.x,vertex.y,vertex.z,1.0f);
-                C3D_ImmSendAttrib(tint,tint,tint,previewAlpha);
+                C3D_ImmSendAttrib(vertex.r*tint,vertex.g*tint,vertex.b*tint,previewAlpha);
                 C3D_ImmSendAttrib(vertex.u,vertex.v,0.0f,0.0f);
             }
             C3D_ImmDrawEnd();

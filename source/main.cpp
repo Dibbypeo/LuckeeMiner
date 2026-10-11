@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "luckee/aabb.hpp"
 #include "luckee/assets.hpp"
 #include "luckee/input.hpp"
 #include "luckee/level.hpp"
