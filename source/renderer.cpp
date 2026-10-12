@@ -21,12 +21,24 @@ namespace {
 
 constexpr u32 CLEAR_COLOR = 0x80CCFFFF;
 
-constexpr u32 DISPLAY_TRANSFER_FLAGS =
+// gfxInitDefault() uses BGR8/RGB8-compatible display output for both screens,
+ // but consoleInit(GFX_BOTTOM, ...) changes the bottom framebuffer to RGB565.
+ // Each render target must therefore transfer to the pixel format configured
+ // for its destination screen, or the bottom image appears as colored scanlines.
+constexpr u32 TOP_DISPLAY_TRANSFER_FLAGS =
     GX_TRANSFER_FLIP_VERT(0) |
     GX_TRANSFER_OUT_TILED(0) |
     GX_TRANSFER_RAW_COPY(0) |
     GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) |
     GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) |
+    GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
+
+constexpr u32 BOTTOM_DISPLAY_TRANSFER_FLAGS =
+    GX_TRANSFER_FLIP_VERT(0) |
+    GX_TRANSFER_OUT_TILED(0) |
+    GX_TRANSFER_RAW_COPY(0) |
+    GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) |
+    GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB565) |
     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
 
 constexpr int CHUNK_SIZE = 16;
@@ -529,7 +541,7 @@ bool Renderer::initialize() {
         target_,
         GFX_TOP,
         GFX_LEFT,
-        DISPLAY_TRANSFER_FLAGS);
+        TOP_DISPLAY_TRANSFER_FLAGS);
 
     bottomTarget_ = C3D_RenderTargetCreate(
         240,
@@ -545,7 +557,7 @@ bool Renderer::initialize() {
         bottomTarget_,
         GFX_BOTTOM,
         GFX_LEFT,
-        DISPLAY_TRANSFER_FLAGS);
+        BOTTOM_DISPLAY_TRANSFER_FLAGS);
 
     shaderDvlb_ = DVLB_ParseFile(
         (u32*)vshader_shbin,
