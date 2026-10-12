@@ -130,6 +130,7 @@ static bool decodeClassicGif(
     bool foundImage = false;
     std::vector<std::array<std::uint8_t, 3>> palette;
     std::vector<std::uint8_t> compressed;
+    unsigned minimumCodeSize = 0;
 
     while (cursor < bytes.size()) {
         const std::uint8_t marker = bytes[cursor++];
@@ -206,7 +207,7 @@ static bool decodeClassicGif(
             return false;
         }
 
-        const unsigned minimumCodeSize = bytes[cursor++];
+        minimumCodeSize = bytes[cursor++];
         if (minimumCodeSize < 2 || minimumCodeSize > 8) {
             error = "Unsupported GIF LZW code size.";
             return false;
