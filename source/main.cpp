@@ -35,8 +35,8 @@ void waitForStart() {
 }
 
 void showGenerationProgress(const char* stage, int percent) {
-    if (startupRenderer) {
-        startupRenderer->renderLoadingScreen(stage, percent);
+    if (progressRenderer) {
+        progressRenderer->renderLoadingScreen(stage, percent);
         gspWaitForVBlank();
         return;
     }
@@ -175,7 +175,7 @@ int main(int, char**) {
         return 1;
     }
 
-    startupRenderer = &renderer;
+    progressRenderer = &renderer;
     int mainMenuSelection = 0;
     bool startGame = false;
     while (aptMainLoop() && !startGame) {
@@ -190,14 +190,14 @@ int main(int, char**) {
             if (mainMenuSelection == 0) {
                 startGame = true;
             } else {
-                startupRenderer = nullptr;
+                progressRenderer = nullptr;
                 renderer.shutdown();
                 gfxExit();
                 return 0;
             }
         }
         if (down & KEY_B) {
-            startupRenderer = nullptr;
+            progressRenderer = nullptr;
             renderer.shutdown();
             gfxExit();
             return 0;
@@ -206,7 +206,7 @@ int main(int, char**) {
     }
 
     if (!startGame) {
-        startupRenderer = nullptr;
+        progressRenderer = nullptr;
         renderer.shutdown();
         gfxExit();
         return 0;
@@ -481,7 +481,7 @@ int main(int, char**) {
 
     level.removeListener(&renderer);
     level.save();
-    startupRenderer = nullptr;
+    progressRenderer = nullptr;
     renderer.shutdown();
 
     gfxExit();

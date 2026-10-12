@@ -477,7 +477,7 @@ void Renderer::renderLoadingScreen(const char* stage, int percent) {
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     drawDirtBackground(400.0f, 240.0f);
-    drawShadowedText("MINECRAFT CLASSIC", 112.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 154.0f, 108.0f, 400.0f, 240.0f, 1.0f);
 
     C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(bottomTarget_);
