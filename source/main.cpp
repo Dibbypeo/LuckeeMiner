@@ -19,7 +19,7 @@
 namespace {
 
 constexpr std::size_t MAX_ACTIVE_ZOMBIES = 32;
-luckee::Renderer* startupRenderer = nullptr;
+luckee::Renderer* progressRenderer = nullptr;
 
 void waitForStart() {
     while (aptMainLoop()) {
