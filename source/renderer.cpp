@@ -254,6 +254,7 @@ void Renderer::drawDirtBackground(float width, float height) {
     if (!dirtTextureLoaded_)
         return;
 
+    C3D_BindProgram(&program_);
     Mtx_OrthoTilt(&projection_, 0.0f, width, height, 0.0f, 100.0f, 300.0f, false);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
     C3D_Mtx modelView;
@@ -301,6 +302,11 @@ void Renderer::drawBitmapText(
     float red, float green, float blue, float scale) {
     if (!fontTextureLoaded_ || !text)
         return;
+
+    // Bounds are part of the UI helper API; the caller provides layout room.
+    // Bitmap strings are currently kept short enough to fit their target screen.
+    (void)width;
+    (void)height;
 
     C3D_Mtx modelView;
     Mtx_Identity(&modelView);

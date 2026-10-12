@@ -220,7 +220,6 @@ int main(int, char**) {
         luckee::Level::HEIGHT,
         luckee::Level::DEPTH,
         &showGenerationProgress);
-    startupRenderer = nullptr;
     luckee::Player player(level);
 
     std::vector<luckee::Zombie> zombies;
@@ -482,6 +481,7 @@ int main(int, char**) {
 
     level.removeListener(&renderer);
     level.save();
+    startupRenderer = nullptr;
     renderer.shutdown();
 
     gfxExit();
