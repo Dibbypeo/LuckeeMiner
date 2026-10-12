@@ -502,24 +502,30 @@ bool TextureLoader::loadFontGif(
     for (unsigned ch = 0; ch < 128; ++ch) {
         const unsigned originX = (ch % 16u) * 8u;
         const unsigned originY = (ch / 16u) * 8u;
-        unsigned glyphWidth = 8;
-        for (unsigned column = 0; column < 8; ++column) {
+
+        // Classic measures each glyph from its rightmost painted pixel.
+        // Scanning left-to-right stops at interior/leading gaps and gives
+        // narrow glyphs incorrect advance widths, causing UI text to bunch up.
+        unsigned glyphWidth = 0;
+        for (int column = 7; column >= 0; --column) {
             bool occupied = false;
             for (unsigned row = 0; row < 8; ++row) {
                 const std::size_t pixel =
                     (static_cast<std::size_t>(originY + row) * width +
-                     originX + column) * 4u;
+                     originX + static_cast<unsigned>(column)) * 4u;
                 if (rgba[pixel + 2] > 128) {
                     occupied = true;
                     break;
                 }
             }
-            if (!occupied) {
-                glyphWidth = column + 1;
+            if (occupied) {
+                glyphWidth = static_cast<unsigned>(column + 1);
                 break;
             }
         }
-        widths[ch] = static_cast<std::uint8_t>(ch == 32u ? 4u : glyphWidth);
+
+        widths[ch] = static_cast<std::uint8_t>(
+            ch == 32u ? 4u : glyphWidth);
     }
 
     std::vector<std::uint8_t> gpuData;
