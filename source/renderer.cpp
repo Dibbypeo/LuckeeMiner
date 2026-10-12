@@ -237,7 +237,7 @@ static bool raycastSample(
             return false;
         }
 
-        if (level.isTile(x, y, z)) {
+        if (level.isSolidTile(x, y, z)) {
             result.x = x;
             result.y = y;
             result.z = z;
@@ -2288,6 +2288,37 @@ void Renderer::renderHud(
             hudVertices_.data(),
             hudVertices_.size() * sizeof(Vertex));
 
+        // The icon and crosshair above used immediate mode. Rebind the regular
+        // vertex-buffer pipeline before drawing text, rather than inheriting any
+        // immediate-mode buffer or vertex-attribute state.
+        C3D_BindProgram(&program_);
+        C3D_AttrInfo* attrInfo = C3D_GetAttrInfo();
+        AttrInfo_Init(attrInfo);
+        AttrInfo_AddLoader(attrInfo, 0, GPU_FLOAT, 3);
+        AttrInfo_AddLoader(attrInfo, 1, GPU_FLOAT, 4);
+        AttrInfo_AddLoader(attrInfo, 2, GPU_FLOAT, 2);
+
+        C3D_FVUnifMtx4x4(
+            GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+        Mtx_Identity(&modelView);
+        Mtx_Translate(&modelView, 0.0f, 0.0f, -200.0f, true);
+        C3D_FVUnifMtx4x4(
+            GPU_VERTEX_SHADER, modelViewLocation_, &modelView);
+
+        C3D_AlphaTest(false, GPU_ALWAYS, 0x00);
+        C3D_AlphaBlend(
+            GPU_BLEND_ADD, GPU_BLEND_ADD,
+            GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+        C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+        C3D_CullFace(GPU_CULL_NONE);
+
+        C3D_TexEnv fontEnv = savedEnv;
+        C3D_TexEnvSrc(
+            &fontEnv, C3D_Both,
+            GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(&fontEnv, C3D_Both, GPU_REPLACE);
+        C3D_SetTexEnv(0, &fontEnv);
+
         C3D_BufInfo* info = C3D_GetBufInfo();
         BufInfo_Init(info);
         BufInfo_Add(info, hudVbo_, sizeof(Vertex), 3, 0x210);
@@ -2302,10 +2333,12 @@ void Renderer::renderHud(
         0,
         const_cast<C3D_TexEnv*>(&savedEnv));
 
-    C3D_DepthTest(
-        true,
-        GPU_GREATER,
-        GPU_WRITE_ALL);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
 
     projection_ = savedProjection;
 
@@ -2320,14 +2353,13 @@ void Renderer::renderHud(
         &modelView);
 }
 
-void Renderer::renderHit(bool placingMode) {
-    if (!hasHit_)
+void Renderer::renderHit(int selectedTileId, bool placingMode) {
+    if (!hasHit_ || !level_)
         return;
 
     int boxX = hitResult_.x;
     int boxY = hitResult_.y;
     int boxZ = hitResult_.z;
-
     if (placingMode) {
         switch (hitResult_.face) {
             case 0: --boxY; break;
@@ -2340,8 +2372,96 @@ void Renderer::renderHit(bool placingMode) {
         }
     }
 
-    // Classic draws a black 40%-alpha outline, not a filled flash or preview.
-    // Citro3D has no line primitive, so each edge is a thin triangle prism.
+    const auto now = std::chrono::system_clock::now();
+    const auto milliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+
+    C3D_AlphaTest(false, GPU_GREATER, 0x80);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+
+    if (!placingMode) {
+        // Classic BREAK mode: all visible faces receive a pulsing white fill.
+        const float pulse =
+            (static_cast<float>(std::sin(
+                static_cast<double>(milliseconds) / 100.0)) * 0.2f + 0.4f) * 0.5f;
+        constexpr int triangleIndices[6] = {0, 1, 2, 0, 2, 3};
+
+        C3D_AlphaBlend(
+            GPU_BLEND_ADD, GPU_BLEND_ADD,
+            GPU_SRC_ALPHA, GPU_ONE,
+            GPU_SRC_ALPHA, GPU_ONE);
+        C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_COLOR);
+        C3D_TexEnvSrc(
+            env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+        C3D_CullFace(GPU_CULL_NONE);
+
+        C3D_ImmDrawBegin(GPU_TRIANGLES);
+        for (const Face& face : faces) {
+            for (int index : triangleIndices) {
+                C3D_ImmSendAttrib(
+                    boxX + face.p[index][0] + face.nx * HIGHLIGHT_OFFSET,
+                    boxY + face.p[index][1] + face.ny * HIGHLIGHT_OFFSET,
+                    boxZ + face.p[index][2] + face.nz * HIGHLIGHT_OFFSET,
+                    1.0f);
+                C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, pulse);
+                C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
+            }
+        }
+        C3D_ImmDrawEnd();
+    } else {
+        // Classic PLACE mode previews the selected tile translucently.
+        Tile* tile = selectedTileId > 0 && selectedTileId < Tile::MAX_TILES
+            ? Tile::tiles[selectedTileId]
+            : nullptr;
+        if (tile) {
+            const float tint =
+                static_cast<float>(std::sin(
+                    static_cast<double>(milliseconds) / 100.0)) * 0.2f + 0.8f;
+            const float previewAlpha =
+                static_cast<float>(std::sin(
+                    static_cast<double>(milliseconds) / 200.0)) * 0.2f + 0.5f;
+
+            std::vector<Vertex> previewVertices;
+            previewVertices.reserve(tile->isCrossPlant() ? 24u : 36u);
+            if (tile->isCrossPlant()) {
+                appendBush(previewVertices, boxX, boxY, boxZ, 1.0f);
+            } else {
+                for (int face = 0; face < 6; ++face) {
+                    appendFace(
+                        previewVertices, boxX, boxY, boxZ,
+                        face, faces[face].shade, tile->getTexture(face));
+                }
+            }
+
+            C3D_AlphaBlend(
+                GPU_BLEND_ADD, GPU_BLEND_ADD,
+                GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+                GPU_ONE, GPU_ZERO);
+            C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+            C3D_TexBind(0, &terrainTexture_);
+            C3D_TexEnvSrc(
+                env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
+            C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
+            C3D_CullFace(GPU_CULL_NONE);
+
+            C3D_ImmDrawBegin(GPU_TRIANGLES);
+            for (const Vertex& vertex : previewVertices) {
+                C3D_ImmSendAttrib(vertex.x, vertex.y, vertex.z, 1.0f);
+                C3D_ImmSendAttrib(
+                    vertex.r * tint, vertex.g * tint,
+                    vertex.b * tint, previewAlpha);
+                C3D_ImmSendAttrib(vertex.u, vertex.v, 0.0f, 0.0f);
+            }
+            C3D_ImmDrawEnd();
+        }
+    }
+
+    // Black 40%-alpha whole-cube outline. PLACE mode outlines the adjacent cell.
+    // Citro3D has no GPU_LINES primitive, so edge lines are thin triangle prisms.
     constexpr float OUTLINE_RADIUS = 0.008f;
     constexpr int EDGE_COUNT = 12;
     constexpr int edgeIndices[EDGE_COUNT][2] = {
@@ -2367,17 +2487,13 @@ void Renderer::renderHit(bool placingMode) {
         {x0,y1,z0}, {x1,y1,z0}, {x1,y1,z1}, {x0,y1,z1}
     };
 
-    C3D_AlphaTest(false, GPU_GREATER, 0x80);
     C3D_AlphaBlend(
         GPU_BLEND_ADD, GPU_BLEND_ADD,
         GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
         GPU_ONE, GPU_ZERO);
     C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_COLOR);
-    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
-
-    C3D_TexEnv* env = C3D_GetTexEnv(0);
-    const C3D_TexEnv savedEnv = *env;
-    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+    C3D_TexEnvSrc(
+        env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
     C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
     C3D_CullFace(GPU_CULL_NONE);
 
@@ -2443,10 +2559,11 @@ void Renderer::configureFog(
         : 0;
 
     if (family == 1) {
-        C3D_FogColor(0x050533);
+        // PICA fog color is packed R | (G << 8) | (B << 16).
+        C3D_FogColor(0x00330505);
         C3D_FogLutBind(&waterFogLut_);
     } else if (family == 2) {
-        C3D_FogColor(0x991A00);
+        C3D_FogColor(0x00001A99);
         C3D_FogLutBind(&lavaFogLut_);
     } else if (litLayer) {
         C3D_FogColor(0xFEFBFA);
@@ -3035,7 +3152,7 @@ void Renderer::render(
         GPU_PLAIN_DENSITY,
         false);
 
-    renderHit(placingMode);
+    renderHit(selectedTileId, placingMode);
 
     renderHud(
         selectedTileId);

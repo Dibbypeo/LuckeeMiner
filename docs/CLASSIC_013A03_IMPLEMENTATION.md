@@ -24,9 +24,10 @@ Pre-Classic release tags remain available as historical snapshots.
   floor/skirt, edge walls, and surrounding water plane using `rock.png` and
   `water.png`. Horizon UV orientation and side-wall texture scaling now follow
   the original renderer.
-- Source-style BREAK/PLACE mode toggle and a whole-block wireframe selection
-  outline (the original has no filled selection flash or placement preview),
-  with player/zombie collision checks before placement.
+- Source-style BREAK/PLACE mode toggle; pulsing, translucent whole-block fill
+  plus black wireframe in BREAK mode; translucent selected-block preview plus
+  adjacent-cell wireframe in PLACE mode; fluid blocks excluded from picking;
+  and player/zombie collision checks before placement.
 - Top-left version and live FPS/chunk-update text using a built-in bitmap font.
 - Zero zombies spawned when a Classic world starts.
 - Generation-stage progress on the bottom screen.

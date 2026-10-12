@@ -204,7 +204,7 @@ private:
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
 
-    void renderHit(bool placingMode);
+    void renderHit(int selectedTileId, bool placingMode);
 
     std::uint64_t hudWindowStartMs_ = 0;
     std::uint32_t hudFrameCount_ = 0;

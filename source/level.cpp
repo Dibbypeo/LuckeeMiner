@@ -130,14 +130,6 @@ bool read16(gzFile file, std::uint16_t& value) {
     value = (static_cast<std::uint16_t>(b[0]) << 8) | b[1];
     return true;
 }
-bool read32(gzFile file, std::uint32_t& value) {
-    std::uint8_t b[4];
-    if (!gzExact(file, b, 4)) return false;
-    value = (static_cast<std::uint32_t>(b[0]) << 24) |
-            (static_cast<std::uint32_t>(b[1]) << 16) |
-            (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
-    return true;
-}
 bool read64(gzFile file, std::uint64_t& value) {
     std::uint8_t b[8];
     if (!gzExact(file, b, 8)) return false;
