@@ -59,7 +59,6 @@ static void swizzleRgba8(
     }
 }
 
-static 
 static std::uint16_t readLe16(const std::vector<std::uint8_t>& bytes, std::size_t at) {
     return static_cast<std::uint16_t>(bytes[at]) |
            (static_cast<std::uint16_t>(bytes[at + 1]) << 8);
