@@ -145,6 +145,8 @@ private:
 
     bool ensureParticleVboCapacity(
         std::size_t required);
+    bool ensureHudVboCapacity(
+        std::size_t required);
 
     void markDirtyRange(
         const Level& level,
@@ -186,6 +188,9 @@ private:
     void* particleVbo_ = nullptr;
     std::size_t particleVboCapacity_ = 0;
 
+    void* hudVbo_ = nullptr;
+    std::size_t hudVboCapacity_ = 0;
+
     Frustum frustum_;
 
     // Reused between chunk rebuilds to avoid repeated heap allocations.
@@ -194,6 +199,7 @@ private:
     std::vector<Vertex> buildLavaVertices_[2];
     std::vector<Vertex> characterVertices_;
     std::vector<Vertex> particleVertices_;
+    std::vector<Vertex> hudVertices_;
 
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;

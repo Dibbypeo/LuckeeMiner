@@ -529,6 +529,13 @@ void Renderer::shutdown() {
         particleVbo_ = nullptr;
     }
 
+    if (hudVbo_) {
+        linearFree(hudVbo_);
+        hudVbo_ = nullptr;
+    }
+    hudVboCapacity_ = 0;
+    hudVertices_.clear();
+
     if (horizonRockVbo_) {
         linearFree(horizonRockVbo_);
         horizonRockVbo_ = nullptr;
@@ -1295,6 +1302,26 @@ bool Renderer::ensureParticleVboCapacity(
     particleVboCapacity_ = newCapacity;
     return true;
 }
+
+bool Renderer::ensureHudVboCapacity(std::size_t required) {
+    if (required <= hudVboCapacity_)
+        return true;
+
+    constexpr std::size_t CAPACITY_STEP = 256;
+    const std::size_t newCapacity =
+        ((required + CAPACITY_STEP - 1) / CAPACITY_STEP) * CAPACITY_STEP;
+    void* replacement = linearAlloc(newCapacity * sizeof(Vertex));
+    if (!replacement)
+        return false;
+
+    if (hudVbo_)
+        linearFree(hudVbo_);
+    hudVbo_ = replacement;
+    hudVboCapacity_ = newCapacity;
+    return true;
+}
+
+
 
 void Renderer::releaseChunkMesh(
     ChunkMesh& chunk) {
@@ -2192,40 +2219,84 @@ void Renderer::renderHud(
 
     C3D_ImmDrawEnd();
 
-    // Version and live chunk/FPS line shown in Classic's top-left corner.
+        // Batch the bitmap font into one VBO draw. Emitting each glyph pixel
+    // as immediate-mode vertices can exhaust Citro3D's 0x40000-byte command buffer.
     char stats[64];
-    std::snprintf(stats,sizeof(stats),"%d FPS, %d CHUNK UPDATES",hudFps_,hudChunkUpdates_);
-    Mtx_Identity(&modelView);
-    Mtx_Translate(&modelView,0.0f,0.0f,-200.0f,true);
-    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,modelViewLocation_,&modelView);
-    const auto drawTextPixels=[&](const char* text,float startX,float startY,
-                                  float red,float green,float blue) {
-        C3D_ImmDrawBegin(GPU_TRIANGLES);
-        float cursorX=startX;
-        for(const char* character=text;*character;++character) {
-            const HudGlyph* glyph=findHudGlyph(*character);
-            if(*character==' ') { cursorX+=4.0f; continue; }
-            for(int row=0;row<7;++row) for(int column=0;column<5;++column) {
-                if((glyph->rows[row]&(1u<<(4-column)))==0) continue;
-                const float x=cursorX+column,y=startY+row;
-                const float points[4][2]={{x,y},{x+1.0f,y},{x+1.0f,y+1.0f},{x,y+1.0f}};
-                const int pixelIndices[6]={0,1,2,0,2,3};
-                for(int point:pixelIndices) {
-                    C3D_ImmSendAttrib(points[point][0],points[point][1],0.0f,1.0f);
-                    C3D_ImmSendAttrib(red,green,blue,1.0f);
-                    C3D_ImmSendAttrib(0.0f,0.0f,0.0f,0.0f);
+    std::snprintf(
+        stats, sizeof(stats), "%d FPS, %d CHUNK UPDATES",
+        hudFps_, hudChunkUpdates_);
+
+    hudVertices_.clear();
+
+    const auto appendTextPixels = [&](const char* text,
+                                      float startX, float startY,
+                                      float red, float green, float blue) {
+        float cursorX = startX;
+        constexpr int pixelIndices[6] = {0, 1, 2, 0, 2, 3};
+
+        for (const char* character = text; *character; ++character) {
+            const HudGlyph* glyph = findHudGlyph(*character);
+            if (*character == ' ') {
+                cursorX += 4.0f;
+                continue;
+            }
+
+            for (int row = 0; row < 7; ++row) {
+                for (int column = 0; column < 5; ++column) {
+                    if ((glyph->rows[row] & (1u << (4 - column))) == 0)
+                        continue;
+
+                    const float x = cursorX + static_cast<float>(column);
+                    const float y = startY + static_cast<float>(row);
+                    const float points[4][2] = {
+                        {x, y}, {x + 1.0f, y},
+                        {x + 1.0f, y + 1.0f}, {x, y + 1.0f}
+                    };
+
+                    for (int point : pixelIndices) {
+                        Vertex vertex{};
+                        vertex.x = points[point][0];
+                        vertex.y = points[point][1];
+                        vertex.z = 0.0f;
+                        vertex.r = red;
+                        vertex.g = green;
+                        vertex.b = blue;
+                        vertex.a = 1.0f;
+                        vertex.u = 0.0f;
+                        vertex.v = 0.0f;
+                        hudVertices_.push_back(vertex);
+                    }
                 }
             }
-            cursorX+=6.0f;
+
+            cursorX += 6.0f;
         }
-        C3D_ImmDrawEnd();
     };
-    const auto drawHudText=[&](const char* text,float x,float y) {
-        drawTextPixels(text,x+1.0f,y+1.0f,0.0f,0.0f,0.0f);
-        drawTextPixels(text,x,y,1.0f,1.0f,1.0f);
+
+    const auto appendHudText = [&](const char* text, float x, float y) {
+        appendTextPixels(text, x + 1.0f, y + 1.0f, 0.0f, 0.0f, 0.0f);
+        appendTextPixels(text, x, y, 1.0f, 1.0f, 1.0f);
     };
-    drawHudText("0.0.13a_03",2.0f,2.0f);
-    drawHudText(stats,2.0f,12.0f);
+
+    appendHudText("0.0.13a_03", 2.0f, 2.0f);
+    appendHudText(stats, 2.0f, 12.0f);
+
+    if (!hudVertices_.empty() &&
+        ensureHudVboCapacity(hudVertices_.size())) {
+        std::memcpy(
+            hudVbo_,
+            hudVertices_.data(),
+            hudVertices_.size() * sizeof(Vertex));
+
+        C3D_BufInfo* info = C3D_GetBufInfo();
+        BufInfo_Init(info);
+        BufInfo_Add(info, hudVbo_, sizeof(Vertex), 3, 0x210);
+        C3D_SetBufInfo(info);
+
+        C3D_DrawArrays(
+            GPU_TRIANGLES, 0,
+            static_cast<int>(hudVertices_.size()));
+    }
 
     C3D_SetTexEnv(
         0,
