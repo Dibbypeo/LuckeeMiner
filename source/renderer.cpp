@@ -419,7 +419,7 @@ void Renderer::drawBottomMenu(
 
     const float titleX =
         (title && std::strcmp(title, "LUCKEEMINER") == 0)
-            ? 129.0f
+            ? 134.0f
             : 20.0f;
     drawShadowedText(title ? title : "MENU", titleX, 16.0f, 320.0f, 240.0f, 1.0f);
     const int visibleCount = std::min(count, 6);
@@ -453,7 +453,7 @@ void Renderer::renderMainMenu(int selected) {
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     drawDirtBackground(400.0f, 240.0f);
-    drawShadowedText("MINECRAFT CLASSIC", 154.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 162.0f, 108.0f, 400.0f, 240.0f, 1.0f);
 
     static const char* const entries[] = {"Play", "Exit"};
     C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
@@ -477,12 +477,12 @@ void Renderer::renderLoadingScreen(const char* stage, int percent) {
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     drawDirtBackground(400.0f, 240.0f);
-    drawShadowedText("MINECRAFT CLASSIC", 154.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 162.0f, 108.0f, 400.0f, 240.0f, 1.0f);
 
     C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(bottomTarget_);
     drawDirtBackground(320.0f, 240.0f);
-    drawShadowedText("GENERATING WORLD", 115.0f, 42.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("GENERATING WORLD", 122.0f, 42.0f, 320.0f, 240.0f, 1.0f);
     drawShadowedText(stage ? stage : "Working", 20.0f, 78.0f, 320.0f, 240.0f, 1.0f);
     char percentText[16];
     std::snprintf(percentText, sizeof(percentText), "%d%%", std::max(0, std::min(100, percent)));
@@ -491,7 +491,7 @@ void Renderer::renderLoadingScreen(const char* stage, int percent) {
     const int safePercent = std::max(0, std::min(100, percent));
     drawSolidRect(22.0f, 136.0f, 276.0f * safePercent / 100.0f, 8.0f,
                   0.78f, 0.78f, 0.78f, 1.0f);
-    drawShadowedText("PLEASE WAIT", 130.0f, 168.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("PLEASE WAIT", 135.0f, 168.0f, 320.0f, 240.0f, 1.0f);
 
     projection_ = savedProjection;
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
