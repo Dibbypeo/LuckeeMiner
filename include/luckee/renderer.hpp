@@ -32,7 +32,15 @@ public:
         const ParticleEngine& particleEngine,
         int selectedTileId,
         float alpha,
-        bool placingMode = false);
+        bool placingMode = false,
+        const char* bottomMenuTitle = nullptr,
+        const char* const* bottomMenuEntries = nullptr,
+        int bottomMenuCount = 0,
+        int bottomMenuSelected = 0,
+        const char* bottomMenuStatus = nullptr);
+
+    void renderMainMenu(int selected);
+    void renderLoadingScreen(const char* stage, int percent);
 
     const std::string& error() const { return error_; }
 
@@ -127,6 +135,21 @@ private:
     void renderHud(
         int selectedTileId);
 
+    void drawDirtBackground(float width, float height);
+    void drawBitmapText(
+        const char* text, float x, float y, float width, float height,
+        float red = 1.0f, float green = 1.0f, float blue = 1.0f,
+        float scale = 1.0f);
+    void drawShadowedText(
+        const char* text, float x, float y, float width, float height,
+        float scale = 1.0f);
+    void drawSolidRect(
+        float x, float y, float width, float height,
+        float red, float green, float blue, float alpha);
+    void drawBottomMenu(
+        const char* title, const char* const* entries, int count,
+        int selected, const char* status);
+
     void renderHorizon(const Level& level);
 
     void appendCharacterCube(
@@ -163,6 +186,7 @@ private:
     const Level* level_ = nullptr;
 
     C3D_RenderTarget* target_ = nullptr;
+    C3D_RenderTarget* bottomTarget_ = nullptr;
     DVLB_s* shaderDvlb_ = nullptr;
     shaderProgram_s program_{};
     C3D_Mtx projection_{};
@@ -170,6 +194,9 @@ private:
     C3D_Tex characterTexture_{};
     C3D_Tex rockTexture_{};
     C3D_Tex horizonWaterTexture_{};
+    C3D_Tex dirtTexture_{};
+    C3D_Tex fontTexture_{};
+    std::uint8_t fontWidths_[128] = {};
     void* horizonRockVbo_ = nullptr;
     std::size_t horizonRockVertexCount_ = 0;
     void* horizonWaterVbo_ = nullptr;
@@ -219,6 +246,8 @@ private:
     bool characterTextureLoaded_ = false;
     bool rockTextureLoaded_ = false;
     bool horizonWaterTextureLoaded_ = false;
+    bool dirtTextureLoaded_ = false;
+    bool fontTextureLoaded_ = false;
     bool initialized_ = false;
 
     std::string error_;

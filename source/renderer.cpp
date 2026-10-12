@@ -41,33 +41,12 @@ constexpr const char* ROCK_TEXTURE_PATH =
     "assets/textures/rock.png";
 constexpr const char* HORIZON_WATER_TEXTURE_PATH =
     "assets/textures/water.png";
+constexpr const char* DIRT_TEXTURE_PATH =
+    "assets/textures/dirt.png";
+constexpr const char* FONT_TEXTURE_PATH =
+    "assets/textures/default.gif";
 constexpr int ZOMBIE_VERTEX_COUNT = 216;
 constexpr float HIGHLIGHT_OFFSET = 0.002f;
-
-struct HudGlyph { char character; std::uint8_t rows[7]; };
-constexpr HudGlyph HUD_FONT[] = {
- {' ',{0,0,0,0,0,0,0}}, {'0',{14,17,19,21,25,17,14}}, {'1',{4,12,4,4,4,4,14}},
- {'2',{14,17,1,2,4,8,31}}, {'3',{30,1,1,14,1,1,30}}, {'4',{2,6,10,18,31,2,2}},
- {'5',{31,16,16,30,1,1,30}}, {'6',{6,8,16,30,17,17,14}}, {'7',{31,1,2,4,8,8,8}},
- {'8',{14,17,17,14,17,17,14}}, {'9',{14,17,17,15,1,2,12}}, {'A',{14,17,17,31,17,17,17}},
- {'B',{30,17,17,30,17,17,30}}, {'C',{14,17,16,16,16,17,14}}, {'D',{28,18,17,17,17,18,28}},
- {'E',{31,16,16,30,16,16,31}}, {'F',{31,16,16,30,16,16,16}}, {'G',{14,17,16,23,17,17,15}},
- {'H',{17,17,17,31,17,17,17}}, {'I',{14,4,4,4,4,4,14}}, {'J',{7,2,2,2,2,18,12}},
- {'K',{17,18,20,24,20,18,17}}, {'L',{16,16,16,16,16,16,31}}, {'M',{17,27,21,21,17,17,17}},
- {'N',{17,25,25,21,19,19,17}}, {'O',{14,17,17,17,17,17,14}}, {'P',{30,17,17,30,16,16,16}},
- {'Q',{14,17,17,17,21,18,13}}, {'R',{30,17,17,30,20,18,17}}, {'S',{15,16,16,14,1,1,30}},
- {'T',{31,4,4,4,4,4,4}}, {'U',{17,17,17,17,17,17,14}}, {'V',{17,17,17,17,17,10,4}},
- {'W',{17,17,17,21,21,21,10}}, {'X',{17,17,10,4,10,17,17}}, {'Y',{17,17,10,4,4,4,4}},
- {'Z',{31,1,2,4,8,16,31}}, {'a',{0,0,14,1,15,17,15}}, {'_',{0,0,0,0,0,0,31}},
- {'.',{0,0,0,0,0,6,6}}, {',',{0,0,0,0,6,6,4}}, {'-',{0,0,0,31,0,0,0}},
- {'?',{14,17,1,2,4,0,4}}
-};
-const HudGlyph* findHudGlyph(char character) {
- if (character >= 'a' && character <= 'z' && character != 'a')
-  character = static_cast<char>(character - 'a' + 'A');
- for (const HudGlyph& glyph : HUD_FONT) if (glyph.character == character) return &glyph;
- return &HUD_FONT[sizeof(HUD_FONT)/sizeof(HUD_FONT[0])-1];
-}
 
 // Bound cached chunk geometry so explored areas cannot exhaust the original
 // 3DS linear heap. Four 16-block chunks is a conservative render distance.
@@ -270,6 +249,248 @@ static bool raycastSample(
 
 } // namespace
 
+
+void Renderer::drawDirtBackground(float width, float height) {
+    if (!dirtTextureLoaded_)
+        return;
+
+    Mtx_OrthoTilt(&projection_, 0.0f, width, height, 0.0f, 100.0f, 300.0f, false);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    C3D_Mtx modelView;
+    Mtx_Identity(&modelView);
+    Mtx_Translate(&modelView, 0.0f, 0.0f, -200.0f, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, modelViewLocation_, &modelView);
+
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+    C3D_BindProgram(&program_);
+    C3D_TexBind(0, &dirtTexture_);
+    C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_AlphaTest(false, GPU_ALWAYS, 0x00);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_NONE);
+
+    const float points[4][4] = {
+        {0.0f, 0.0f, 0.0f, 0.0f},
+        {width, 0.0f, width / 16.0f, 0.0f},
+        {width, height, width / 16.0f, height / 16.0f},
+        {0.0f, height, 0.0f, height / 16.0f}
+    };
+    constexpr int indices[6] = {0, 1, 2, 0, 2, 3};
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+    for (int i : indices) {
+        C3D_ImmSendAttrib(points[i][0], points[i][1], 0.0f, 1.0f);
+        C3D_ImmSendAttrib(1.0f, 1.0f, 1.0f, 1.0f);
+        C3D_ImmSendAttrib(points[i][2], points[i][3], 0.0f, 0.0f);
+    }
+    C3D_ImmDrawEnd();
+
+    C3D_SetTexEnv(0, const_cast<C3D_TexEnv*>(&savedEnv));
+    C3D_TexBind(0, &terrainTexture_);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
+}
+
+void Renderer::drawBitmapText(
+    const char* text, float x, float y, float width, float height,
+    float red, float green, float blue, float scale) {
+    if (!fontTextureLoaded_ || !text)
+        return;
+
+    C3D_Mtx modelView;
+    Mtx_Identity(&modelView);
+    Mtx_Translate(&modelView, 0.0f, 0.0f, -200.0f, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, modelViewLocation_, &modelView);
+
+    C3D_BindProgram(&program_);
+    C3D_TexBind(0, &fontTexture_);
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+    C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
+    C3D_FogGasMode(GPU_NO_FOG, GPU_PLAIN_DENSITY, false);
+    C3D_AlphaTest(false, GPU_ALWAYS, 0x00);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_NONE);
+
+    constexpr int indices[6] = {0, 1, 2, 0, 2, 3};
+    float cursor = x;
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+    for (const char* p = text; *p; ++p) {
+        unsigned int code = static_cast<unsigned char>(*p);
+        if (code >= 128u) code = static_cast<unsigned int>('?');
+        const float u0 = static_cast<float>(code % 16u) / 16.0f;
+        const float v0 = static_cast<float>(code / 16u) / 16.0f;
+        const float u1 = u0 + 1.0f / 16.0f;
+        const float v1 = v0 + 1.0f / 16.0f;
+        const float x1 = cursor + 8.0f * scale;
+        const float y1 = y + 8.0f * scale;
+        const float points[4][4] = {
+            {cursor, y, u0, v0},
+            {x1, y, u1, v0},
+            {x1, y1, u1, v1},
+            {cursor, y1, u0, v1}
+        };
+        for (int i : indices) {
+            C3D_ImmSendAttrib(points[i][0], points[i][1], 0.0f, 1.0f);
+            C3D_ImmSendAttrib(red, green, blue, 1.0f);
+            C3D_ImmSendAttrib(points[i][2], points[i][3], 0.0f, 0.0f);
+        }
+        cursor += static_cast<float>(fontWidths_[code]) * scale;
+    }
+    C3D_ImmDrawEnd();
+
+    C3D_SetTexEnv(0, const_cast<C3D_TexEnv*>(&savedEnv));
+    C3D_TexBind(0, &terrainTexture_);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
+}
+
+void Renderer::drawShadowedText(
+    const char* text, float x, float y, float width, float height,
+    float scale) {
+    drawBitmapText(text, x + 1.0f, y + 1.0f, width, height, 0.0f, 0.0f, 0.0f, scale);
+    drawBitmapText(text, x, y, width, height, 1.0f, 1.0f, 1.0f, scale);
+}
+
+void Renderer::drawSolidRect(
+    float x, float y, float width, float height,
+    float red, float green, float blue, float alpha) {
+    C3D_Mtx modelView;
+    Mtx_Identity(&modelView);
+    Mtx_Translate(&modelView, 0.0f, 0.0f, -200.0f, true);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, modelViewLocation_, &modelView);
+
+    C3D_TexEnv* env = C3D_GetTexEnv(0);
+    const C3D_TexEnv savedEnv = *env;
+    C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+    C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+    C3D_AlphaTest(false, GPU_ALWAYS, 0x00);
+    C3D_AlphaBlend(
+        GPU_BLEND_ADD, GPU_BLEND_ADD,
+        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+        GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_NONE);
+
+    const float p[4][2] = {
+        {x, y}, {x + width, y},
+        {x + width, y + height}, {x, y + height}
+    };
+    constexpr int indices[6] = {0, 1, 2, 0, 2, 3};
+    C3D_ImmDrawBegin(GPU_TRIANGLES);
+    for (int i : indices) {
+        C3D_ImmSendAttrib(p[i][0], p[i][1], 0.0f, 1.0f);
+        C3D_ImmSendAttrib(red, green, blue, alpha);
+        C3D_ImmSendAttrib(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    C3D_ImmDrawEnd();
+
+    C3D_SetTexEnv(0, const_cast<C3D_TexEnv*>(&savedEnv));
+    C3D_TexBind(0, &terrainTexture_);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
+    C3D_AlphaTest(true, GPU_GREATER, 0x80);
+}
+
+void Renderer::drawBottomMenu(
+    const char* title, const char* const* entries, int count,
+    int selected, const char* status) {
+    drawDirtBackground(320.0f, 240.0f);
+
+    drawShadowedText(title ? title : "MENU", 20.0f, 16.0f, 320.0f, 240.0f, 1.0f);
+    const int visibleCount = std::min(count, 6);
+    const float firstY = visibleCount > 4 ? 50.0f : 66.0f;
+    for (int i = 0; i < visibleCount; ++i) {
+        const float y = firstY + static_cast<float>(i) * 24.0f;
+        if (i == selected)
+            drawSolidRect(18.0f, y - 4.0f, 284.0f, 19.0f, 0.05f, 0.05f, 0.05f, 0.62f);
+        if (i == selected)
+            drawShadowedText(">", 28.0f, y, 320.0f, 240.0f, 1.0f);
+        drawShadowedText(entries && entries[i] ? entries[i] : "", 44.0f, y, 320.0f, 240.0f, 1.0f);
+    }
+
+    if (status && *status) {
+        char line[42]{};
+        std::size_t n = std::min<std::size_t>(std::strlen(status), sizeof(line) - 1);
+        std::memcpy(line, status, n);
+        drawShadowedText(line, 18.0f, 190.0f, 320.0f, 240.0f, 1.0f);
+    }
+    drawShadowedText("D-PAD: MOVE  A: SELECT", 20.0f, 218.0f, 320.0f, 240.0f, 1.0f);
+}
+
+void Renderer::renderMainMenu(int selected) {
+    if (!initialized_ || !bottomTarget_ || !dirtTextureLoaded_ || !fontTextureLoaded_)
+        return;
+    if (!C3D_FrameBegin(C3D_FRAME_SYNCDRAW))
+        return;
+    frameActive_ = true;
+    const C3D_Mtx savedProjection = projection_;
+
+    C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+    C3D_FrameDrawOn(target_);
+    drawDirtBackground(400.0f, 240.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 112.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+
+    static const char* const entries[] = {"Play", "Exit"};
+    C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+    C3D_FrameDrawOn(bottomTarget_);
+    drawBottomMenu("LUCKEEMINER", entries, 2, selected, nullptr);
+
+    projection_ = savedProjection;
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    C3D_FrameEnd(0);
+    frameActive_ = false;
+}
+
+void Renderer::renderLoadingScreen(const char* stage, int percent) {
+    if (!initialized_ || !bottomTarget_ || !dirtTextureLoaded_ || !fontTextureLoaded_)
+        return;
+    if (!C3D_FrameBegin(C3D_FRAME_SYNCDRAW))
+        return;
+    frameActive_ = true;
+    const C3D_Mtx savedProjection = projection_;
+
+    C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+    C3D_FrameDrawOn(target_);
+    drawDirtBackground(400.0f, 240.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 112.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+
+    C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+    C3D_FrameDrawOn(bottomTarget_);
+    drawDirtBackground(320.0f, 240.0f);
+    drawShadowedText("GENERATING WORLD", 52.0f, 42.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText(stage ? stage : "Working", 20.0f, 78.0f, 320.0f, 240.0f, 1.0f);
+    char percentText[16];
+    std::snprintf(percentText, sizeof(percentText), "%d%%", std::max(0, std::min(100, percent)));
+    drawShadowedText(percentText, 20.0f, 102.0f, 320.0f, 240.0f, 1.0f);
+    drawSolidRect(18.0f, 132.0f, 284.0f, 16.0f, 0.05f, 0.05f, 0.05f, 0.88f);
+    const int safePercent = std::max(0, std::min(100, percent));
+    drawSolidRect(22.0f, 136.0f, 276.0f * safePercent / 100.0f, 8.0f,
+                  0.78f, 0.78f, 0.78f, 1.0f);
+    drawShadowedText("PLEASE WAIT", 20.0f, 168.0f, 320.0f, 240.0f, 1.0f);
+
+    projection_ = savedProjection;
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    C3D_FrameEnd(0);
+    frameActive_ = false;
+}
+
+
 bool Renderer::initialize() {
     if (initialized_)
         return true;
@@ -298,6 +519,22 @@ bool Renderer::initialize() {
     C3D_RenderTargetSetOutput(
         target_,
         GFX_TOP,
+        GFX_LEFT,
+        DISPLAY_TRANSFER_FLAGS);
+
+    bottomTarget_ = C3D_RenderTargetCreate(
+        240,
+        320,
+        GPU_RB_RGBA8,
+        GPU_RB_DEPTH24_STENCIL8);
+    if (!bottomTarget_) {
+        error_ = "Could not create the bottom-screen render target.";
+        shutdown();
+        return false;
+    }
+    C3D_RenderTargetSetOutput(
+        bottomTarget_,
+        GFX_BOTTOM,
         GFX_LEFT,
         DISPLAY_TRANSFER_FLAGS);
 
@@ -391,6 +628,20 @@ bool Renderer::initialize() {
         return false;
     }
     horizonWaterTextureLoaded_ = true;
+
+    if (!TextureLoader::loadDirt(
+            DIRT_TEXTURE_PATH, dirtTexture_, error_)) {
+        shutdown();
+        return false;
+    }
+    dirtTextureLoaded_ = true;
+
+    if (!TextureLoader::loadFontGif(
+            FONT_TEXTURE_PATH, fontTexture_, fontWidths_, error_)) {
+        shutdown();
+        return false;
+    }
+    fontTextureLoaded_ = true;
 
     // The native Classic branch starts with no automatically-spawned zombies.
     // Grow the character buffers only if the player later spawns them.
@@ -566,6 +817,14 @@ void Renderer::shutdown() {
         C3D_TexDelete(&horizonWaterTexture_);
         horizonWaterTextureLoaded_ = false;
     }
+    if (dirtTextureLoaded_) {
+        C3D_TexDelete(&dirtTexture_);
+        dirtTextureLoaded_ = false;
+    }
+    if (fontTextureLoaded_) {
+        C3D_TexDelete(&fontTexture_);
+        fontTextureLoaded_ = false;
+    }
 
     chunkAmountX_ = 0;
     chunkAmountY_ = 0;
@@ -584,6 +843,10 @@ void Renderer::shutdown() {
         shaderDvlb_ = nullptr;
     }
 
+    if (bottomTarget_) {
+        C3D_RenderTargetDelete(bottomTarget_);
+        bottomTarget_ = nullptr;
+    }
     if (target_) {
         C3D_RenderTargetDelete(
             target_);
@@ -2228,54 +2491,46 @@ void Renderer::renderHud(
 
     hudVertices_.clear();
 
-    const auto appendTextPixels = [&](const char* text,
+    const auto appendTextGlyphs = [&](const char* text,
                                       float startX, float startY,
                                       float red, float green, float blue) {
         float cursorX = startX;
-        constexpr int pixelIndices[6] = {0, 1, 2, 0, 2, 3};
-
+        constexpr int glyphIndices[6] = {0, 1, 2, 0, 2, 3};
         for (const char* character = text; *character; ++character) {
-            const HudGlyph* glyph = findHudGlyph(*character);
-            if (*character == ' ') {
-                cursorX += 4.0f;
-                continue;
+            unsigned int code = static_cast<unsigned char>(*character);
+            if (code >= 128u) code = static_cast<unsigned int>('?');
+            const float u0 = static_cast<float>(code % 16u) / 16.0f;
+            const float v0 = static_cast<float>(code / 16u) / 16.0f;
+            const float u1 = u0 + 1.0f / 16.0f;
+            const float v1 = v0 + 1.0f / 16.0f;
+            const float x1 = cursorX + 8.0f;
+            const float y1 = startY + 8.0f;
+            const float points[4][4] = {
+                {cursorX, startY, u0, v0},
+                {x1, startY, u1, v0},
+                {x1, y1, u1, v1},
+                {cursorX, y1, u0, v1}
+            };
+            for (int point : glyphIndices) {
+                Vertex vertex{};
+                vertex.x = points[point][0];
+                vertex.y = points[point][1];
+                vertex.z = 0.0f;
+                vertex.r = red;
+                vertex.g = green;
+                vertex.b = blue;
+                vertex.a = 1.0f;
+                vertex.u = points[point][2];
+                vertex.v = points[point][3];
+                hudVertices_.push_back(vertex);
             }
-
-            for (int row = 0; row < 7; ++row) {
-                for (int column = 0; column < 5; ++column) {
-                    if ((glyph->rows[row] & (1u << (4 - column))) == 0)
-                        continue;
-
-                    const float x = cursorX + static_cast<float>(column);
-                    const float y = startY + static_cast<float>(row);
-                    const float points[4][2] = {
-                        {x, y}, {x + 1.0f, y},
-                        {x + 1.0f, y + 1.0f}, {x, y + 1.0f}
-                    };
-
-                    for (int point : pixelIndices) {
-                        Vertex vertex{};
-                        vertex.x = points[point][0];
-                        vertex.y = points[point][1];
-                        vertex.z = 0.0f;
-                        vertex.r = red;
-                        vertex.g = green;
-                        vertex.b = blue;
-                        vertex.a = 1.0f;
-                        vertex.u = 0.0f;
-                        vertex.v = 0.0f;
-                        hudVertices_.push_back(vertex);
-                    }
-                }
-            }
-
-            cursorX += 6.0f;
+            cursorX += static_cast<float>(fontWidths_[code]);
         }
     };
 
     const auto appendHudText = [&](const char* text, float x, float y) {
-        appendTextPixels(text, x + 1.0f, y + 1.0f, 0.0f, 0.0f, 0.0f);
-        appendTextPixels(text, x, y, 1.0f, 1.0f, 1.0f);
+        appendTextGlyphs(text, x + 1.0f, y + 1.0f, 0.0f, 0.0f, 0.0f);
+        appendTextGlyphs(text, x, y, 1.0f, 1.0f, 1.0f);
     };
 
     appendHudText("0.0.13a_03", 2.0f, 2.0f);
@@ -2305,18 +2560,20 @@ void Renderer::renderHud(
         C3D_FVUnifMtx4x4(
             GPU_VERTEX_SHADER, modelViewLocation_, &modelView);
 
+        C3D_TexBind(0, &fontTexture_);
         C3D_AlphaTest(false, GPU_ALWAYS, 0x00);
         C3D_AlphaBlend(
             GPU_BLEND_ADD, GPU_BLEND_ADD,
-            GPU_ONE, GPU_ZERO, GPU_ONE, GPU_ZERO);
+            GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+            GPU_ONE, GPU_ZERO);
         C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_ALL);
         C3D_CullFace(GPU_CULL_NONE);
 
         C3D_TexEnv fontEnv = savedEnv;
         C3D_TexEnvSrc(
             &fontEnv, C3D_Both,
-            GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
-        C3D_TexEnvFunc(&fontEnv, C3D_Both, GPU_REPLACE);
+            GPU_TEXTURE0, GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(&fontEnv, C3D_Both, GPU_MODULATE);
         C3D_SetTexEnv(0, &fontEnv);
 
         C3D_BufInfo* info = C3D_GetBufInfo();
@@ -2763,7 +3020,12 @@ void Renderer::render(
     const ParticleEngine& particleEngine,
     int selectedTileId,
     float alpha,
-    bool placingMode) {
+    bool placingMode,
+    const char* bottomMenuTitle,
+    const char* const* bottomMenuEntries,
+    int bottomMenuCount,
+    int bottomMenuSelected,
+    const char* bottomMenuStatus) {
 
     if (!initialized_ ||
         !terrainTextureLoaded_) {
@@ -3134,8 +3396,13 @@ void Renderer::render(
             drawWaterChunk(chunks_[index], layer);
     };
 
+    // Transparent fluid surfaces must be visible from either side. In
+    // particular, the underside of the top water face must remain visible
+    // while the player is submerged.
+    C3D_CullFace(GPU_CULL_NONE);
     renderWaterLayer(0, true);
     renderWaterLayer(1, false);
+    C3D_CullFace(GPU_CULL_BACK_CCW);
 
     C3D_AlphaBlend(
         GPU_BLEND_ADD, GPU_BLEND_ADD,
@@ -3156,6 +3423,17 @@ void Renderer::render(
 
     renderHud(
         selectedTileId);
+
+    if (bottomMenuTitle && bottomTarget_) {
+        const C3D_Mtx savedProjection = projection_;
+        C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+        C3D_FrameDrawOn(bottomTarget_);
+        drawBottomMenu(
+            bottomMenuTitle, bottomMenuEntries, bottomMenuCount,
+            bottomMenuSelected, bottomMenuStatus);
+        projection_ = savedProjection;
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    }
 
     C3D_FrameEnd(0);
     frameActive_ = false;

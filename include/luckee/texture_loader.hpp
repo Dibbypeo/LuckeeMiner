@@ -3,6 +3,8 @@
 #include <3ds.h>
 #include <citro3d.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
 namespace luckee {
@@ -27,6 +29,17 @@ public:
     static bool loadHorizonWater(
         const char* path,
         C3D_Tex& texture,
+        std::string& error);
+
+    static bool loadDirt(
+        const char* path,
+        C3D_Tex& texture,
+        std::string& error);
+
+    static bool loadFontGif(
+        const char* path,
+        C3D_Tex& texture,
+        std::uint8_t widths[128],
         std::string& error);
 };
 

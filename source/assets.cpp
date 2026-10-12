@@ -9,7 +9,9 @@ constexpr const char* requiredAssets[] = {
     "assets/textures/terrain.png",
     "assets/textures/char.png",
     "assets/textures/rock.png",
-    "assets/textures/water.png"
+    "assets/textures/water.png",
+    "assets/textures/dirt.png",
+    "assets/textures/default.gif"
 };
 
 bool fileExists(const char* path) {

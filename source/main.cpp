@@ -19,14 +19,7 @@
 namespace {
 
 constexpr std::size_t MAX_ACTIVE_ZOMBIES = 32;
-
-void presentStartupStage(const char* stage) {
-    consoleClear();
-    std::printf("LuckeeMiner startup\n\n%s\n", stage);
-    gfxFlushBuffers();
-    gfxSwapBuffers();
-    gspWaitForVBlank();
-}
+luckee::Renderer* startupRenderer = nullptr;
 
 void waitForStart() {
     while (aptMainLoop()) {
@@ -42,6 +35,11 @@ void waitForStart() {
 }
 
 void showGenerationProgress(const char* stage, int percent) {
+    if (startupRenderer) {
+        startupRenderer->renderLoadingScreen(stage, percent);
+        gspWaitForVBlank();
+        return;
+    }
     consoleClear();
     std::printf("Minecraft Classic c0.0.13a_03\n\n");
     std::printf("Generating world: %s\n\n", stage ? stage : "Working");
@@ -130,17 +128,10 @@ void runPauseMenu(
         }
 
         if (!done && !shouldExit) {
-            consoleClear();
-            std::puts("Minecraft Classic c0.0.13a_03 - Paused\n");
-            std::puts("D-Pad: select    A: choose    B/START: resume\n");
-            for (int i = 0; i < ENTRY_COUNT; ++i)
-                std::printf("%s %s\n", i == selected ? ">" : " ", entries[i]);
-            if (!status.empty())
-                std::printf("\n%s\n", status.c_str());
-
             renderer.render(
                 level, player, zombies, particles,
-                selectedTileId, timer.alpha(), placingMode);
+                selectedTileId, timer.alpha(), placingMode,
+                "Paused", entries, ENTRY_COUNT, selected, status.c_str());
             gspWaitForVBlank();
         }
     }
@@ -170,15 +161,67 @@ int main(int, char**) {
         return 1;
     }
 
-    presentStartupStage("Assets OK");
+    luckee::Renderer renderer;
+    if (!renderer.initialize()) {
+        std::puts("LuckeeMiner - renderer error\n");
+        if (!renderer.error().empty())
+            std::printf("%s\n", renderer.error().c_str());
+        else
+            std::puts("Could not initialize the renderer and its assets.");
+        std::puts("\nPress START to exit.");
+        waitForStart();
+        renderer.shutdown();
+        gfxExit();
+        return 1;
+    }
+
+    startupRenderer = &renderer;
+    int mainMenuSelection = 0;
+    bool startGame = false;
+    while (aptMainLoop() && !startGame) {
+        renderer.renderMainMenu(mainMenuSelection);
+        hidScanInput();
+        const u32 down = hidKeysDown();
+        if (down & KEY_DUP)
+            mainMenuSelection = (mainMenuSelection + 1) % 2;
+        if (down & KEY_DDOWN)
+            mainMenuSelection = (mainMenuSelection + 1) % 2;
+        if (down & (KEY_A | KEY_START)) {
+            if (mainMenuSelection == 0) {
+                startGame = true;
+            } else {
+                startupRenderer = nullptr;
+                renderer.shutdown();
+                gfxExit();
+                return 0;
+            }
+        }
+        if (down & KEY_B) {
+            startupRenderer = nullptr;
+            renderer.shutdown();
+            gfxExit();
+            return 0;
+        }
+        gspWaitForVBlank();
+    }
+
+    if (!startGame) {
+        startupRenderer = nullptr;
+        renderer.shutdown();
+        gfxExit();
+        return 0;
+    }
+
+    renderer.renderLoadingScreen("Loading world...", 0);
+    gspWaitForVBlank();
 
     luckee::Level level(
         luckee::Level::WIDTH,
         luckee::Level::HEIGHT,
         luckee::Level::DEPTH,
         &showGenerationProgress);
+    startupRenderer = nullptr;
     luckee::Player player(level);
-    presentStartupStage("Level and player created");
 
     std::vector<luckee::Zombie> zombies;
     zombies.reserve(MAX_ACTIVE_ZOMBIES);
@@ -192,30 +235,8 @@ int main(int, char**) {
         luckee::Tile::rock->id();
     bool placingMode = false;
 
-    presentStartupStage("Particle engine created");
-
-    luckee::Renderer renderer;
-
     renderer.setLevel(level);
     level.addListener(&renderer);
-
-    if (!renderer.initialize()) {
-        std::puts("LuckeeMiner - asset error\n");
-
-        if (!renderer.error().empty())
-            std::printf("%s\n", renderer.error().c_str());
-        else
-            std::puts("Could not load the required assets.");
-
-        std::puts("\nPress START to exit.");
-
-        level.removeListener(&renderer);
-        renderer.shutdown();
-        gfxExit();
-        return 1;
-    }
-
-    presentStartupStage("Renderer initialized");
 
     luckee::Timer timer(20.0f);
 
@@ -226,7 +247,7 @@ int main(int, char**) {
     std::puts("Zombies: 0 initial (32 active maximum)");
     std::puts("Particle engine: active");
     std::puts("Simulation: 20 ticks/sec");
-    std::puts("Assets: terrain.png, char.png, rock.png, water.png\n");
+    std::puts("Assets: terrain.png, char.png, rock.png, water.png, dirt.png, default.gif\n");
     std::puts("Circle Pad : move");
     std::puts("Touch drag : look");
     std::puts("A           : jump");
