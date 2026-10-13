@@ -35,23 +35,10 @@ void waitForStart() {
 }
 
 void showGenerationProgress(const char* stage, int percent) {
-    if (progressRenderer) {
-        progressRenderer->renderLoadingScreen(stage, percent);
-        gspWaitForVBlank();
+    // Renderer is installed before any world-generation callback can occur.
+    if (!progressRenderer)
         return;
-    }
-    consoleClear();
-    std::printf("Minecraft Classic c0.0.13a_03\n\n");
-    std::printf("Generating world: %s\n\n", stage ? stage : "Working");
-    constexpr int BAR_WIDTH = 24;
-    const int filled = std::max(0, std::min(BAR_WIDTH, percent * BAR_WIDTH / 100));
-    std::putchar('[');
-    for (int i = 0; i < BAR_WIDTH; ++i)
-        std::putchar(i < filled ? '#' : '.');
-    std::printf("] %d%%\n", std::max(0, std::min(100, percent)));
-    std::fflush(stdout);
-    gfxFlushBuffers();
-    gfxSwapBuffers();
+    progressRenderer->renderLoadingScreen(stage, percent);
     gspWaitForVBlank();
 }
 
@@ -141,12 +128,14 @@ void runPauseMenu(
 
 int main(int, char**) {
     gfxInitDefault();
-    consoleInit(GFX_BOTTOM, nullptr);
 
     const std::vector<std::string> missing =
         luckee::assets::findMissingAssets();
 
     if (!missing.empty()) {
+        // Fatal diagnostics use the top screen only. Gameplay never initializes
+        // a framebuffer console, leaving the bottom display available for UI.
+        consoleInit(GFX_TOP, nullptr);
         std::puts("LuckeeMiner - missing assets\n");
         std::puts("Missing textures:");
 
@@ -163,6 +152,7 @@ int main(int, char**) {
 
     luckee::Renderer renderer;
     if (!renderer.initialize()) {
+        consoleInit(GFX_TOP, nullptr);
         std::puts("LuckeeMiner - renderer error\n");
         if (!renderer.error().empty())
             std::printf("%s\n", renderer.error().c_str());
@@ -239,28 +229,6 @@ int main(int, char**) {
 
     luckee::Timer timer(20.0f);
 
-    std::puts("LuckeeMiner - Classic c0.0.13a_03\n");
-    std::puts("World: 256 x 64 x 256");
-    std::puts("Blocks: 1 rock, 2 grass, 3 dirt, 4 stone, 5 wood, 6 bush");
-    std::puts("Boundary: 7; water: 8-9; lava: 10-11");
-    std::puts("Zombies: 0 initial (32 active maximum)");
-    std::puts("Particle engine: active");
-    std::puts("Simulation: 20 ticks/sec");
-    std::puts("Assets: terrain.png, char.png, rock.png, water.png, dirt.png, default.gif\n");
-    std::puts("Circle Pad : move");
-    std::puts("Touch drag : look");
-    std::puts("A           : jump");
-    std::puts("L           : action (break/place)");
-    std::puts("R           : toggle break/place mode");
-    std::puts("Mode        : BREAK");
-    std::puts("D-Pad Up   : previous block");
-    std::puts("D-Pad Down : next block");
-    std::puts("Y           : spawn zombie (max 32 active)");
-    std::puts("SELECT      : save world");
-    std::puts("X           : reset player position");
-    std::puts("START       : exit\n");
-
-    int frames = 0;
     bool shouldExit = false;
 
     while (aptMainLoop()) {
@@ -279,28 +247,6 @@ int main(int, char**) {
             if (shouldExit)
                 break;
             continue;
-        }
-
-        // SELECT is the 3DS equivalent of the reference's manual save key.
-        if (input.savePressed) {
-            consoleClear();
-            std::puts("LuckeeMiner - saving world\n");
-            std::puts("Compressing and writing level.dat...");
-            std::fflush(stdout);
-            gfxFlushBuffers();
-            gfxSwapBuffers();
-            gspWaitForVBlank();
-
-            const bool saved = level.save();
-
-            std::puts(
-                saved
-                    ? "\nWorld save completed."
-                    : "\nSAVE FAILED. See the diagnostic message above.");
-            std::fflush(stdout);
-            gfxFlushBuffers();
-            gfxSwapBuffers();
-            gspWaitForVBlank();
         }
 
         const int selectableBlocks[] = {1, 2, 3, 4, 5, 6};
@@ -403,68 +349,6 @@ int main(int, char**) {
                     }
                 }
             }
-        }
-
-        if ((frames++ & 15) == 0) {
-            consoleClear();
-
-            std::printf(
-                "LuckeeMiner - Classic c0.0.13a_03\n\n");
-
-            std::printf(
-                "World: %d x %d x %d\n",
-                level.width(),
-                level.depth(),
-                level.height());
-
-            std::printf(
-                "Selected block: %d\n",
-                selectedTileId);
-
-            std::printf(
-                "Player: %.3f %.3f %.3f\n",
-                player.x(),
-                player.y(),
-                player.z());
-
-            std::printf(
-                "Rotation: %.2f %.2f\n",
-                player.yRot(),
-                player.xRot());
-
-            std::printf(
-                "Grounded: %s\n",
-                player.onGround()
-                    ? "yes"
-                    : "no");
-
-            std::printf(
-                "Simulation ticks: %d\n",
-
-                timer.ticks());
-
-            std::printf(
-                "Zombies: %u/%u\n",
-                static_cast<unsigned int>(zombies.size()),
-                static_cast<unsigned int>(MAX_ACTIVE_ZOMBIES));
-
-            std::printf(
-                "Particles: %u/%u\n\n",
-                static_cast<unsigned int>(particleEngine.particles().size()),
-                static_cast<unsigned int>(luckee::ParticleEngine::MAX_ACTIVE_PARTICLES));
-
-            std::puts("Circle Pad : move");
-            std::puts("Touch drag : look");
-            std::puts("A           : jump");
-            std::puts("L           : action (break/place)");
-            std::puts("R           : toggle break/place mode");
-            std::printf("Mode        : %s\n", placingMode ? "PLACE" : "BREAK");
-            std::puts("D-Pad Up    : previous block");
-            std::puts("D-Pad Down  : next block");
-            std::puts("Y           : spawn zombie (max 32 active)");
-            std::puts("SELECT      : save world");
-            std::puts("X           : reset player position");
-            std::puts("START       : pause/menu");
         }
 
         renderer.render(
