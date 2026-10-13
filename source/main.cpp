@@ -22,6 +22,10 @@ constexpr std::size_t MAX_ACTIVE_ZOMBIES = 32;
 luckee::Renderer* progressRenderer = nullptr;
 
 void waitForStart() {
+    constexpr int selectableBlocks[] = {1, 3, 4, 5, 6};
+    constexpr int selectableBlockCount =
+        sizeof(selectableBlocks) / sizeof(selectableBlocks[0]);
+
     while (aptMainLoop()) {
         hidScanInput();
 
@@ -249,12 +253,10 @@ int main(int, char**) {
             continue;
         }
 
-        const int selectableBlocks[] = {1, 2, 3, 4, 5, 6};
-
         if (input.previousBlockPressed ||
             input.nextBlockPressed) {
             int selectedIndex = 0;
-            for (int i = 0; i < 6; ++i) {
+            for (int i = 0; i < selectableBlockCount; ++i) {
                 if (selectableBlocks[i] == selectedTileId) {
                     selectedIndex = i;
                     break;
@@ -263,10 +265,11 @@ int main(int, char**) {
 
             if (input.previousBlockPressed)
                 selectedIndex =
-                    (selectedIndex + 5) % 6;
+                    (selectedIndex + selectableBlockCount - 1) %
+                    selectableBlockCount;
             else
                 selectedIndex =
-                    (selectedIndex + 1) % 6;
+                    (selectedIndex + 1) % selectableBlockCount;
 
             selectedTileId =
                 selectableBlocks[selectedIndex];
