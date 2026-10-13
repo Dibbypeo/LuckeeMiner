@@ -149,6 +149,8 @@ private:
     void drawBottomMenu(
         const char* title, const char* const* entries, int count,
         int selected, const char* status);
+    void drawGameplayBottom(
+        int selectedTileId, bool placingMode, const Player& player);
 
     void renderHorizon(const Level& level);
 
