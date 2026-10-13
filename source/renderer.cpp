@@ -21,10 +21,8 @@ namespace {
 
 constexpr u32 CLEAR_COLOR = 0x80CCFFFF;
 
-// gfxInitDefault() uses BGR8/RGB8-compatible display output for both screens,
- // but consoleInit(GFX_BOTTOM, ...) changes the bottom framebuffer to RGB565.
- // Each render target must therefore transfer to the pixel format configured
- // for its destination screen, or the bottom image appears as colored scanlines.
+// Both screens retain gfxInitDefault()'s BGR8 format during normal play.
+ // Fatal-error consoles are initialized only after the renderer has shut down.
 constexpr u32 TOP_DISPLAY_TRANSFER_FLAGS =
     GX_TRANSFER_FLIP_VERT(0) |
     GX_TRANSFER_OUT_TILED(0) |
@@ -38,7 +36,7 @@ constexpr u32 BOTTOM_DISPLAY_TRANSFER_FLAGS =
     GX_TRANSFER_OUT_TILED(0) |
     GX_TRANSFER_RAW_COPY(0) |
     GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) |
-    GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB565) |
+    GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) |
     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
 
 constexpr int CHUNK_SIZE = 16;
@@ -363,7 +361,7 @@ void Renderer::drawBitmapText(
             C3D_ImmSendAttrib(red, green, blue, 1.0f);
             C3D_ImmSendAttrib(points[i][2], points[i][3], 0.0f, 0.0f);
         }
-        cursor += static_cast<float>(fontWidths_[code]) * scale;
+        cursor += (static_cast<float>(fontWidths_[code]) + 1.0f) * scale;
     }
     C3D_ImmDrawEnd();
 
@@ -431,7 +429,7 @@ void Renderer::drawBottomMenu(
 
     const float titleX =
         (title && std::strcmp(title, "LUCKEEMINER") == 0)
-            ? 134.0f
+            ? 128.0f
             : 20.0f;
     drawShadowedText(title ? title : "MENU", titleX, 16.0f, 320.0f, 240.0f, 1.0f);
     const int visibleCount = std::min(count, 6);
@@ -454,6 +452,46 @@ void Renderer::drawBottomMenu(
     drawShadowedText("D-PAD: MOVE  A: SELECT", 20.0f, 218.0f, 320.0f, 240.0f, 1.0f);
 }
 
+void Renderer::drawGameplayBottom(
+    int selectedTileId, bool placingMode, const Player& player) {
+    drawDirtBackground(320.0f, 240.0f);
+    drawShadowedText("LUCKEEMINER", 128.0f, 12.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("WORLD ACTIVE", 18.0f, 35.0f, 320.0f, 240.0f, 1.0f);
+    drawSolidRect(16.0f, 48.0f, 288.0f, 1.0f, 0.72f, 0.60f, 0.42f, 1.0f);
+
+    const char* blockName = "UNKNOWN";
+    switch (selectedTileId) {
+        case 1: blockName = "ROCK"; break;
+        case 2: blockName = "GRASS"; break;
+        case 3: blockName = "DIRT"; break;
+        case 4: blockName = "STONE"; break;
+        case 5: blockName = "WOOD"; break;
+        case 6: blockName = "BUSH"; break;
+        case 7: blockName = "BOUNDARY"; break;
+        case 8: blockName = "FLOWING WATER"; break;
+        case 9: blockName = "WATER"; break;
+        case 10: blockName = "FLOWING LAVA"; break;
+        case 11: blockName = "LAVA"; break;
+        default: break;
+    }
+
+    char line[48]{};
+    std::snprintf(line, sizeof(line), "BLOCK: %s", blockName);
+    drawShadowedText(line, 18.0f, 62.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText(placingMode ? "MODE: PLACE" : "MODE: BREAK",
+                     18.0f, 84.0f, 320.0f, 240.0f, 1.0f);
+
+    std::snprintf(line, sizeof(line), "POS: %.1f %.1f %.1f",
+                  player.x(), player.y(), player.z());
+    drawShadowedText(line, 18.0f, 106.0f, 320.0f, 240.0f, 1.0f);
+
+    drawSolidRect(16.0f, 128.0f, 288.0f, 1.0f, 0.72f, 0.60f, 0.42f, 1.0f);
+    drawShadowedText("D-PAD: CHANGE BLOCK", 18.0f, 140.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("L: ACTION   R: MODE", 18.0f, 162.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("A: JUMP   START: PAUSE", 18.0f, 184.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("TOUCH: LOOK", 18.0f, 206.0f, 320.0f, 240.0f, 1.0f);
+}
+
 void Renderer::renderMainMenu(int selected) {
     if (!initialized_ || !bottomTarget_ || !dirtTextureLoaded_ || !fontTextureLoaded_)
         return;
@@ -465,7 +503,7 @@ void Renderer::renderMainMenu(int selected) {
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     drawDirtBackground(400.0f, 240.0f);
-    drawShadowedText("MINECRAFT CLASSIC", 162.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 154.0f, 108.0f, 400.0f, 240.0f, 1.0f);
 
     static const char* const entries[] = {"Play", "Exit"};
     C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
@@ -489,12 +527,12 @@ void Renderer::renderLoadingScreen(const char* stage, int percent) {
     C3D_RenderTargetClear(target_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(target_);
     drawDirtBackground(400.0f, 240.0f);
-    drawShadowedText("MINECRAFT CLASSIC", 162.0f, 108.0f, 400.0f, 240.0f, 1.0f);
+    drawShadowedText("MINECRAFT CLASSIC", 154.0f, 108.0f, 400.0f, 240.0f, 1.0f);
 
     C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
     C3D_FrameDrawOn(bottomTarget_);
     drawDirtBackground(320.0f, 240.0f);
-    drawShadowedText("GENERATING WORLD", 122.0f, 42.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("GENERATING WORLD", 116.0f, 42.0f, 320.0f, 240.0f, 1.0f);
     drawShadowedText(stage ? stage : "Working", 20.0f, 78.0f, 320.0f, 240.0f, 1.0f);
     char percentText[16];
     std::snprintf(percentText, sizeof(percentText), "%d%%", std::max(0, std::min(100, percent)));
@@ -503,7 +541,7 @@ void Renderer::renderLoadingScreen(const char* stage, int percent) {
     const int safePercent = std::max(0, std::min(100, percent));
     drawSolidRect(22.0f, 136.0f, 276.0f * safePercent / 100.0f, 8.0f,
                   0.78f, 0.78f, 0.78f, 1.0f);
-    drawShadowedText("PLEASE WAIT", 135.0f, 168.0f, 320.0f, 240.0f, 1.0f);
+    drawShadowedText("PLEASE WAIT", 130.0f, 168.0f, 320.0f, 240.0f, 1.0f);
 
     projection_ = savedProjection;
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
@@ -2545,7 +2583,7 @@ void Renderer::renderHud(
                 vertex.v = points[point][3];
                 hudVertices_.push_back(vertex);
             }
-            cursorX += static_cast<float>(fontWidths_[code]);
+            cursorX += static_cast<float>(fontWidths_[code]) + 1.0f;
         }
     };
 
@@ -3333,12 +3371,19 @@ void Renderer::render(
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
-
-        if (visible_[index]) {
+        if (visible_[index])
             drawChunk(chunks_[index], 0);
-            drawLavaChunk(chunks_[index], 0);
-        }
     }
+
+    // Lava is opaque, but its faces must also be visible from inside the fluid.
+    C3D_CullFace(GPU_CULL_NONE);
+    for (std::size_t index = 0;
+         index < chunks_.size();
+         ++index) {
+        if (visible_[index])
+            drawLavaChunk(chunks_[index], 0);
+    }
+    C3D_CullFace(GPU_CULL_BACK_CCW);
 
     renderZombies(
         zombies,
@@ -3358,12 +3403,18 @@ void Renderer::render(
     for (std::size_t index = 0;
          index < chunks_.size();
          ++index) {
-
-        if (visible_[index]) {
+        if (visible_[index])
             drawChunk(chunks_[index], 1);
-            drawLavaChunk(chunks_[index], 1);
-        }
     }
+
+    C3D_CullFace(GPU_CULL_NONE);
+    for (std::size_t index = 0;
+         index < chunks_.size();
+         ++index) {
+        if (visible_[index])
+            drawLavaChunk(chunks_[index], 1);
+    }
+    C3D_CullFace(GPU_CULL_BACK_CCW);
 
     // The reference draws entities and particles in both world-lighting
     // passes. Without these shadow-layer calls, anything classified as
@@ -3446,12 +3497,29 @@ void Renderer::render(
         selectedTileId);
 
     if (bottomMenuTitle && bottomTarget_) {
+        // Darken the frozen world behind the pause menu so the paused state
+        // is immediately visible without replacing the 3D scene.
         const C3D_Mtx savedProjection = projection_;
+        Mtx_OrthoTilt(&projection_, 0.0f, 400.0f, 240.0f, 0.0f,
+                      100.0f, 300.0f, false);
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+        drawSolidRect(0.0f, 0.0f, 400.0f, 240.0f,
+                      0.0f, 0.0f, 0.0f, 0.48f);
+        projection_ = savedProjection;
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+
         C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
         C3D_FrameDrawOn(bottomTarget_);
         drawBottomMenu(
             bottomMenuTitle, bottomMenuEntries, bottomMenuCount,
             bottomMenuSelected, bottomMenuStatus);
+        projection_ = savedProjection;
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
+    } else if (bottomTarget_) {
+        const C3D_Mtx savedProjection = projection_;
+        C3D_RenderTargetClear(bottomTarget_, C3D_CLEAR_ALL, CLEAR_COLOR, 0);
+        C3D_FrameDrawOn(bottomTarget_);
+        drawGameplayBottom(selectedTileId, placingMode, player);
         projection_ = savedProjection;
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, projectionLocation_, &projection_);
     }
