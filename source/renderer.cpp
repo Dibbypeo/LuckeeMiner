@@ -461,13 +461,13 @@ void Renderer::drawGameplayBottom(
 
     const char* blockName = "UNKNOWN";
     switch (selectedTileId) {
-        case 1: blockName = "ROCK"; break;
+        case 1: blockName = "STONE"; break;
         case 2: blockName = "GRASS"; break;
         case 3: blockName = "DIRT"; break;
-        case 4: blockName = "STONE"; break;
-        case 5: blockName = "WOOD"; break;
-        case 6: blockName = "BUSH"; break;
-        case 7: blockName = "BOUNDARY"; break;
+        case 4: blockName = "COBBLESTONE"; break;
+        case 5: blockName = "PLANKS"; break;
+        case 6: blockName = "SAPLING"; break;
+        case 7: blockName = "BEDROCK"; break;
         case 8: blockName = "FLOWING WATER"; break;
         case 9: blockName = "WATER"; break;
         case 10: blockName = "FLOWING LAVA"; break;
