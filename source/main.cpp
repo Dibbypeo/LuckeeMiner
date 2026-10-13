@@ -22,10 +22,6 @@ constexpr std::size_t MAX_ACTIVE_ZOMBIES = 32;
 luckee::Renderer* progressRenderer = nullptr;
 
 void waitForStart() {
-    constexpr int selectableBlocks[] = {1, 3, 4, 5, 6};
-    constexpr int selectableBlockCount =
-        sizeof(selectableBlocks) / sizeof(selectableBlocks[0]);
-
     while (aptMainLoop()) {
         hidScanInput();
 
@@ -234,6 +230,10 @@ int main(int, char**) {
     luckee::Timer timer(20.0f);
 
     bool shouldExit = false;
+
+    constexpr int selectableBlocks[] = {1, 3, 4, 5, 6};
+    constexpr int selectableBlockCount =
+        sizeof(selectableBlocks) / sizeof(selectableBlocks[0]);
 
     while (aptMainLoop()) {
         hidScanInput();
