@@ -36,14 +36,16 @@ a confirmed devkitPro build and regression testing in Azahar or on 3DS hardware.
 | A | Jump |
 | L | Perform the current action |
 | R | Toggle between BREAK and PLACE modes |
-| D-Pad Up | Previous selectable block (1–6) |
-| D-Pad Down | Next selectable block (1–6) |
+| D-Pad Up | Previous placeable block |
+| D-Pad Down | Next placeable block |
 | Y | Spawn a zombie (testing convenience) |
 | X | Reset player position |
 | START | Open pause menu (resume/save/load/regenerate/exit) |
 
-Classic uses L for the current action and R to toggle BREAK/PLACE mode. Block
-placement checks player and zombie collisions. The top-left HUD shows the version
+The placeable-block cycle matches Classic: Stone, Dirt, Cobblestone, Planks,
+and Sapling. Grass still exists as a world block, but cannot be selected for
+placement. Classic uses L for the current action and R to toggle BREAK/PLACE mode.
+Block placement checks player and zombie collisions. The top-left HUD shows the version
 and live FPS/chunk-update counters. The bottom screen now shows gameplay status
 and controls, and switches to menu/loading UI when appropriate. SELECT has no
 save action; use START and choose Save world. Original named-world selection
