@@ -22,11 +22,10 @@ Implemented in this branch:
 - Classic metadata save header plus legacy raw-GZIP block payload loading.
 - Initial liquid mesh pass and the rock / water horizon.
 
-Known remaining work includes the pause and world-selection menus, generation
-progress reporting, player liquid wall-step behavior, exact fluid-rendering
+Known remaining work includes player liquid wall-step behavior, exact fluid-rendering
 details and sort order, and full comparison of generated terrain and save files
-against the original Java client. This branch has **not yet had a confirmed
-devkitPro build or a 3DS emulator/hardware test**.
+against the original Java client. The latest UI and rendering changes still need
+a confirmed devkitPro build and regression testing in Azahar or on 3DS hardware.
 
 ## Controls (temporary 3DS adaptation)
 
@@ -40,14 +39,15 @@ devkitPro build or a 3DS emulator/hardware test**.
 | D-Pad Up | Previous selectable block (1–6) |
 | D-Pad Down | Next selectable block (1–6) |
 | Y | Spawn a zombie (testing convenience) |
-| SELECT | Save world |
 | X | Reset player position |
 | START | Open pause menu (resume/save/load/regenerate/exit) |
 
 Classic uses L for the current action and R to toggle BREAK/PLACE mode. Block
 placement checks player and zombie collisions. The top-left HUD shows the version
-and live FPS/chunk-update counters; bottom-screen diagnostics remain available.
-Original named-world selection screens are still not implemented.
+and live FPS/chunk-update counters. The bottom screen now shows gameplay status
+and controls, and switches to menu/loading UI when appropriate. SELECT has no
+save action; use START and choose Save world. Original named-world selection
+screens are still not implemented.
 
 ## Installation and required textures
 
@@ -61,11 +61,15 @@ Required external files:
     SD:/3ds/assets/textures/char.png
     SD:/3ds/assets/textures/rock.png
     SD:/3ds/assets/textures/water.png
+    SD:/3ds/assets/textures/dirt.png
+    SD:/3ds/assets/textures/default.gif
 
 - `terrain.png`: 256 × 256
 - `char.png`: 64 × 32
 - `rock.png`: 16 × 16
 - `water.png`: 16 × 16 RGBA
+- `dirt.png`: 16 × 16
+- `default.gif`: 128 × 128 original Classic bitmap font atlas
 
 The source archive supplied for this version contains these files; this project
 does not bundle them. See [assets/README.md](assets/README.md).
