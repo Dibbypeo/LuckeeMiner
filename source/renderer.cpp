@@ -2792,11 +2792,18 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
                         centerZ * forwardZ
                     };
                 }
-                std::sort(order, order + orderCount,
-                    [](const PreviewFaceOrder& lhs,
-                       const PreviewFaceOrder& rhs) {
-                        return lhs.depth > rhs.depth;
-                    });
+                // At most six entries are sorted here. Use insertion sort
+                // instead of std::sort so GCC's inlined sort threshold does
+                // not emit a false-positive bounds warning for this small array.
+                for (int i = 1; i < orderCount; ++i) {
+                    const PreviewFaceOrder current = order[i];
+                    int j = i;
+                    while (j > 0 && order[j - 1].depth < current.depth) {
+                        order[j] = order[j - 1];
+                        --j;
+                    }
+                    order[j] = current;
+                }
 
                 for (int i = 0; i < orderCount; ++i) {
                     const int face = order[i].face;
