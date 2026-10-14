@@ -860,6 +860,7 @@ void Renderer::shutdown() {
     horizonLength_ = 0;
 
     particleVboCapacity_ = 0;
+    particleVertexCount_ = 0;
     particleVertices_.clear();
 
     if (characterTextureLoaded_) {
