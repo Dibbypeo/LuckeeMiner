@@ -2029,16 +2029,19 @@ void Renderer::renderZombies(
     if (required == 0)
         return;
 
-    if (required > characterVboCapacity_)
+    const std::size_t offset =
+        static_cast<std::size_t>(characterVertexCount_);
+    const std::size_t end = offset + required;
+    if (end > characterVboCapacity_)
         return;
 
+    auto* destination =
+        static_cast<unsigned char*>(characterVbo_) +
+        offset * sizeof(Vertex);
     std::memcpy(
-        characterVbo_,
+        destination,
         characterVertices_.data(),
         required * sizeof(Vertex));
-
-    characterVertexCount_ =
-        static_cast<int>(required);
 
     C3D_TexBind(
         0,
@@ -2050,7 +2053,7 @@ void Renderer::renderZombies(
     BufInfo_Init(bufInfo);
     BufInfo_Add(
         bufInfo,
-        characterVbo_,
+        destination,
         sizeof(Vertex),
         3,
         0x210);
@@ -2059,8 +2062,9 @@ void Renderer::renderZombies(
     C3D_DrawArrays(
         GPU_TRIANGLES,
         0,
-        static_cast<u32>(
-            characterVertexCount_));
+        static_cast<u32>(required));
+
+    characterVertexCount_ = static_cast<int>(end);
 
     C3D_TexBind(
         0,
@@ -2189,11 +2193,16 @@ void Renderer::renderParticles(
     const std::size_t required =
         particleVertices_.size();
 
-    if (required > particleVboCapacity_)
+    const std::size_t offset = particleVertexCount_;
+    const std::size_t end = offset + required;
+    if (end > particleVboCapacity_)
         return;
 
+    auto* destination =
+        static_cast<unsigned char*>(particleVbo_) +
+        offset * sizeof(Vertex);
     std::memcpy(
-        particleVbo_,
+        destination,
         particleVertices_.data(),
         required * sizeof(Vertex));
 
@@ -2207,7 +2216,7 @@ void Renderer::renderParticles(
     BufInfo_Init(bufInfo);
     BufInfo_Add(
         bufInfo,
-        particleVbo_,
+        destination,
         sizeof(Vertex),
         3,
         0x210);
@@ -2217,6 +2226,8 @@ void Renderer::renderParticles(
         GPU_TRIANGLES,
         0,
         static_cast<u32>(required));
+
+    particleVertexCount_ = end;
 }
 
 void Renderer::renderHud(
@@ -2744,69 +2755,14 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
             std::vector<Vertex> previewVertices;
             previewVertices.reserve(tile->isCrossPlant() ? 24u : 36u);
             if (tile->isCrossPlant()) {
+                // Each crossed bush quad contains both windings, so standard
+                // back-face culling still leaves a visible side at every angle.
                 appendBush(previewVertices, boxX, boxY, boxZ, 1.0f);
             } else {
-                // The preview is translucent and does not write depth, so its
-                // faces must be blended back-to-front. A fixed face order lets
-                // a farther face blend over a nearer face at oblique angles.
-                float forwardX = 0.0f;
-                float forwardY = 0.0f;
-                float forwardZ = 0.0f;
-                cameraForward(player.yRot(), player.xRot(),
-                              forwardX, forwardY, forwardZ);
-
-                struct PreviewFaceOrder {
-                    int face;
-                    float depth;
-                };
-                PreviewFaceOrder order[6];
-                int orderCount = 0;
-
-                // The preview occupies the adjacent cell, so one of its
-                // faces lies exactly on the hit block's exposed face. Drawing
-                // both coplanar faces causes z-fighting against the world.
-                // The opposite of the face entered by the ray is the preview
-                // face touching the selected block.
-                const int touchingFace =
-                    hitResult_.face >= 0 && hitResult_.face < 6
-                        ? (hitResult_.face ^ 1)
-                        : -1;
-
+                // Preview faces use the same outward winding as opaque blocks.
+                // Back-face culling removes hidden cube faces, including the
+                // face coplanar with the selected block at the placement seam.
                 for (int face = 0; face < 6; ++face) {
-                    if (face == touchingFace)
-                        continue;
-
-                    const float centerX =
-                        static_cast<float>(boxX) + 0.5f +
-                        static_cast<float>(faces[face].nx) * 0.5f;
-                    const float centerY =
-                        static_cast<float>(boxY) + 0.5f +
-                        static_cast<float>(faces[face].ny) * 0.5f;
-                    const float centerZ =
-                        static_cast<float>(boxZ) + 0.5f +
-                        static_cast<float>(faces[face].nz) * 0.5f;
-                    order[orderCount++] = {
-                        face,
-                        centerX * forwardX +
-                        centerY * forwardY +
-                        centerZ * forwardZ
-                    };
-                }
-                // At most six entries are sorted here. Use insertion sort
-                // instead of std::sort so GCC's inlined sort threshold does
-                // not emit a false-positive bounds warning for this small array.
-                for (int i = 1; i < orderCount; ++i) {
-                    const PreviewFaceOrder current = order[i];
-                    int j = i;
-                    while (j > 0 && order[j - 1].depth < current.depth) {
-                        order[j] = order[j - 1];
-                        --j;
-                    }
-                    order[j] = current;
-                }
-
-                for (int i = 0; i < orderCount; ++i) {
-                    const int face = order[i].face;
                     appendFace(
                         previewVertices, boxX, boxY, boxZ,
                         face, faces[face].shade,
@@ -2823,7 +2779,7 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
             C3D_TexEnvSrc(
                 env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
             C3D_TexEnvFunc(env, C3D_Both, GPU_MODULATE);
-            C3D_CullFace(GPU_CULL_NONE);
+            C3D_CullFace(GPU_CULL_BACK_CCW);
 
             C3D_ImmDrawBegin(GPU_TRIANGLES);
             for (const Vertex& vertex : previewVertices) {
@@ -3159,6 +3115,16 @@ void Renderer::render(
 
     initializeChunks(level);
 
+    // VBO contents referenced by queued draws must not be overwritten within
+    // the same frame. Reserve space for both lighting passes up front, then
+    // append each pass into a separate range of the shared buffers.
+    characterVertexCount_ = 0;
+    particleVertexCount_ = 0;
+    const bool characterVboReady = ensureCharacterVboCapacity(
+        zombies.size() * static_cast<std::size_t>(ZOMBIE_VERTEX_COUNT));
+    const bool particleVboReady = ensureParticleVboCapacity(
+        particleEngine.particles().size() * 6u);
+
     // FrameBegin(SYNCDRAW) above ensures previous GPU work is complete
     // before old linear-memory VBOs are released below.
     const float renderX =
@@ -3446,17 +3412,13 @@ void Renderer::render(
     }
     C3D_CullFace(GPU_CULL_BACK_CCW);
 
-    renderZombies(
-        zombies,
-        player,
-        alpha,
-        true);
+    if (characterVboReady) {
+        renderZombies(zombies, player, alpha, true);
+    }
 
-    renderParticles(
-        particleEngine,
-        player,
-        alpha,
-        true);
+    if (particleVboReady) {
+        renderParticles(particleEngine, player, alpha, true);
+    }
 
     // Switch to the shadow fog LUT and color for the second pass.
     configureFog(level, player, false);
@@ -3480,17 +3442,13 @@ void Renderer::render(
     // The reference draws entities and particles in both world-lighting
     // passes. Without these shadow-layer calls, anything classified as
     // unlit is filtered out by the daylight pass and never drawn at all.
-    renderZombies(
-        zombies,
-        player,
-        alpha,
-        false);
+    if (characterVboReady) {
+        renderZombies(zombies, player, alpha, false);
+    }
 
-    renderParticles(
-        particleEngine,
-        player,
-        alpha,
-        false);
+    if (particleVboReady) {
+        renderParticles(particleEngine, player, alpha, false);
+    }
 
     C3D_AlphaTest(true, GPU_GREATER, 0x00);
     C3D_AlphaBlend(
