@@ -2760,7 +2760,22 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
                     float depth;
                 };
                 PreviewFaceOrder order[6];
+                int orderCount = 0;
+
+                // The preview occupies the adjacent cell, so one of its
+                // faces lies exactly on the hit block's exposed face. Drawing
+                // both coplanar faces causes z-fighting against the world.
+                // The opposite of the face entered by the ray is the preview
+                // face touching the selected block.
+                const int touchingFace =
+                    hitResult_.face >= 0 && hitResult_.face < 6
+                        ? (hitResult_.face ^ 1)
+                        : -1;
+
                 for (int face = 0; face < 6; ++face) {
+                    if (face == touchingFace)
+                        continue;
+
                     const float centerX =
                         static_cast<float>(boxX) + 0.5f +
                         static_cast<float>(faces[face].nx) * 0.5f;
@@ -2770,24 +2785,25 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
                     const float centerZ =
                         static_cast<float>(boxZ) + 0.5f +
                         static_cast<float>(faces[face].nz) * 0.5f;
-                    order[face] = {
+                    order[orderCount++] = {
                         face,
                         centerX * forwardX +
                         centerY * forwardY +
                         centerZ * forwardZ
                     };
                 }
-                std::sort(order, order + 6,
+                std::sort(order, order + orderCount,
                     [](const PreviewFaceOrder& lhs,
                        const PreviewFaceOrder& rhs) {
                         return lhs.depth > rhs.depth;
                     });
 
-                for (const PreviewFaceOrder& item : order) {
+                for (int i = 0; i < orderCount; ++i) {
+                    const int face = order[i].face;
                     appendFace(
                         previewVertices, boxX, boxY, boxZ,
-                        item.face, faces[item.face].shade,
-                        tile->getTexture(item.face));
+                        face, faces[face].shade,
+                        tile->getTexture(face));
                 }
             }
 
