@@ -2669,7 +2669,7 @@ void Renderer::renderHud(
         &modelView);
 }
 
-void Renderer::renderHit(int selectedTileId, bool placingMode) {
+void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& player) {
     if (!hasHit_ || !level_)
         return;
 
@@ -2746,10 +2746,48 @@ void Renderer::renderHit(int selectedTileId, bool placingMode) {
             if (tile->isCrossPlant()) {
                 appendBush(previewVertices, boxX, boxY, boxZ, 1.0f);
             } else {
+                // The preview is translucent and does not write depth, so its
+                // faces must be blended back-to-front. A fixed face order lets
+                // a farther face blend over a nearer face at oblique angles.
+                float forwardX = 0.0f;
+                float forwardY = 0.0f;
+                float forwardZ = 0.0f;
+                cameraForward(player.yRot(), player.xRot(),
+                              forwardX, forwardY, forwardZ);
+
+                struct PreviewFaceOrder {
+                    int face;
+                    float depth;
+                };
+                PreviewFaceOrder order[6];
                 for (int face = 0; face < 6; ++face) {
+                    const float centerX =
+                        static_cast<float>(boxX) + 0.5f +
+                        static_cast<float>(faces[face].nx) * 0.5f;
+                    const float centerY =
+                        static_cast<float>(boxY) + 0.5f +
+                        static_cast<float>(faces[face].ny) * 0.5f;
+                    const float centerZ =
+                        static_cast<float>(boxZ) + 0.5f +
+                        static_cast<float>(faces[face].nz) * 0.5f;
+                    order[face] = {
+                        face,
+                        centerX * forwardX +
+                        centerY * forwardY +
+                        centerZ * forwardZ
+                    };
+                }
+                std::sort(std::begin(order), std::end(order),
+                    [](const PreviewFaceOrder& lhs,
+                       const PreviewFaceOrder& rhs) {
+                        return lhs.depth > rhs.depth;
+                    });
+
+                for (const PreviewFaceOrder& item : order) {
                     appendFace(
                         previewVertices, boxX, boxY, boxZ,
-                        face, faces[face].shade, tile->getTexture(face));
+                        item.face, faces[item.face].shade,
+                        tile->getTexture(item.face));
                 }
             }
 
@@ -3491,7 +3529,7 @@ void Renderer::render(
         GPU_PLAIN_DENSITY,
         false);
 
-    renderHit(selectedTileId, placingMode);
+    renderHit(selectedTileId, placingMode, player);
 
     renderHud(
         selectedTileId);
