@@ -216,6 +216,7 @@ private:
 
     void* particleVbo_ = nullptr;
     std::size_t particleVboCapacity_ = 0;
+    std::size_t particleVertexCount_ = 0;
 
     void* hudVbo_ = nullptr;
     std::size_t hudVboCapacity_ = 0;
