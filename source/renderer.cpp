@@ -2777,7 +2777,7 @@ void Renderer::renderHit(int selectedTileId, bool placingMode, const Player& pla
                         centerZ * forwardZ
                     };
                 }
-                std::sort(std::begin(order), std::end(order),
+                std::sort(order, order + 6,
                     [](const PreviewFaceOrder& lhs,
                        const PreviewFaceOrder& rhs) {
                         return lhs.depth > rhs.depth;
