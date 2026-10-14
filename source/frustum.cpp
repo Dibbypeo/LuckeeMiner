@@ -63,10 +63,15 @@ bool Frustum::cubeInFrustum(const AABB& box) const {
         const float z =
             planes_[i][2] >= 0.0f ? box.z1 : box.z0;
 
+        // Plane normals are normalized in set(), so this margin is measured
+        // in world units. Keep boxes that touch or nearly touch a plane:
+        // rounding at the frustum boundary must not cull potentially visible
+        // terrain and create cracks while the camera rotates.
+        constexpr float CULL_EPSILON = 0.01f;
         if (planes_[i][0] * x +
             planes_[i][1] * y +
             planes_[i][2] * z +
-            planes_[i][3] <= 0.0f) {
+            planes_[i][3] < -CULL_EPSILON) {
             return false;
         }
     }
