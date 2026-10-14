@@ -216,6 +216,7 @@ private:
 
     void* particleVbo_ = nullptr;
     std::size_t particleVboCapacity_ = 0;
+    std::size_t particleVertexCount_ = 0;
 
     void* hudVbo_ = nullptr;
     std::size_t hudVboCapacity_ = 0;
@@ -233,7 +234,7 @@ private:
     int projectionLocation_ = -1;
     int modelViewLocation_ = -1;
 
-    void renderHit(int selectedTileId, bool placingMode);
+    void renderHit(int selectedTileId, bool placingMode, const Player& player);
 
     std::uint64_t hudWindowStartMs_ = 0;
     std::uint32_t hudFrameCount_ = 0;
